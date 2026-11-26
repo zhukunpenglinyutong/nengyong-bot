@@ -1,11 +1,10 @@
 import { motion } from 'motion/react'
 import type { MouseEvent } from 'react'
 import { flushSync } from 'react-dom'
+import type { Theme } from '../preferences'
 import { Icon } from './Icon'
 import { SPRING } from './motion'
 import { strings } from '../../shared/strings'
-
-type Theme = 'light' | 'dark'
 
 const REVEAL_MS = 560
 const REVEAL_EASE = 'cubic-bezier(0.165, 0.84, 0.44, 1)'

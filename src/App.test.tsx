@@ -395,6 +395,45 @@ describe('App on a scripted bridge', () => {
     expect(document.documentElement).toHaveAttribute('data-theme', 'dark')
   })
 
+  it('continues following the system after a reload until a fixed theme is chosen', async ({ onTestFinished }) => {
+    const darkScheme = Object.assign(new EventTarget(), {
+      media: '(prefers-color-scheme: dark)',
+      matches: true,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+    })
+    const matchMedia = window.matchMedia
+    const media = vi
+      .spyOn(window, 'matchMedia')
+      .mockImplementation((query) => (query === darkScheme.media ? darkScheme : matchMedia(query)))
+    onTestFinished(() => media.mockRestore())
+    const changeSystemTheme = (matches: boolean) => {
+      darkScheme.matches = matches
+      act(() => darkScheme.dispatchEvent(Object.assign(new Event('change'), { matches, media: darkScheme.media })))
+    }
+
+    const user = userEvent.setup()
+    renderApp()
+    await user.click(screen.getByRole('button', { name: '设置' }))
+    await user.click(screen.getByRole('button', { name: '通用' }))
+    await user.selectOptions(screen.getByLabelText('主题'), '跟随系统')
+    expect(document.documentElement).toHaveAttribute('data-theme', 'dark')
+    changeSystemTheme(false)
+    expect(document.documentElement).toHaveAttribute('data-theme', 'light')
+
+    cleanup()
+    changeSystemTheme(true)
+    renderApp()
+    expect(document.documentElement).toHaveAttribute('data-theme', 'dark')
+    await user.click(screen.getByRole('button', { name: '设置' }))
+    await user.click(screen.getByRole('button', { name: '通用' }))
+    expect(screen.getByLabelText('主题')).toHaveDisplayValue('跟随系统')
+    await user.selectOptions(screen.getByLabelText('主题'), '深色')
+    changeSystemTheme(false)
+    expect(document.documentElement).toHaveAttribute('data-theme', 'dark')
+  })
+
   it('offers the fine-grained limits in the settings only while debug mode is on', async () => {
     const user = userEvent.setup()
     renderApp()

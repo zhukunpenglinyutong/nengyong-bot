@@ -23,7 +23,7 @@ export const app: Strings['app'] = {
     startingTask: 'Starting a task',
     typing: 'Typing…',
   },
-  themes: { light: 'Light', dark: 'Dark' },
+  themes: { light: 'Light', dark: 'Dark', system: 'Follow system' },
   accents: { black: 'Black', bot: 'Bot color' },
   failures: {
     saveSidebar: 'Could not save the sidebar',

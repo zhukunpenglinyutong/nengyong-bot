@@ -4,6 +4,7 @@ import { strings } from '../shared/strings'
 export const THEMES = [
   { id: 'light', label: strings().app.themes.light },
   { id: 'dark', label: strings().app.themes.dark },
+  { id: 'system', label: strings().app.themes.system },
 ] as const
 
 export const ACCENTS = [
@@ -21,5 +22,5 @@ const Fields = z.object({
 /** The 通用 page's choices. Each field falls back on its own, so one stale value does not reset the rest. */
 export const Preferences = Fields.catch(() => Fields.parse({}))
 export type Preferences = z.infer<typeof Preferences>
-export type Theme = Preferences['theme']
+export type Theme = Exclude<Preferences['theme'], 'system'>
 export type SendKey = Preferences['sendKey']
