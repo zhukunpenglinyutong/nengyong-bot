@@ -20,7 +20,7 @@ export const app = {
     startingTask: '正在安排任务',
     typing: '在打字…',
   },
-  themes: { light: '浅色', dark: '深色' },
+  themes: { light: '浅色', dark: '深色', system: '跟随系统' },
   accents: { black: '黑色', bot: 'Bot 颜色' },
   failures: {
     saveSidebar: '保存侧边栏失败',

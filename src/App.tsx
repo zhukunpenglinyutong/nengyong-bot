@@ -68,7 +68,7 @@ export function App({ bridge, initialSidebar = INITIAL_SIDEBAR, needsOnboarding 
   const [preferences, setPreferences] = usePersistentState('preferences', Preferences)
   const [miniAppRunsState, dispatchMiniAppRuns] = useReducer(miniAppRuns, EMPTY_RUNS)
   const windowWidth = useWindowWidth()
-  useDocumentTheme(preferences.theme)
+  const theme = useDocumentTheme(preferences.theme)
   const activity = useBotActivities()
   const notices = useIslandNotices()
 
@@ -243,7 +243,7 @@ export function App({ bridge, initialSidebar = INITIAL_SIDEBAR, needsOnboarding 
               return hired
             }}
             onDone={() => setOnboarding(null)}
-            theme={preferences.theme}
+            theme={theme}
             onThemeChange={(theme) => setPreferences((current) => ({ ...current, theme }))}
           />
         )}
