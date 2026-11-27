@@ -327,6 +327,14 @@ describe('App on a scripted bridge', () => {
     expect(saved?.find((bot) => bot.id === 'secretary')?.name).toBe('灵感记录')
   })
 
+  it('moves a bot into a new section when the harness moves it, and saves the sidebar', async () => {
+    renderApp()
+    await emit({ kind: 'bot-moved', botId: 'secretary', section: { id: 'sOps', name: '运营团队' } })
+    expect(screen.getByText('运营团队')).toBeInTheDocument()
+    const saved = vi.mocked(bridge.saveSidebar).mock.calls.at(-1)?.[0]
+    expect([saved?.sections.at(-1)?.name, saved?.placement.secretary]).toEqual(['运营团队', 'sOps'])
+  })
+
   it('does not flag a task that failed while its chat was open once the user moves on', async () => {
     const user = userEvent.setup()
     renderApp()

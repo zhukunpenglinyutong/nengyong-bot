@@ -210,28 +210,80 @@ describe('harness turn', () => {
     expect(events.filter((e) => e.kind === 'busy').map((e) => e.kind === 'busy' && e.busy)).toEqual([true, false])
   })
 
-  it('creates a bot into the sidebar section named, and creates nothing for a section that does not exist', async () => {
+  it('creates a bot into the sidebar section named, making the section when there is none', async () => {
     const model = new MockLanguageModelV4({
       doStream: [
         step(undefined, [
           { name: 'create_bot', input: { name: '开源负责人', instructions: '管开源', section: '管理层' } },
+          { name: 'create_bot', input: { name: '运营专员', instructions: '管运营', section: '运营团队' } },
+          { name: 'create_bot', input: { name: '杂事', instructions: '杂事', section: '其他' } },
         ]),
-        step(undefined, [{ name: 'create_bot', input: { name: '多余', instructions: '不该建', section: '董事会' } }]),
         step('好了。'),
       ],
     })
     const { store, harness } = setup(model)
     store.saveSidebar(SidebarState.parse({ bots: [MAIN_BOT], sections: [{ id: 's1', name: '管理层' }] }))
-    await harness.send('chief', '建一个开源负责人，放到管理层')
+    await harness.send('chief', '建一个开源负责人放到管理层，一个运营专员放到运营团队，一个杂事 Bot')
 
     expect(systemOf(model, 0)).toContain('管理层：暂无')
     const created = events.flatMap((e) => (e.kind === 'bot-created' ? [e.bot] : []))
-    expect(created).toEqual([expect.objectContaining({ name: '开源负责人', sectionId: 's1' })])
-    expect(store.get().pending).toEqual(created) // a sidebar that missed the event still gets the section
-    expect(toolOutputs(store, 'create_bot')).toEqual([
-      expect.stringContaining('"section":"管理层"'),
-      expect.stringContaining('没有叫「董事会」的分组，现有分组：管理层'),
+    expect(created).toEqual([
+      expect.objectContaining({ name: '开源负责人', section: { id: 's1', name: '管理层' } }),
+      expect.objectContaining({ name: '运营专员', section: { id: expect.stringMatching(/^s/), name: '运营团队' } }),
+      expect.not.objectContaining({ section: expect.anything() }), // 其他 is the ungrouped bucket, not a new section
     ])
+    expect(store.get().pending).toEqual(created) // a sidebar that missed the event still gets the section
+  })
+
+  it('moves a bot into the sidebar section named, making it when there is none, and refuses a bot that does not exist', async () => {
+    const model = new MockLanguageModelV4({
+      doStream: [
+        step(undefined, [
+          { name: 'move_bot', input: { botId: 'nobody', section: '运营团队' } },
+          { name: 'move_bot', input: { botId: 'secretary', section: '运营团队' } },
+          { name: 'move_bot', input: { botId: 'secretary' } },
+        ]),
+        step('挪好了。'),
+      ],
+    })
+    const { store, harness } = setup(model)
+    await harness.send('chief', '把秘书放进运营团队')
+
+    const moved = events.flatMap((e) => (e.kind === 'bot-moved' ? [e] : []))
+    expect(moved).toEqual([
+      { kind: 'bot-moved', botId: 'secretary', section: { id: expect.stringMatching(/^s/), name: '运营团队' } },
+      { kind: 'bot-moved', botId: 'secretary' },
+    ])
+    expect(toolOutputs(store, 'move_bot')).toEqual([
+      expect.stringContaining('没有 id 为 nobody 的 Bot'),
+      expect.stringContaining('"section":"运营团队"'),
+      expect.stringContaining('"section":"其他"'),
+    ])
+  })
+
+  it('lets the main bot dismiss another bot, never itself, and gives the tool to no other bot', async () => {
+    const model = new MockLanguageModelV4({
+      doStream: [
+        step(undefined, [
+          { name: 'dismiss_bot', input: { botId: 'chief' } },
+          { name: 'dismiss_bot', input: { botId: 'secretary' } },
+        ]),
+        step('秘书离职了。'),
+        step('好的。'),
+      ],
+    })
+    const { store, harness } = setup(model)
+    await harness.send('chief', '让秘书离职')
+    await harness.send('secretary', '在吗')
+
+    expect(events.filter((e) => e.kind === 'bot-dismissed')).toEqual([{ kind: 'bot-dismissed', botId: 'secretary' }])
+    expect(toolOutputs(store, 'dismiss_bot')).toEqual([
+      expect.stringContaining('主 Bot 不能离职'),
+      expect.stringContaining('"dismissed":"secretary"'),
+    ])
+    const toolNames = (index: number) => (model.doStreamCalls[index].tools ?? []).map((tool) => tool.name)
+    expect(toolNames(0)).toContain('dismiss_bot')
+    expect(toolNames(2)).not.toContain('dismiss_bot')
   })
 
   it('lists every bot with the level its chat has earned, highest first', async () => {

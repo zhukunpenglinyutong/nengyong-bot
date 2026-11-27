@@ -21,6 +21,15 @@ export const settings: Strings['settings'] = {
     debugHint:
       "Shows recent tasks in the bot's panel, and the context, each turn's trace and memory changes on the island. You can also switch it from the island.",
   },
+  dismissed: {
+    title: 'Cooling-off',
+    intro: (days) =>
+      `A bot you let go waits here for ${plural(days, 'day')} and can be restored any time: back in its section, with its memories, chats and routines. After that it is gone for good.`,
+    empty: 'No bots have been let go.',
+    daysLeft: (days) => `${plural(days, 'day')} left`,
+    restore: 'Restore',
+    restoreBot: (name) => `Restore ${name}`,
+  },
   data: {
     exported: (path) => `Exported to ${path}`,
     title: 'Data',
@@ -45,6 +54,7 @@ export const settings: Strings['settings'] = {
       tools: 'Tools',
       devices: 'Devices',
       data: 'Data',
+      dismissed: 'Cooling-off',
       usage: 'Usage',
       nengyongKey: 'Nengyong Key',
       limits: 'Limits',

@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import type { AttachmentFile } from './attachment'
-import { Bot, type NewBot } from './bot'
+import { Bot, type NewBot, type SectionByName } from './bot'
 import type { ContextView, Trace } from './debug'
 import type { DevicesView, PairingRequest } from './devices'
 import type { Flow } from './flow'
@@ -163,6 +163,8 @@ export type HarnessEvent =
   | { kind: 'activity'; botId: string; activity: Activity } // what the bot is doing right now, for the progress row
   | { kind: 'bot-created'; bot: NewBot }
   | { kind: 'bot-renamed'; botId: string; name: string }
+  | { kind: 'bot-moved'; botId: string; section?: SectionByName } // absent: back to the ungrouped one
+  | { kind: 'bot-dismissed'; botId: string } // the sidebar lets it go, to be restored in the settings for a while
   | { kind: 'routines'; botId: string; routines: RoutineView[] }
   | { kind: 'flows'; botId: string; flows: Flow[] }
   | { kind: 'skills'; botId: string; skills: SkillView[] } // what its panel lists: the main bot's lists every bot's

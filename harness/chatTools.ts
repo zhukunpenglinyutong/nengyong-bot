@@ -1,11 +1,11 @@
 import { tool } from 'ai'
 import { z } from 'zod'
-import { BOT_NAME_MAX, newBotId, PALETTE, PICKER_SHAPES } from '../shared/bot'
+import { BOT_NAME_MAX, MAIN_BOT_ID, newBotId, PALETTE, PICKER_SHAPES, type SectionByName } from '../shared/bot'
 import type { HarnessEvent } from '../shared/bridge'
 import type { Limits } from '../shared/limits'
 import type { FlowSaved } from '../shared/flow'
 import { newId } from '../shared/newId'
-import { SECTION_NAME_MAX } from '../shared/sidebar'
+import { DISMISSED_KEEP_DAYS, SECTION_NAME_MAX } from '../shared/sidebar'
 import {
   MESSAGES_PER_POINT,
   POINTS_PER_FIRST_FLOW_RUN,
@@ -22,20 +22,27 @@ import { NewRoutine, patchRoutine, updateRoutines } from './routines'
 import type { ModelChoices } from './runModel'
 import type { Store } from './store'
 import type { TaskRunner } from './tasks'
-import { MODEL_INPUT, OptionalId } from './toolInputs'
+import { checkOwner } from './checkOwner'
+import { line, MODEL_INPUT, OptionalId } from './toolInputs'
 import type { Fact } from './types'
 import { strings } from '../shared/strings'
 
 const COLORS = PALETTE.filter((color) => color.id !== 'ink')
 const pick = <T>(list: readonly T[]) => list[Math.floor(Math.random() * list.length)]
 
-function sectionIdOf(store: Store, name: string): string {
-  const sections = store.sidebar()?.sections ?? []
-  const section = sections.find((candidate) => candidate.name === name)
-  if (section) return section.id
-  const names = sections.map((candidate) => candidate.name).join('、') || '无'
-  throw new Error(`没有叫「${name}」的分组，现有分组：${names}。不填 section 就放在「${strings().common.ungrouped}」`)
+/** The sidebar section called `name`, with a new id when there is none yet (the sidebar then makes it); undefined: 其他. */
+function sectionByName(store: Store, name: string | undefined): SectionByName | undefined {
+  if (name === undefined || name === strings().common.ungrouped) return undefined
+  const existing = store.sidebar()?.sections.find((candidate) => candidate.name === name)
+  return { id: existing?.id ?? newId('s'), name }
 }
+
+const sectionInput = () =>
+  line(SECTION_NAME_MAX)
+    .optional()
+    .describe(
+      `放进侧边栏的哪个分组：填「团队里的其他 Bot」里列出的分组名；用户要的分组还没有就填它的名字，会新建；不填就放在「${strings().common.ungrouped}」`,
+    )
 
 interface ChatContext {
   botId: string
@@ -102,26 +109,42 @@ export function chatTools({ botId, store, emit, tasks, limits, models }: ChatCon
         instructions: z.string().min(1).max(2000).describe('它负责什么、怎么做、不做什么'),
         shape: z.enum(PICKER_SHAPES).optional(),
         color: z.enum(COLORS.map((choice) => choice.id)).optional(),
-        section: z
-          .string()
-          .trim()
-          .min(1)
-          .max(SECTION_NAME_MAX)
-          .optional()
-          .describe(
-            `放进侧边栏的哪个分组，填「团队里的其他 Bot」里列出的分组名；不填就放在「${strings().common.ungrouped}」`,
-          ),
+        section: sectionInput(),
       }),
-      execute: async ({ name, instructions, shape, color, section }) => {
-        const sectionId = section === undefined ? undefined : sectionIdOf(store, section)
+      execute: async ({ name, instructions, shape, color, section: sectionName }) => {
+        const section = sectionByName(store, sectionName)
         const id = newBotId()
         const palette = COLORS.find((choice) => choice.id === color) ?? pick(COLORS)
-        const created = { id, name, shape: shape ?? pick(PICKER_SHAPES), color: palette.value, sectionId }
+        const created = { id, name, shape: shape ?? pick(PICKER_SHAPES), color: palette.value, section }
         store.addBot(created, instructions)
         emit({ kind: 'bot-created', bot: created })
-        return { id, name, section: section ?? strings().common.ungrouped, mention: `[${name}](bot:${id})` }
+        return { id, name, section: section?.name ?? strings().common.ungrouped, mention: `[${name}](bot:${id})` }
       },
     }),
+    move_bot: tool({
+      description: '把一个 Bot 换到侧边栏的另一个分组（分组还没有就新建）。',
+      inputSchema: z.object({ botId: z.string().describe('要换分组的 Bot 的 id'), section: sectionInput() }),
+      execute: async ({ botId: target, section: sectionName }) => {
+        checkOwner(store, botId, target, '给别的 Bot 换分组')
+        const section = sectionByName(store, sectionName)
+        emit({ kind: 'bot-moved', botId: target, section })
+        return { botId: target, section: section?.name ?? strings().common.ungrouped }
+      },
+    }),
+    ...(botId === MAIN_BOT_ID
+      ? {
+          dismiss_bot: tool({
+            description: `让一个 Bot 离职：它离开侧边栏，在设置「离职冷静期」里留 ${DISMISSED_KEEP_DAYS} 天，期间用户能恢复，之后再也找不回。用户明确同意了才用。`,
+            inputSchema: z.object({ botId: z.string().describe('要离职的 Bot 的 id') }),
+            execute: async ({ botId: target }) => {
+              if (target === MAIN_BOT_ID) throw new Error('主 Bot 不能离职')
+              checkOwner(store, botId, target, '让 Bot 离职')
+              emit({ kind: 'bot-dismissed', botId: target })
+              return { dismissed: target, daysToRestore: DISMISSED_KEEP_DAYS }
+            },
+          }),
+        }
+      : {}),
     list_bot_levels: tool({
       description: `查看团队里每个 Bot（含你自己）的等级、段位和经验来源，已按经验从高到低排好。经验规则：和它对话每 ${MESSAGES_PER_POINT} 次 +1；沉淀一个新流程 +${POINTS_PER_FLOW_SAVED}；一个流程第一次做成 +${POINTS_PER_FIRST_FLOW_RUN}，之后每做成一次 +${POINTS_PER_FLOW_RUN}；从 Lv.n 升到下一级要 n × ${POINTS_PER_LEVEL} 经验。返回的 mention 原样写进回复。`,
       inputSchema: z.object({}),

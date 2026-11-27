@@ -52,7 +52,8 @@ export const sidebar: Strings['sidebar'] = {
     sectionMenu: 'Section menu',
     letGo: 'Let go…',
     letGoTitle: (name) => `Let “${name}” go`,
-    letGoBody: 'The bot and its chat history will be deleted for good. This cannot be undone.',
+    letGoBody: (days) =>
+      `It leaves the sidebar and waits in Settings › Cooling-off for ${plural(days, 'day')}, with its memories and chats, ready to be restored. After that it is gone for good.`,
     letGoConfirm: 'Let go',
     staffNumber: (number) => `Staff no. ${number}`,
     pin: 'Pin',

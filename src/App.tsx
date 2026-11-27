@@ -32,15 +32,19 @@ import { COLLAPSED_RAIL_WIDTH, RAIL_WIDTH, SidebarWidth } from './sidebar/sideba
 import {
   addUnread,
   createBot,
+  dismissBot,
   INITIAL_SIDEBAR,
   markSeen,
   markUnseenAsSeen,
+  placeBot,
   renameBot,
+  restoreBot,
   setBotAvatar,
   setBotLook,
   setBotOutfit,
   setUnread,
   togglePin,
+  withoutExpired,
 } from './sidebar/sidebarState'
 import { useDocumentTheme } from './ui/useDocumentTheme'
 import { usePersistentState } from './ui/usePersistentState'
@@ -67,7 +71,10 @@ export function App({ bridge, initialSidebar = INITIAL_SIDEBAR, needsOnboarding 
   const panelNav = usePanelNav(() => setPanelOpen(true))
   const [skillFiles, setSkillFiles] = useState<SkillFilesTarget | null>(null)
   const [drafts] = useState(createDrafts)
-  const [sidebar, setSidebar] = useState(() => markUnseenAsSeen(initialSidebar, Date.now()))
+  const [sidebar, setSidebar] = useState(() => {
+    const now = Date.now()
+    return markUnseenAsSeen(withoutExpired(initialSidebar, now), now)
+  })
   const [onboarding, setOnboarding] = useState<'deciding' | 'hired' | null>(needsOnboarding ? 'deciding' : null)
   const [panelWidth, setPanelWidth] = usePersistentState('panelWidth', PanelWidth)
   const [preferences, setPreferences] = usePersistentState('preferences', Preferences)
@@ -97,6 +104,11 @@ export function App({ bridge, initialSidebar = INITIAL_SIDEBAR, needsOnboarding 
     isDebug: preferences.isDebug,
     onBotCreated: (created) => setSidebar((state) => createBot(state, created)),
     onBotRenamed: (id, name) => setSidebar((state) => renameBot(state, id, name)),
+    onBotMoved: (id, section) => setSidebar((state) => placeBot(state, id, section)),
+    onBotDismissed: (id) => {
+      const at = Date.now() // outside the updater so StrictMode replays stay pure
+      setSidebar((state) => dismissBot(state, id, at))
+    },
     onEntry: (id, entry, before) => {
       if (entry.kind === 'bot' && (id !== bot.id || !document.hasFocus())) setSidebar((state) => addUnread(state, id))
       notices.onEntry(id, bot.id, entry, before, preferences.isDebug)
@@ -266,6 +278,8 @@ export function App({ bridge, initialSidebar = INITIAL_SIDEBAR, needsOnboarding 
                   limits={harness.limits}
                   onLimitsChange={harness.saveLimits}
                   devices={settings.devices}
+                  dismissed={sidebar.dismissed}
+                  onRestore={(id) => setSidebar((state) => restoreBot(state, id))}
                   update={update.state}
                   busyBots={busyBots}
                   onCheckUpdate={update.check}

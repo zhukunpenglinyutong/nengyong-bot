@@ -1,5 +1,5 @@
 import { useEffect, useEffectEvent, useReducer, useRef, useState } from 'react'
-import type { Bot } from '../shared/bot'
+import type { Bot, SectionByName } from '../shared/bot'
 import type { Trace } from '../shared/debug'
 import type { Entry, HarnessEvent, NengyongBotBridge } from '../shared/bridge'
 import { BYTES_PER_MB, DEFAULT_LIMITS, type Limits, MESSAGE_MAX_CHARS } from '../shared/limits'
@@ -15,6 +15,8 @@ interface Options {
   isDebug: boolean // the harness reports contexts and runs only while it is on
   onBotCreated: (bot: Bot) => void
   onBotRenamed: (botId: string, name: string) => void
+  onBotMoved: (botId: string, section: SectionByName | undefined) => void
+  onBotDismissed: (botId: string) => void
   onEntry: (botId: string, entry: Entry, before: Entry[]) => void // before: that bot's entries until this one
   onBusy: (botId: string, busy: boolean) => void
   onTrace: (botId: string, trace: Trace, before: Trace | undefined) => void // before: the last report of the same run
@@ -53,6 +55,10 @@ export function useHarness(bridge: NengyongBotBridge, options: Options) {
         return options.onBotCreated(event.bot)
       case 'bot-renamed':
         return options.onBotRenamed(event.botId, event.name)
+      case 'bot-moved':
+        return options.onBotMoved(event.botId, event.section)
+      case 'bot-dismissed':
+        return options.onBotDismissed(event.botId)
       case 'open-bot':
         return options.onOpenBot(event.botId)
       case 'error':

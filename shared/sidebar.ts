@@ -13,7 +13,17 @@ export interface SidebarState {
   seenAt: Record<string, number> // botId -> when the user last opened or left its chat; a task that failed before then is not flagged
   ungroupedCollapsed: boolean
   hiddenCollapsed: boolean
+  dismissed: Dismissed[] // let go in the last DISMISSED_KEEP_DAYS days, out of `bots`; 设置「离职冷静期」restores them
 }
+
+/** A bot let go: its look, and the section it was in so restoring puts it back there. */
+export interface Dismissed {
+  bot: Bot
+  sectionId?: string // absent: it was in 其他
+  at: number
+}
+
+export const DISMISSED_KEEP_DAYS = 7
 
 export interface Section {
   id: string
@@ -47,6 +57,7 @@ const Stored = z.object({
   seenAt: z.record(z.string(), z.number().catch(0)).catch({}),
   ungroupedCollapsed: z.boolean().catch(false),
   hiddenCollapsed: z.boolean().catch(true),
+  dismissed: listOf(z.object({ bot: StoredBot, sectionId: z.string().optional(), at: z.number() })).catch([]),
 })
 
 /** Parses a sidebar from the renderer or the database. Only a value that is not an object at all fails. */
@@ -72,6 +83,7 @@ function withoutDanglingReferences(stored: z.infer<typeof Stored>): SidebarState
     hidden: known(stored.hidden),
     unread: Object.fromEntries(Object.entries(stored.unread).filter(([botId]) => botIds.has(botId))),
     seenAt: Object.fromEntries(Object.entries(stored.seenAt).filter(([botId]) => botIds.has(botId))),
+    dismissed: stored.dismissed.filter(({ bot }) => !botIds.has(bot.id)),
   }
 }
 

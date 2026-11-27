@@ -17,6 +17,15 @@ export const settings = {
     debug: '调试模式',
     debugHint: '在 Bot 面板显示最近任务，在灵动岛显示上下文、每轮过程和记忆变化。点开灵动岛也能切换。',
   },
+  dismissed: {
+    title: '离职冷静期',
+    intro: (days: number) =>
+      `离职的 Bot 先在这里留 ${days} 天，期间随时能恢复：回到原来的分组，记忆、聊天记录和例行任务都还在。过了 ${days} 天就再也找不回了。`,
+    empty: '没有离职的 Bot。',
+    daysLeft: (days: number) => `还剩 ${days} 天`,
+    restore: '恢复',
+    restoreBot: (name: string) => `恢复 ${name}`,
+  },
   data: {
     exported: (path: string) => `已导出到 ${path}`,
     title: '数据',
@@ -40,6 +49,7 @@ export const settings = {
       tools: '工具',
       devices: '设备',
       data: '数据',
+      dismissed: '离职冷静期',
       usage: '用量',
       nengyongKey: 'Nengyong Key',
       limits: '精细化配置',

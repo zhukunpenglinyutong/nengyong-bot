@@ -78,6 +78,7 @@ it('lists the other bots under their sidebar sections, empty ones too, and says 
     seenAt: {},
     ungroupedCollapsed: false,
     hiddenCollapsed: true,
+    dismissed: [],
   }
   expect(chatSystem(team, sidebar, bot, [], [], 5, MODELS)).toContain(
     '## 团队里的其他 Bot\n\n管理层（你在这一组）：\n- lead：开源负责人 —— 管开源治理\n\n产品部门：暂无\n\n其他：\n- ops：运维',

@@ -44,6 +44,7 @@ export const DEMO_SIDEBAR: SidebarState = {
   seenAt: { support: Date.now() - 60 * 60_000 },
   ungroupedCollapsed: false,
   hiddenCollapsed: true,
+  dismissed: [],
 }
 
 const MINUTE_MS = 60_000

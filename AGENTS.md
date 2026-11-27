@@ -106,6 +106,7 @@ src/        渲染进程（React）。只 import shared。
   | Message | 聊天窗口里渲染的一条，由 Entry 算出来 |
   | Thread | 界面里一个 Bot 的对话状态：记录、正在流式输出的回复、排队、错误、进度、预览、面板，由 bridge 的事件算出来 |
   | Section | 侧边栏里的一个分组 |
+  | dismissed | 离职的 Bot：用户在侧边栏菜单「离职…」、或主 Bot 用 dismiss_bot（用户同意了才用）让它离职后，它离开侧边栏，外形和原来的分组记在 `SidebarState.dismissed`，留 `DISMISSED_KEEP_DAYS`（7）天。设置「离职冷静期」页（`DismissedSettings`）列出它们，期间点「恢复」回到原来的分组（分组不在了就回「其他」）；过了 7 天下次启动时去掉，再也找不回。它的记忆、聊天记录和例行任务一直留在数据库里，离职期间不在 roster 里，例行任务不跑 |
   | Task | Bot 在后台做的一件事：一次运行、独立上下文，过程记在以它的 id 命名的 transcript 里，做完把结论投回发起方的聊天 |
   | Routine | Bot 的例行任务：到点（cron + 时区）把一段指令作为这个 Bot 的一个 Task 在后台跑，结论投回它的聊天；显示在面板「近况」里 |
   | flow | 流程：Bot 存下来、以后照着做的一套做法（`shared/flow.ts` 的 `Flow`）：名字、什么时候用、步骤、注意事项。Bot 在聊天里用 save_flow 存和改（用户同意了才存），全部写进它的系统提示词；Task 和 Routine 可以按它的某个流程做（`flowId`），任务的系统提示词里带上那个流程。显示在面板「能力 · 流程」里，回复里写成 `[名字](flow:id)`，渲染成可点的流程名 |

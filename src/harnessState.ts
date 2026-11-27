@@ -41,6 +41,8 @@ export type ThreadEvent =
           | 'busy'
           | 'bot-created'
           | 'bot-renamed'
+          | 'bot-moved'
+          | 'bot-dismissed'
           | 'open-settings'
           | 'open-bot'
           | 'devices'

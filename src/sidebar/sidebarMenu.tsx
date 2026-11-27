@@ -1,13 +1,13 @@
 import type { ReactNode } from 'react'
 import { type Bot, MAIN_BOT_ID, workNumberOf } from '../../shared/bot'
 import { newId } from '../../shared/newId'
-import { type Section, type SidebarState } from '../../shared/sidebar'
+import { DISMISSED_KEEP_DAYS, type Section, type SidebarState } from '../../shared/sidebar'
 import { BotAvatar } from '../bot/BotAvatar'
 import type { MenuEntry, MenuItem } from '../ui/ContextMenu'
 import {
   createSectionWith,
-  deleteBot,
   deleteSection,
+  dismissBot,
   moveSection,
   moveToSection,
   setHidden,
@@ -73,9 +73,12 @@ function botMenu(
             onSelect: () =>
               setConfirmation({
                 title: words.letGoTitle(bot.name),
-                body: words.letGoBody,
+                body: words.letGoBody(DISMISSED_KEEP_DAYS),
                 confirmLabel: words.letGoConfirm,
-                onConfirm: () => update((state) => deleteBot(state, id)),
+                onConfirm: () => {
+                  const at = Date.now() // outside the updater so StrictMode replays stay pure
+                  update((state) => dismissBot(state, id, at))
+                },
               }),
           },
         ]

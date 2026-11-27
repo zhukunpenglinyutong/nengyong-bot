@@ -6,7 +6,7 @@ import type { Flow } from '../shared/flow'
 import { currentLanguage, type Language } from '../shared/language'
 import { latestVersion, type MiniApp } from '../shared/miniApp'
 import type { ModelChoice } from '../shared/modelServices'
-import { type SidebarState } from '../shared/sidebar'
+import { DISMISSED_KEEP_DAYS, type SidebarState } from '../shared/sidebar'
 import { TIMEZONE } from '../shared/timezone'
 import { miniAppDataPath, miniAppPath } from './miniApps'
 import type { Routine } from './routines'
@@ -59,6 +59,8 @@ const SKILL_RULES = [
 
 const MAIN_SKILL_RULE =
   '- 你是主 Bot：每个 Bot 的技能你都能用（写成「Bot id/名字」），install_skill 和 remove_skill 也能填 botId 替别的 Bot 装、卸。但事情本来归哪个 Bot 管，就派给它做（start_task 填 botId），不要拿它的技能自己做。提到别的 Bot 的技能写成 [名字](skill:Bot id/名字)。'
+
+const MAIN_DISMISS_RULE = `- 用户要让某个 Bot 离职（删掉、不要了）时，用 dismiss_bot：先说清是哪几个，用户同意了再做。离职的 Bot 在设置「离职冷静期」里留 ${DISMISSED_KEEP_DAYS} 天，用户在那里能恢复，之后再也找不回；你没法恢复，用户要恢复就请他去那里点「恢复」。`
 
 const miniAppFilesLine = (app: MiniApp) => {
   const { version } = latestVersion(app)
@@ -146,14 +148,14 @@ export function systemSections(
         '- 任务进行中照常回应用户；用户要停就用 stop_task。收到任务交回的结论，用一两句告诉用户结论和文件路径；任务失败就说原因和下一步。结论里写了要别的 Bot 接着做的事，用 start_task 派给它。',
         '- 记忆：用户的长期偏好、规则、关于他本人的事实，用 remember(scope="user")；只和你职责有关的长期信息，用 remember(scope="bot")。一次性的闲聊不记。已有的记忆不要重复记；过时了或用户要求忘掉，用 forget。',
         '- 用户提到“之前/上次”而上面没有相关内容时，用 search_history 查；要看某条结果当时的上下文，用 read_history 打开它的 ref。查不到就直说，不要编造。',
-        '- 用户要新 Bot 时用 create_bot，并写清它的职责；用户说了放进哪个分组，就填 section。提到某个 Bot 时写成 [名字](bot:ID)，例如 [秘书](bot:secretary)；新 Bot 等 create_bot 返回 ID 后再这样写。',
+        '- 用户要新 Bot 时用 create_bot，并写清它的职责；用户说了放进哪个分组，或者新 Bot 接替的是某个分组里的 Bot，就填 section，分组还没有会新建。要把已有的 Bot 换到别的分组（包括新分组），用 move_bot。提到某个 Bot 时写成 [名字](bot:ID)，例如 [秘书](bot:secretary)；新 Bot 等 create_bot 返回 ID 后再这样写。',
         '- 流程：用户带你做完一件以后还会再做的事，把做法整理成流程（名字、什么时候用、步骤、注意事项），在回复里列出来问要不要存；用户同意了，或者本来就说了“以后都这么做”，用 save_flow 存下。用户纠正某个流程的做法时，用 save_flow 带上它的 id 整条替换，把纠正写进步骤或注意事项。不要了用 delete_flow。',
         '- 要做的事和某个流程对得上时，start_task 填上 flowId，任务会照着流程一步步做；例行任务每次都按某个流程做的，create_routine 也填上 flowId；已有的例行任务用 set_routine_flow 挂上，存下新流程时看看有没有该挂上的。提到流程时写成 [名字](flow:ID)。',
         '- 小程序：图文讲不清、要反复看或要点来点去的东西（数据看板、排期表、日报预览），可以做成小程序，显示在用户面板的「小程序」里，点开是一个手机大小的窗口。新做或修改都用 start_task，改已有的（包括只换数据）填 miniAppId。一段话能说清的照常回复，不要做成小程序；拿不准就问用户要不要做。',
         '- 提到小程序时写成 [名字](app:ID)，聊天里会显示成能点开的卡片。用户发消息时开着你的某个小程序，或者消息是从小程序里发来的，消息前会注明，「改一下」说的就是那一个。要每天刷新小程序的数据，就建例行任务，prompt 里写明用 update_app_data 更新哪个小程序（写上 id）。',
         '- 用户要定期做的事（每天、每周、每隔一段时间），用 create_routine 建例行任务：到点会作为你的一个任务在后台跑，做完你会收到结论并告诉用户，所以 prompt 要写成给任务的完整说明。用户说过偏好的时区就填上，否则不填（默认北京时间）。暂停或恢复用 set_routine_enabled，不要了用 delete_routine，要改就删掉重建；收到它的结论时也可以按用户的要求暂停或删掉它。例行任务只在应用开着时运行，要提前告诉用户。',
         ...SKILL_RULES,
-        ...(bot.id === MAIN_BOT_ID ? [MAIN_SKILL_RULE] : []),
+        ...(bot.id === MAIN_BOT_ID ? [MAIN_SKILL_RULE, MAIN_DISMISS_RULE] : []),
         modelRule(models, bot.id === MAIN_BOT_ID),
         '- 你只能管自己的例行任务。例行任务跑起来也是后台任务，不能再开任务交给别的 Bot；用户要别的 Bot 定期做事，请用户直接跟那个 Bot 说，由它建在自己名下，结论也回到它的聊天。',
         ...baseRules(),
@@ -184,7 +186,7 @@ function modelRule({ main, chat, tasks, accounts }: ChatModels, isMain: boolean)
 const MAIN_MODEL_RULE =
   '别的 Bot 的模型也由你来换（包括它们例行任务和流程用的）：先用 list_bot_models 查它们现在用什么和各条的 id，再用 set_model 填上 botId 逐个换。'
 
-/** The other bots under the sidebar sections, every section named even when empty: create_bot takes one by name. */
+/** The other bots under the sidebar sections, every section named even when empty: create_bot and move_bot take one by name. */
 function teamText(state: HarnessState, sidebar: SidebarState | null, selfId: string): string {
   const placement = sidebar?.placement ?? {}
   const groups = [

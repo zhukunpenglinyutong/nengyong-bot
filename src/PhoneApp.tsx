@@ -83,6 +83,8 @@ export function PhoneApp({ bridge, connection, initialSidebar }: Props) {
     isDebug: false,
     onBotCreated: (created) => setSidebar((state) => createBot(state, created)),
     onBotRenamed: (id, name) => setSidebar((state) => renameBot(state, id, name)),
+    onBotMoved: () => {}, // a phone lists bots without sections
+    onBotDismissed: () => {}, // the computer keeps the sidebar; the phone's list catches up when it reloads
     onEntry: (id, entry, before) => {
       if (entry.kind !== 'bot' || id === bot?.id) return
       setUnread((counts) => ({ ...counts, [id]: (counts[id] ?? 0) + 1 }))

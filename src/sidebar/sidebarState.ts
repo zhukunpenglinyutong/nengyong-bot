@@ -1,5 +1,5 @@
-import { BOT_NAME_MAX, type Bot, MAIN_BOT, MAIN_BOT_ID, type NewBot } from '../../shared/bot'
-import { SECTION_NAME_MAX, type SidebarState } from '../../shared/sidebar'
+import { BOT_NAME_MAX, type Bot, MAIN_BOT, MAIN_BOT_ID, type NewBot, type SectionByName } from '../../shared/bot'
+import { DISMISSED_KEEP_DAYS, SECTION_NAME_MAX, type SidebarState } from '../../shared/sidebar'
 import type { OutfitId } from '../../shared/outfit'
 import { strings } from '../../shared/strings'
 
@@ -16,6 +16,7 @@ export const INITIAL_SIDEBAR: SidebarState = {
   seenAt: {},
   ungroupedCollapsed: false,
   hiddenCollapsed: true,
+  dismissed: [],
 }
 
 const toggleIn = (list: string[], id: string, on: boolean) =>
@@ -126,34 +127,64 @@ export const setBotAvatar = (state: SidebarState, id: string, avatar: string | u
   bots: state.bots.map((bot) => (bot.id === id ? { ...bot, avatar } : bot)),
 })
 
-/**
- * A new bot lands in its section, or in 其他 if it has none or that section is gone; expanded so it is visible.
- * Adding a bot that is already there changes nothing.
- */
-export function createBot(state: SidebarState, { sectionId, ...bot }: NewBot): SidebarState {
+/** A new bot lands where `placeBot` puts it. Adding a bot that is already there changes nothing. */
+export function createBot(state: SidebarState, { section, ...bot }: NewBot): SidebarState {
   if (state.bots.some((known) => known.id === bot.id)) return state
   const added = { ...state, bots: [...state.bots, { ...bot, name: cleanName(bot.name, BOT_NAME_MAX) }] }
-  const section = state.sections.find((candidate) => candidate.id === sectionId)
-  if (!section) return { ...added, ungroupedCollapsed: false }
+  return placeBot(added, bot.id, section)
+}
+
+/**
+ * Moves a bot into the section of that name, appended as a new one when there is none, or into 其他 when absent;
+ * expanded so it is visible. By name: two moves into a section that does not exist yet make it once.
+ */
+export function placeBot(state: SidebarState, botId: string, section: SectionByName | undefined): SidebarState {
+  if (!section) return { ...moveToSection(state, botId, null), ungroupedCollapsed: false }
+  const target = state.sections.find((candidate) => candidate.name === section.name) ?? { ...section, collapsed: false }
+  const sections = state.sections.includes(target) ? state.sections : [...state.sections, target]
   return {
-    ...moveToSection(added, bot.id, section.id),
-    sections: state.sections.map((candidate) => (candidate === section ? { ...section, collapsed: false } : candidate)),
+    ...moveToSection(state, botId, target.id),
+    sections: sections.map((candidate) => (candidate === target ? { ...target, collapsed: false } : candidate)),
   }
 }
 
-export function deleteBot(state: SidebarState, id: string): SidebarState {
-  if (id === MAIN_BOT_ID) return state // the main bot is the entry point and cannot be deleted
-  const { [id]: _placement, ...placement } = state.placement
+/** Lets a bot go at `at`: out of the sidebar with every reference to it, kept in `dismissed` until `restoreBot`. */
+export function dismissBot(state: SidebarState, id: string, at: number): SidebarState {
+  const bot = state.bots.find((candidate) => candidate.id === id)
+  if (!bot || id === MAIN_BOT_ID) return state // the main bot is the entry point and cannot leave
+  const { [id]: sectionId, ...placement } = state.placement
   const { [id]: _unread, ...unread } = state.unread
   const { [id]: _seenAt, ...seenAt } = state.seenAt
   const drop = (list: string[]) => list.filter((x) => x !== id)
   return {
     ...state,
-    bots: state.bots.filter((bot) => bot.id !== id),
+    bots: state.bots.filter((candidate) => candidate.id !== id),
     placement,
     pinned: drop(state.pinned),
     hidden: drop(state.hidden),
     unread,
     seenAt,
+    dismissed: [...state.dismissed, { bot, sectionId, at }],
   }
 }
+
+/** Brings a bot let go back into the section it was in, or into 其他 when that section is gone. */
+export function restoreBot(state: SidebarState, id: string): SidebarState {
+  const dismissed = state.dismissed.find(({ bot }) => bot.id === id)
+  if (!dismissed) return state
+  const rest = { ...state, dismissed: state.dismissed.filter((candidate) => candidate !== dismissed) }
+  const section = state.sections.find((candidate) => candidate.id === dismissed.sectionId)
+  return createBot(rest, { ...dismissed.bot, section })
+}
+
+const DAY_MS = 86_400_000
+
+/** Whole days left to restore a bot let go at `at`; 0 once it is gone for good. */
+export const daysLeftOf = (at: number, now: number) =>
+  Math.max(0, Math.ceil((at + DISMISSED_KEEP_DAYS * DAY_MS - now) / DAY_MS))
+
+/** Drops the bots let go whose days to be restored have run out. */
+export const withoutExpired = (state: SidebarState, now: number): SidebarState => ({
+  ...state,
+  dismissed: state.dismissed.filter(({ at }) => daysLeftOf(at, now) > 0),
+})
