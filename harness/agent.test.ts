@@ -138,6 +138,23 @@ const missingModel = () =>
     },
   })
 
+type ModelReply = Awaited<ReturnType<MockLanguageModelV4['doStream']>>
+
+/** A model call that streams `text`, then sends nothing more until it is aborted, as a provider that hangs does. */
+function stalled(abortSignal: AbortSignal | undefined, text?: string): ModelReply {
+  const stream: ModelReply['stream'] = new ReadableStream({
+    start(controller) {
+      controller.enqueue({ type: 'stream-start', warnings: [] })
+      if (text) {
+        controller.enqueue({ type: 'text-start', id: 't' })
+        controller.enqueue({ type: 'text-delta', id: 't', delta: text })
+      }
+      abortSignal?.addEventListener('abort', () => controller.error(abortSignal.reason))
+    },
+  })
+  return { stream }
+}
+
 const RELEASE_FLOW = {
   id: 'f1',
   name: '发版说明',
@@ -560,7 +577,7 @@ describe('harness turn', () => {
         return step('A 的回答')
       },
     })
-    const isBusy = () => expect(events).toContainEqual({ kind: 'busy', botId: 'chief', busy: true })
+    const isBusy = () => expect(events).toContainEqual(expect.objectContaining({ kind: 'busy', busy: true }))
     return { model, release, isBusy }
   }
 
@@ -595,6 +612,96 @@ describe('harness turn', () => {
     const cleared = events.findIndex((e) => e.kind === 'queued' && e.texts.length === 0)
     const recorded = events.findIndex((e) => e.kind === 'entry' && e.entry.kind === 'user' && e.entry.text === 'B')
     expect(cleared).toBeLessThan(recorded) // the queued bubble gives way to the recorded message, never both at once
+  })
+
+  /** The run ids of the chat turns started so far, oldest first. */
+  const startedRuns = () => events.flatMap((e) => (e.kind === 'busy' && e.busy ? [e.runId] : []))
+
+  it('stops a reply the user stops, keeping what it wrote so far, without an error', async () => {
+    const model = new MockLanguageModelV4({ doStream: async ({ abortSignal }) => stalled(abortSignal, '写到一半') })
+    const { store, harness } = setup(model)
+    const reply = harness.send('chief', '写首长诗')
+    await vi.waitFor(() => expect(events).toContainEqual({ kind: 'draft', botId: 'chief', text: '写到一半' }))
+    harness.stopReply('chief', startedRuns()[0])
+    await reply
+    expect(store.history('chief').at(-1)).toMatchObject({ kind: 'bot', text: '写到一半' })
+    expect(events.filter((e) => e.kind === 'error')).toEqual([])
+    expect(events.filter((e) => e.kind === 'busy').at(-1)).toMatchObject({ busy: false })
+  })
+
+  it('answers the messages queued behind a stopped reply in the next turn', async () => {
+    let isFirst = true
+    const model = new MockLanguageModelV4({
+      doStream: async ({ abortSignal }) => {
+        if (!isFirst) return step('B 的回答')
+        isFirst = false
+        return stalled(abortSignal)
+      },
+    })
+    const { store, harness } = setup(model)
+    const first = harness.send('chief', 'A')
+    await vi.waitFor(() => expect(model.doStreamCalls).toHaveLength(1))
+    const later = harness.send('chief', 'B')
+    harness.stopReply('chief', startedRuns()[0])
+    await Promise.all([first, later])
+    expect(store.history('chief').map((e) => ('text' in e ? e.text : ''))).toEqual(['A', 'B', 'B 的回答'])
+  })
+
+  it('leaves the next turn running when a stop meant for the one before it comes late', async () => {
+    let release = () => {}
+    const released = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    let isFirst = true
+    const model = new MockLanguageModelV4({
+      doStream: async ({ abortSignal }) => {
+        if (!isFirst) return released.then(() => step('B 的回答'))
+        isFirst = false
+        return stalled(abortSignal)
+      },
+    })
+    const { store, harness } = setup(model)
+    const first = harness.send('chief', 'A')
+    await vi.waitFor(() => expect(model.doStreamCalls).toHaveLength(1))
+    const later = harness.send('chief', 'B')
+    const [firstRun] = startedRuns()
+    harness.stopReply('chief', firstRun)
+    await vi.waitFor(() => expect(model.doStreamCalls).toHaveLength(2))
+    harness.stopReply('chief', firstRun)
+    release()
+    await Promise.all([first, later])
+    expect(store.history('chief').at(-1)).toMatchObject({ kind: 'bot', text: 'B 的回答' })
+  })
+
+  it('records the result of a tool call under way before stopping, and starts no further step', async () => {
+    let release = () => {}
+    const released = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const model = new MockLanguageModelV4({
+      doStream: async () =>
+        model.doStreamCalls.length === 1
+          ? step(undefined, [{ name: 'list_models', input: { accountId: 'kimi' } }])
+          : step('停了以后不该说的话'),
+    })
+    const slowList: ModelChoices = { ...choicesOf(), list: () => released.then(() => ['kimi-k2']) }
+    const { store, harness } = setup(model, () => ({}), NO_MCP, slowList)
+    const reply = harness.send('chief', '有哪些模型')
+    await vi.waitFor(() => expect(events).toContainEqual(expect.objectContaining({ kind: 'activity' })))
+    harness.stopReply('chief', startedRuns()[0])
+    release()
+    await reply
+    expect(toolOutputs(store, 'list_models')).toEqual([JSON.stringify({ models: ['kimi-k2'] })])
+    expect(JSON.stringify(store.history('chief'))).not.toContain('停了以后不该说的话')
+  })
+
+  it('ends a reply whose model goes silent mid-answer with an error, instead of waiting forever', async () => {
+    const model = new MockLanguageModelV4({ doStream: async ({ abortSignal }) => stalled(abortSignal, '写到一半') })
+    const { harness } = setup(model, () => ({ modelSilenceSeconds: 0.05 }))
+    await harness.send('chief', '写首长诗')
+    expect(events).toContainEqual(
+      expect.objectContaining({ kind: 'error', message: expect.stringContaining('没有回应') }),
+    )
   })
 
   it('finds an old message by keyword and opens it with the conversation around it', async () => {
@@ -823,8 +930,7 @@ describe('harness turn', () => {
 })
 
 describe('background tasks', () => {
-  type Reply = ReturnType<typeof step>
-  type Scripted = (abortSignal: AbortSignal | undefined) => Reply | Promise<Reply>
+  type Scripted = (abortSignal: AbortSignal | undefined) => ModelReply | Promise<ModelReply>
   const TASK_MARKER = '你正在后台执行一个任务'
   type Prompt = MockLanguageModelV4['doStreamCalls'][number]['prompt']
   const isTaskCall = (prompt: Prompt) =>
@@ -1049,6 +1155,19 @@ describe('background tasks', () => {
     await reported(store)
     expect(store.history('chief').at(-2)).toMatchObject({ kind: 'task-result', status: 'failed' })
     expect(JSON.stringify(store.history('chief').at(-2))).toContain('网络断了')
+  })
+
+  it('fails a task whose model goes silent, saying so', async () => {
+    const model = scriptedModel({
+      chat: [now(undefined, [startTask('调研')]), now('开了。')],
+      task: [(abortSignal) => stalled(abortSignal, '查到一半')],
+    })
+    const { store, harness } = setup(model, () => ({ modelSilenceSeconds: 0.05 }))
+    await harness.send('chief', '调研一下')
+    await reported(store)
+    expect(store.tasksOf('chief', 10)).toMatchObject([
+      { status: 'failed', failureReason: expect.stringContaining('没有回应') },
+    ])
   })
 
   it('gives a task the tools for doing the work, not the ones for talking to the user or managing bots', async () => {

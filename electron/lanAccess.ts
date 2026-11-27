@@ -31,6 +31,7 @@ const DEVICE_METHODS = [
   'panel',
   'tasksAndRoutines',
   'setRoutineEnabled',
+  'stopReply',
   'stopTask',
   'skillFiles',
   'skillFile',

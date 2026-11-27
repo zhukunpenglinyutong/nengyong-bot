@@ -147,6 +147,11 @@ export const settings = {
         unit: '步',
         hint: '回一次消息最多调用几轮工具，用完就停下',
       },
+      modelSilenceSeconds: {
+        label: '模型无响应超时',
+        unit: '秒',
+        hint: '回复或任务中模型这么久没有输出，就按失败结束',
+      },
       recentEntries: {
         label: '原样发给模型的记录',
         unit: '条',

@@ -33,6 +33,7 @@ export const app = {
     readLimits: '读取精细化配置失败',
     switchRoutine: '切换例行任务失败',
     openFile: '打开文件失败',
+    stopReply: '停止回复失败',
     stopTask: '停止任务失败',
     delete: '删除失败',
   },

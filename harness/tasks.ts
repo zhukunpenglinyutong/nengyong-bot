@@ -166,6 +166,7 @@ export function createTaskRunner(options: TaskRunnerOptions) {
         ...skillTaskTools({ botId: task.botId, skills: options.skills }),
       },
       maxSteps: current.taskSteps,
+      silenceSeconds: current.modelSilenceSeconds,
       abortSignal,
       trace: { title: task.title, inputs: [brief], compaction: null },
       onTrace: (trace) => emit({ kind: 'trace', botId: task.botId, trace }),

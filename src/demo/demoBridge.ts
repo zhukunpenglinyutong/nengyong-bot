@@ -76,6 +76,7 @@ export function createDemoBridge(): NengyongBotBridge {
   let devices: DevicesView = DEMO_DEVICES_OFF
   let skills = demoSkills(Date.now()) // by the bot that has them
   const offers = new Map<string, SkillOffer>()
+  const stopped = new Set<string>() // run ids of the replies the user stopped before they were written
   const emit = (event: HarnessEvent) => listeners.forEach((listener) => listener(event))
   const append = (botId: string, said: Said) => {
     const known = transcripts.get(botId) ?? []
@@ -171,7 +172,8 @@ export function createDemoBridge(): NengyongBotBridge {
         ...(quote ? { quote } : {}),
         ...(miniApp ? { miniApp } : {}),
       })
-      emit({ kind: 'busy', botId, busy: true })
+      const runId = newId('demo-run-')
+      emit({ kind: 'busy', botId, busy: true, runId })
       const isLearning = text.toLowerCase().includes(LEARN_WORD)
       const reply = isLearning ? learnFlow(botId) : text.includes(SKILL_LINK) ? offerSkill(botId) : AUTO_REPLY
       emit({ kind: 'context', botId, context: demoContext(transcripts.get(botId) ?? []) })
@@ -179,10 +181,11 @@ export function createDemoBridge(): NengyongBotBridge {
       for (const trace of traces.slice(0, -1)) {
         emit({ kind: 'trace', botId, trace })
         await new Promise((resolve) => setTimeout(resolve, REPLY_DELAY_MS / (traces.length - 1)))
+        if (stopped.has(runId)) return emit({ kind: 'busy', botId, busy: false, runId })
       }
       append(botId, { kind: 'bot', text: reply, model: DEEPSEEK_MODEL, requestId: newId('demo-') })
       traces.slice(-1).forEach((trace) => emit({ kind: 'trace', botId, trace }))
-      emit({ kind: 'busy', botId, busy: false })
+      emit({ kind: 'busy', botId, busy: false, runId })
     },
     attachmentUrl: (path) => attachmentUrls.get(path) ?? '',
     // a data: URL, not a blob: one, so the interface tests' jsdom can render it too
@@ -274,6 +277,9 @@ export function createDemoBridge(): NengyongBotBridge {
       return text
     },
     revealSkill: webOnly,
+    async stopReply(_botId, runId) {
+      stopped.add(runId)
+    },
     async stopTask(botId, taskId) {
       const panel = panels.get(botId) ?? EMPTY_PANEL
       const tasks = panel.tasks.map(

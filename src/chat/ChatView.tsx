@@ -40,6 +40,7 @@ interface Props {
   attachmentUrl: (path: string) => string
   onOpenFile: (path: string) => void // a file a reply links to, in the library
   onSend: (text: string, files: File[], quoteSeq: number | null) => boolean // false: refused (the thread says why), keep what was typed
+  onStopReply: () => void
   onDelete: (seqs: number[]) => void
   onOpenBot: (botId: string) => void
   flows: Flow[] // for resolving [name](flow:id) mentions in replies
@@ -92,6 +93,7 @@ export function ChatView({
   attachmentUrl,
   onOpenFile,
   onSend,
+  onStopReply,
   onDelete,
   onOpenBot,
   flows,
@@ -297,6 +299,8 @@ export function ChatView({
           botId={bot.id}
           files={draft.files}
           sendKey={sendKey}
+          isReplying={Boolean(progress)}
+          onStop={onStopReply}
           onAddFiles={addFiles}
           onRemoveFile={(index) => editDraft(({ files }) => ({ files: files.filter((_, at) => at !== index) }))}
           onCancelQuote={() => editDraft(() => ({ quote: null }))}

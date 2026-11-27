@@ -153,6 +153,11 @@ export const settings: Strings['settings'] = {
         unit: 'steps',
         hint: 'How many rounds of tools one reply may use before it stops',
       },
+      modelSilenceSeconds: {
+        label: 'Model silence timeout',
+        unit: 'seconds',
+        hint: 'A reply or task whose model sends nothing for this long ends as failed',
+      },
       recentEntries: {
         label: 'Entries sent as they are',
         unit: 'items',

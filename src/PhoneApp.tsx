@@ -137,6 +137,7 @@ export function PhoneApp({ bridge, connection, initialSidebar }: Props) {
                 attachmentUrl={bridge.attachmentUrl}
                 onOpenFile={(path) => harness.openLibraryItem(bot.id, path)}
                 onSend={(text, files, quoteSeq) => harness.send(bot.id, text, files, quoteSeq, viewing?.id ?? null)}
+                onStopReply={() => harness.stopReply(bot.id)}
                 onDelete={(seqs) => harness.deleteMessages(bot.id, seqs)}
                 onOpenBot={openBot}
                 flows={thread.panel.flows}

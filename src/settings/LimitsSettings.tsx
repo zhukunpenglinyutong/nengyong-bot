@@ -13,7 +13,7 @@ interface Props {
 type Group = keyof Strings['settings']['limits']['groups']
 
 const GROUPS: { id: Group; keys: (keyof Limits)[] }[] = [
-  { id: 'chat', keys: ['chatSteps', 'recentEntries'] },
+  { id: 'chat', keys: ['chatSteps', 'modelSilenceSeconds', 'recentEntries'] },
   {
     id: 'tasks',
     keys: [

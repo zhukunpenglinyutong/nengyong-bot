@@ -55,6 +55,7 @@ export interface NengyongBotBridge {
   skillFiles: (ref: SkillRef) => Promise<SkillFileView[]> // for the files dialog, SKILL.md first
   skillFile: (ref: SkillRef, path: string) => Promise<string | null> // its text; null when it is not text or too big
   revealSkill: (botId: string, name: string) => Promise<void> // shows its folder in Finder
+  stopReply: (botId: string, runId: string) => Promise<void> // only while that turn still runs; what it wrote so far stays
   stopTask: (botId: string, taskId: string) => Promise<void> // only a task this bot runs
   getSidebar: () => Promise<SidebarState | null> // null until the first save
   needsOnboarding: () => Promise<boolean> // the onboarding has not run yet: it comes first, even over saved data
@@ -157,7 +158,7 @@ export type Activity = { kind: 'thinking' } | { kind: 'typing' } | { kind: 'tool
 export type HarnessEvent =
   | { kind: 'entry'; botId: string; entry: Entry }
   | { kind: 'draft'; botId: string; text: string } // the message being streamed right now ('' clears it)
-  | { kind: 'busy'; botId: string; busy: boolean }
+  | { kind: 'busy'; botId: string; busy: boolean; runId: string } // runId: the turn starting or ending, which stopReply names
   | { kind: 'queued'; botId: string; texts: string[] } // user messages waiting for the running turn to end; [] once read
   | { kind: 'activity'; botId: string; activity: Activity } // what the bot is doing right now, for the progress row
   | { kind: 'bot-created'; bot: NewBot }

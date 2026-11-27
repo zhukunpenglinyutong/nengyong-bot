@@ -40,6 +40,7 @@ export const chat = {
     attachments: '待发送的附件',
     addAttachment: '添加附件',
     send: '发送',
+    stop: '停止回复',
     chooseAttachments: '选择附件',
     remove: (name: string) => `移除 ${name}`,
   },

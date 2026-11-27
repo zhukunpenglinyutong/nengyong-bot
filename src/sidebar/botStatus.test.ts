@@ -22,7 +22,7 @@ function task(id: string, status: TaskView['status'], minutesAgo: number, endedM
 const withTasks = (...tasks: TaskView[]): Thread => ({ ...EMPTY_THREAD, panel: { ...EMPTY_THREAD.panel, tasks } })
 const replying: Thread = {
   ...EMPTY_THREAD,
-  progress: { activity: { kind: 'thinking' }, since: NOW - 2 * MINUTE, draw: 0 },
+  progress: { runId: 'r1', activity: { kind: 'thinking' }, since: NOW - 2 * MINUTE, draw: 0 },
 }
 
 describe('botStatusOf', () => {

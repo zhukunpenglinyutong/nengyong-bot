@@ -30,6 +30,7 @@ const bridge: NengyongBotBridge = {
   setRoutineEnabled: (botId, routineId, isEnabled) =>
     ipcRenderer.invoke('nengyongbot:setRoutineEnabled', botId, routineId, isEnabled),
   openLibraryItem: (path) => ipcRenderer.invoke('nengyongbot:openLibraryItem', path),
+  stopReply: (botId, runId) => ipcRenderer.invoke('nengyongbot:stopReply', botId, runId),
   stopTask: (botId, taskId) => ipcRenderer.invoke('nengyongbot:stopTask', botId, taskId),
   answerSkillOffer: (botId, offer, names) => ipcRenderer.invoke('nengyongbot:answerSkillOffer', botId, offer, names),
   uploadSkill: (botId, kind) => ipcRenderer.invoke('nengyongbot:uploadSkill', botId, kind),

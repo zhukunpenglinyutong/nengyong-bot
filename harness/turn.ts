@@ -22,7 +22,9 @@ interface TurnOptions {
   messages: ModelMessage[]
   tools: ToolSet
   maxSteps: number
-  abortSignal?: AbortSignal
+  silenceSeconds: number // the model sending nothing for this long ends the run with an error
+  abortSignal?: AbortSignal // ends the run at once, tool calls under way included: a task stopped or timed out
+  stopSignal?: AbortSignal // the user stopped the reply: it ends once the tool calls under way have recorded their results
   onDraft?: (text: string) => void
   onEntry?: (entry: Entry) => void
   onActivity?: (activity: Activity) => void
@@ -74,6 +76,13 @@ export async function runTurn(options: TurnOptions): Promise<{ said: Paragraph[]
   let trace = startTrace(transcriptId, options.maxSteps, options.trace, Date.now())
   let failure: string | null = null
   options.onTrace(trace)
+  const silenceMs = options.silenceSeconds * 1000
+  const halt = new AbortController() // ends a stopped reply once no tool call is under way
+  const toolCallsUnderWay = new Set<string>()
+  const haltIfIdle = () => {
+    if (options.stopSignal?.aborted && toolCallsUnderWay.size === 0) halt.abort()
+  }
+  options.stopSignal?.addEventListener('abort', haltIfIdle, { once: true })
   try {
     const result = streamText({
       model: options.model.model,
@@ -81,7 +90,8 @@ export async function runTurn(options: TurnOptions): Promise<{ said: Paragraph[]
       messages: options.messages,
       tools: options.tools,
       stopWhen: stepCountIs(options.maxSteps),
-      abortSignal: options.abortSignal,
+      abortSignal: options.abortSignal ? AbortSignal.any([options.abortSignal, halt.signal]) : halt.signal,
+      timeout: { firstChunkMs: silenceMs, chunkMs: silenceMs },
       headers: sessionHeaders(transcriptId),
       include: { rawChunks: true },
     })
@@ -108,14 +118,21 @@ export async function runTurn(options: TurnOptions): Promise<{ said: Paragraph[]
           onActivity({ kind: 'thinking' })
           break
         case 'tool-input-start':
+          onActivity({ kind: 'tool', tool: part.toolName })
+          break
         case 'tool-call':
+          toolCallsUnderWay.add(part.toolCallId)
           onActivity({ kind: 'tool', tool: part.toolName })
           break
         case 'tool-result':
           recordTool(part.toolName, part.input, part.output)
+          toolCallsUnderWay.delete(part.toolCallId)
+          haltIfIdle()
           break
         case 'tool-error':
           recordTool(part.toolName, part.input, { error: String(part.error) })
+          toolCallsUnderWay.delete(part.toolCallId)
+          haltIfIdle()
           break
         case 'finish-step': {
           const usage = usageOf(part.usage)
@@ -130,6 +147,10 @@ export async function runTurn(options: TurnOptions): Promise<{ said: Paragraph[]
           break
         case 'error':
           throw part.error
+        case 'abort': // the SDK ends a timed-out stream as aborted, like one the caller aborted
+          if (!options.abortSignal?.aborted && !halt.signal.aborted)
+            throw new Error(strings().harness.modelSilent(options.silenceSeconds))
+          break
         default: // the SDK streams many more part kinds; none of the others is shown or recorded
       }
     }

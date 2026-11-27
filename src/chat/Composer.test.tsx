@@ -10,9 +10,10 @@ afterEach(cleanup)
 // jsdom has no scrollIntoView; it lays nothing out, so there is nothing to scroll
 Element.prototype.scrollIntoView = () => {}
 
-function renderComposer() {
+function renderComposer(isReplying = false) {
   const onSend = vi.fn(() => true)
   const onAddFiles = vi.fn()
+  const onStop = vi.fn()
   render(
     <Composer
       placeholder="说点什么"
@@ -21,6 +22,8 @@ function renderComposer() {
       botId="chief"
       files={[]}
       sendKey="enter"
+      isReplying={isReplying}
+      onStop={onStop}
       onAddFiles={onAddFiles}
       onRemoveFile={() => {}}
       onCancelQuote={() => {}}
@@ -28,8 +31,36 @@ function renderComposer() {
       onSend={onSend}
     />,
   )
-  return { user: userEvent.setup(), input: screen.getByRole('textbox', { name: '说点什么' }), onSend, onAddFiles }
+  return {
+    user: userEvent.setup(),
+    input: screen.getByRole('textbox', { name: '说点什么' }),
+    onSend,
+    onAddFiles,
+    onStop,
+  }
 }
+
+it('offers to stop the reply while the bot replies and the box is empty', async () => {
+  const { user, onStop } = renderComposer(true)
+  await user.click(screen.getByRole('button', { name: '停止回复' }))
+  expect(onStop).toHaveBeenCalled()
+})
+
+it('does not stop the reply with the second click of a double-click on send', async () => {
+  const { user, input, onSend, onStop } = renderComposer(true)
+  await user.type(input, '再加一句')
+  await user.dblClick(screen.getByRole('button', { name: '发送' }))
+  expect(onSend).toHaveBeenCalledTimes(1)
+  expect(onStop).not.toHaveBeenCalled()
+})
+
+it('sends what is written while the bot replies, instead of offering to stop', async () => {
+  const { user, input, onSend } = renderComposer(true)
+  await user.type(input, '再加一句')
+  expect(screen.queryByRole('button', { name: '停止回复' })).not.toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: '发送' }))
+  expect(onSend).toHaveBeenCalledWith('再加一句')
+})
 
 it('lists the other bots with their sidebar group after an @, and no group for 其他', async () => {
   const { user, input } = renderComposer()

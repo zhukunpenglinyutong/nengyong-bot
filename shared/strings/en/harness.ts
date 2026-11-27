@@ -33,6 +33,8 @@ export const harness: Strings['harness'] = {
     error: 'The model failed before finishing its reply; try again',
     contentFilter: "The reply was blocked by the model's content filter",
   },
+  modelSilent: (seconds: number) =>
+    `The model sent nothing for ${seconds} seconds, so it was stopped. Try again, or switch models`,
   tasks: {
     noConclusion: 'The task ended without writing a conclusion',
     timedOut: 'Timed out: the task ran too long without finishing and was stopped',

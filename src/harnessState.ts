@@ -26,6 +26,7 @@ export interface MiniAppData {
 }
 
 interface Progress {
+  runId: string // the turn, which a stop names
   activity: Activity | null
   since: number // for "· N 分钟"
   draw: number // 0..1, picks this turn's phrase so the label does not flicker
@@ -49,7 +50,7 @@ export type ThreadEvent =
       }
     >
   // stamped by the listener, so the reducer needs neither the clock nor a random number
-  | { kind: 'busy'; botId: string; busy: boolean; since: number; draw: number }
+  | { kind: 'busy'; botId: string; busy: boolean; runId: string; since: number; draw: number }
   | { kind: 'loaded'; botId: string; entries: Entry[]; panel: PanelData }
   | { kind: 'previews'; previews: Record<string, string> }
   | { kind: 'tasks-and-routines'; byBot: Record<string, TasksAndRoutines> }
@@ -90,7 +91,7 @@ export function harnessState(state: Threads, event: ThreadEvent): Threads {
     case 'busy': {
       if (!event.busy) return patch(state, event.botId, { progress: undefined })
       return patch(state, event.botId, {
-        progress: { activity: null, since: event.since, draw: event.draw },
+        progress: { runId: event.runId, activity: null, since: event.since, draw: event.draw },
         error: undefined,
       })
     }

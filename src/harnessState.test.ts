@@ -34,9 +34,9 @@ it('keeps the draft while the user entry of the same turn arrives', () => {
 })
 
 it('tracks progress only while a turn is running', () => {
-  const busy: ThreadEvent = { kind: 'busy', botId: 'chief', busy: true, since: 100, draw: 0.5 }
+  const busy: ThreadEvent = { kind: 'busy', botId: 'chief', busy: true, runId: 'r1', since: 100, draw: 0.5 }
   const working = run([busy, { kind: 'activity', botId: 'chief', activity: { kind: 'typing' } }])
-  expect(working.chief.progress).toEqual({ activity: { kind: 'typing' }, since: 100, draw: 0.5 })
+  expect(working.chief.progress).toEqual({ runId: 'r1', activity: { kind: 'typing' }, since: 100, draw: 0.5 })
   expect(run([{ ...busy, busy: false }], working).chief.progress).toBeUndefined()
   const idle = run([{ kind: 'activity', botId: 'chief', activity: { kind: 'typing' } }])
   expect(idle).toEqual({}) // a late activity after the turn ended changes nothing
@@ -50,7 +50,7 @@ it('shows an error until the next message is sent', () => {
 
 it('drops the error of the last turn once the next one starts, even one a task result started', () => {
   const failed = run([{ kind: 'error', botId: 'chief', message: '连不上模型服务' }])
-  const next = run([{ kind: 'busy', botId: 'chief', busy: true, since: 100, draw: 0.5 }], failed)
+  const next = run([{ kind: 'busy', botId: 'chief', busy: true, runId: 'r1', since: 100, draw: 0.5 }], failed)
   expect(next.chief.error).toBeUndefined()
 })
 

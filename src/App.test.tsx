@@ -169,6 +169,7 @@ function fakeBridge(hasModel = true): NengyongBotBridge {
     setDebug: vi.fn(async () => {}),
     setRoutineEnabled: vi.fn(async () => {}),
     openLibraryItem: vi.fn(async () => {}),
+    stopReply: vi.fn(async () => {}),
     stopTask: vi.fn(async () => {}),
     answerSkillOffer: vi.fn(async () => {}),
     uploadSkill: vi.fn(async () => null),
@@ -343,7 +344,7 @@ describe('App on a scripted bridge', () => {
     renderApp()
     await afterAMoment()
     await emit({ kind: 'tasks', botId: 'secretary', tasks: [failedTask()] })
-    await emit({ kind: 'busy', botId: 'secretary', busy: true })
+    await emit({ kind: 'busy', botId: 'secretary', busy: true, runId: 'r1' })
     await user.hover(within(screen.getByRole('group', { name: '置顶区' })).getByRole('button', { name: /秘书Bot/ }))
     expect(within(await screen.findByRole('tooltip')).getByText('回复中')).toBeInTheDocument()
   })
@@ -507,7 +508,7 @@ describe('App on a scripted bridge', () => {
 
   it('shows a progress row with what the bot is doing while it works', async () => {
     renderApp()
-    await emit({ kind: 'busy', botId: 'chief', busy: true })
+    await emit({ kind: 'busy', botId: 'chief', busy: true, runId: 'r1' })
     expect(screen.getByTestId('progress')).toBeInTheDocument()
     await emit({ kind: 'activity', botId: 'chief', activity: { kind: 'tool', tool: 'start_task' } })
     expect(screen.getByRole('status')).toHaveTextContent('正在安排任务')
@@ -517,8 +518,17 @@ describe('App on a scripted bridge', () => {
       activity: { kind: 'tool', tool: 'remember' },
     })
     expect(screen.getByRole('status')).toHaveTextContent('记到小本本上')
-    await emit({ kind: 'busy', botId: 'chief', busy: false })
+    await emit({ kind: 'busy', botId: 'chief', busy: false, runId: 'r1' })
     expect(screen.queryByTestId('progress')).not.toBeInTheDocument()
+  })
+
+  it('stops the reply of the open bot that is running, from the message box, which offers it only then', async () => {
+    const user = userEvent.setup()
+    renderApp()
+    expect(screen.queryByRole('button', { name: '停止回复' })).not.toBeInTheDocument()
+    await emit({ kind: 'busy', botId: 'chief', busy: true, runId: 'r1' })
+    await user.click(screen.getByRole('button', { name: '停止回复' }))
+    expect(bridge.stopReply).toHaveBeenCalledWith('chief', 'r1')
   })
 
   it('shows what the background tasks are doing under the chat while the bot is not replying', async () => {
@@ -545,9 +555,9 @@ describe('App on a scripted bridge', () => {
     expect(within(list).getByText('读仓库')).toBeInTheDocument()
     expect(within(list).getByText('排队中')).toBeInTheDocument()
 
-    await emit({ kind: 'busy', botId: 'chief', busy: true })
+    await emit({ kind: 'busy', botId: 'chief', busy: true, runId: 'r1' })
     expect(screen.queryByRole('list', { name: '后台任务' })).not.toBeInTheDocument()
-    await emit({ kind: 'busy', botId: 'chief', busy: false })
+    await emit({ kind: 'busy', botId: 'chief', busy: false, runId: 'r1' })
     expect(screen.getByRole('list', { name: '后台任务' })).toBeInTheDocument()
   })
 
@@ -785,7 +795,7 @@ describe('updates', () => {
   it('warns that updating stops the bots at work', async () => {
     bridge = { ...fakeBridge(), checkForUpdate: vi.fn(async () => NEWER) }
     await launch()
-    await emit({ kind: 'busy', botId: 'chief', busy: true })
+    await emit({ kind: 'busy', botId: 'chief', busy: true, runId: 'r1' })
     expect(screen.getByText('小满正在干活，更新要重启应用，会打断它。')).toBeInTheDocument()
   })
 

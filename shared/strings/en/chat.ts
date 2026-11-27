@@ -44,6 +44,7 @@ export const chat: Strings['chat'] = {
     attachments: 'Attachments to send',
     addAttachment: 'Add attachment',
     send: 'Send',
+    stop: 'Stop replying',
     chooseAttachments: 'Choose attachments',
     remove: (name) => `Remove ${name}`,
   },

@@ -195,6 +195,15 @@ export function useHarness(bridge: NengyongBotBridge, options: Options) {
         }),
       )
     },
+    stopReply(botId: string) {
+      const runId = threads[botId]?.progress?.runId
+      if (!runId) return
+      bridge
+        .stopReply(botId, runId)
+        .catch((error) =>
+          dispatch({ kind: 'error', botId, message: failureOf(strings().app.failures.stopReply, error) }),
+        )
+    },
     stopTask(botId: string, taskId: string) {
       bridge.stopTask(botId, taskId).catch((error) =>
         dispatch({

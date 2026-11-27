@@ -36,6 +36,7 @@ export const app: Strings['app'] = {
     readLimits: 'Could not read the limits',
     switchRoutine: 'Could not switch the routine',
     openFile: 'Could not open the file',
+    stopReply: 'Could not stop the reply',
     stopTask: 'Could not stop the task',
     delete: 'Could not delete',
   },

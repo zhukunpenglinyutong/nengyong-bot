@@ -53,6 +53,7 @@ const RoutineId = z.string().min(1).max(100)
 const AskText = z.string().trim().min(1).max(MESSAGE_MAX_CHARS)
 const LibraryPath = z.string().min(1).max(1000)
 const TaskId = z.string().min(1).max(100)
+const RunId = z.string().min(1).max(100)
 const Seqs = z.array(z.number().int().min(1)).min(1)
 const OfferId = z.string().min(1).max(100)
 const SkillFilePath = z.string().min(1).max(1000)
@@ -166,6 +167,7 @@ export function createHandlers({ home, dataDir, store, emit, window, onLanguageC
     },
     setRoutineEnabled: (botId, routineId, isEnabled) =>
       setRoutineEnabled(store, emit, BotId.parse(botId), RoutineId.parse(routineId), z.boolean().parse(isEnabled)),
+    stopReply: (botId, runId) => harness.stopReply(BotId.parse(botId), RunId.parse(runId)),
     stopTask: (botId, taskId) => harness.stopTask(BotId.parse(botId), TaskId.parse(taskId)),
     answerSkillOffer: (botId, offer, names) =>
       harness.answerSkillOffer(BotId.parse(botId), OfferId.parse(offer), SkillName.array().parse(names)),

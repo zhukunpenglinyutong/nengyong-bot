@@ -126,7 +126,7 @@ src/        渲染进程（React）。只 import shared。
   | measure | 统计口径：用量页按什么算：花费（人民币或美元）、token 还是运行次数，在用量页右上角的下拉框选、记在 localStorage（`src/settings/measure.ts`），概览、图表和明细都跟着它。人民币按固定汇率 `CNY_PER_USD` 从美元折算；price 始终是美元 |
   | settings | 设置窗口及其数据。不用 key 代指 |
   | home | 应用目录，默认 `~/.nengyongbot`（`NENGYONGBOT_HOME` 可改）：加密的账号与它们的用处（`model.bin`）、界面语言（`language.json`）、MCP 配置、精细化配置、用户填的 price、局域网访问的开关与配对过的设备（`devices.json`，只存令牌的哈希）与数据目录 |
-  | device | 设备：用户放进来的手机、平板或别的电脑（`shared/devices.ts`）。它在浏览器里打开这台电脑的局域网地址，用的是这台电脑上的 Bot：聊天、看面板、开关例行任务、停任务、开小程序；设置、侧边栏编排和数据只在电脑上（`electron/lanAccess.ts` 的 `DEVICE_METHODS`）。界面是 `PhoneApp`：Bot 列表、点开的聊天、抽屉里的面板，没有 island（手机自己的灵动岛就在上面）。设置「设备」页列出它们，随时能移除 |
+  | device | 设备：用户放进来的手机、平板或别的电脑（`shared/devices.ts`）。它在浏览器里打开这台电脑的局域网地址，用的是这台电脑上的 Bot：聊天（也能停下回复）、看面板、开关例行任务、停任务、开小程序；设置、侧边栏编排和数据只在电脑上（`electron/lanAccess.ts` 的 `DEVICE_METHODS`）。界面是 `PhoneApp`：Bot 列表、点开的聊天、抽屉里的面板，没有 island（手机自己的灵动岛就在上面）。设置「设备」页列出它们，随时能移除 |
   | LAN access | 局域网访问：设置「设备」页的开关，默认关。开着时主进程在 4317 端口开 HTTP 服务（`electron/lanServer.ts`）：给设备页面，转发它的 bridge 调用，用 server-sent events 推 `DEVICE_EVENTS` 里的事件。关掉时所有设备立刻断开，配对保留，再开时自己连回来 |
   | pairing | 配对：没连过的浏览器打开局域网地址时请求进来，它的屏幕上显示 4 位配对码，用户在电脑弹出的确认框（`PairingDialog`）里输入这组码，对上了它才拿到设备 Cookie。码只在发请求的那台设备上，别人同时发来的请求放不进来。同一时间只留最新的一个请求，2 分钟没答复就作废 |
   | dataDir | 数据目录，默认 `home/data`，可在设置里移到别处（新位置记在 `home/data-dir.txt`）：`nengyongbot.db` 与 `library/` |

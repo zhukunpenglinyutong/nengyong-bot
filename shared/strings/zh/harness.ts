@@ -29,6 +29,7 @@ export const harness = {
     error: '模型出错了，没有给出完整回复，请重试',
     contentFilter: '回复被模型的内容审核拦下了',
   },
+  modelSilent: (seconds: number) => `模型 ${seconds} 秒没有回应，已停下。可以重试，或换个模型`,
   tasks: {
     noConclusion: '任务结束了，但没有写出结论',
     timedOut: '超时：任务运行太久仍未完成，已中止',
