@@ -59,21 +59,20 @@ export function DecisionTray(props: Props) {
   )
 }
 
-/** Collapsed: the one question with its answers, the one card, or how many wait and what they are. */
+/** Collapsed: the one question over its answers, the one card, or how many wait and what they are. */
 function Strip({ decisions, onView, bots, accent, onAnswer }: Props) {
   const [only, ...rest] = decisions
   if (rest.length === 0 && only) {
     const { ask } = only
     return (
-      <div className="flex min-h-12 items-center gap-2.5 py-2 pr-2 pl-3 text-md leading-snug">
-        <KindIcon decision={only} />
-        <span className="min-w-0 flex-1">
-          {askTitle(ask, bots)}
-          {ask.kind !== 'question' && <span className="text-muted"> · {strings().chat.asks.waiting}</span>}
-        </span>
-        {ask.kind === 'question' ? (
-          <>
-            <Answers decision={only} accent={accent} onAnswer={onAnswer} />
+      <div className="flex min-h-12 flex-col justify-center gap-2 py-2 pr-2 pl-3 text-md leading-snug">
+        <div className="flex items-center gap-2.5">
+          <KindIcon decision={only} />
+          <span className="min-w-0 flex-1">
+            {askTitle(ask, bots)}
+            {ask.kind !== 'question' && <span className="text-muted"> · {strings().chat.asks.waiting}</span>}
+          </span>
+          {ask.kind === 'question' ? (
             <button
               type="button"
               aria-label={strings().chat.asks.expand}
@@ -82,9 +81,14 @@ function Strip({ decisions, onView, bots, accent, onAnswer }: Props) {
             >
               <Icon name="chevron" size={16} />
             </button>
-          </>
-        ) : (
-          <LookButton accent={accent} onClick={() => onView(only.seq)} />
+          ) : (
+            <LookButton accent={accent} onClick={() => onView(only.seq)} />
+          )}
+        </div>
+        {ask.kind === 'question' && (
+          <div className="flex flex-wrap gap-1.5 pl-[34px]">
+            <Answers decision={only} accent={accent} onAnswer={onAnswer} />
+          </div>
         )}
       </div>
     )
