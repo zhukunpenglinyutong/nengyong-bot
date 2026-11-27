@@ -9,7 +9,7 @@ import { useSkillUpload } from '../skills/useSkillUpload'
 import { FlowsTab } from './FlowsTab'
 import { Pill } from './PanelCard'
 
-/** What the 能力 tab shows: the flows or the skills, and the one of them open, if any. */
+/** What the Bot 核心 tab shows: the flows or the skills, and the one of them open, if any. */
 export type Ability = { kind: 'flows'; flowId: string | null } | { kind: 'skills'; skill: SkillKey | null }
 
 export const ABILITY_LISTS = {
@@ -26,7 +26,7 @@ interface Props {
   onFill: (text: string) => void // puts a message in the box for the user to finish and send
 }
 
-/** The panel's 能力 tab: the ways of working a bot has, learned (flows) or installed (skills), one kind at a time. */
+/** The panel's Bot 核心 tab: the ways of working a bot has, learned (flows) or installed (skills), one kind at a time. */
 export function AbilitiesTab({ bot, bots, panel, ability, onAbility, onFill }: Props) {
   const words = strings().bot.panel.abilityKinds
   const isListing = ability.kind === 'flows' ? ability.flowId === null : ability.skill === null

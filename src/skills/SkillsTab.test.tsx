@@ -18,12 +18,12 @@ const settle = (click: () => Promise<void>) =>
     await new Promise((resolve) => setTimeout(resolve, 0))
   })
 
-/** Opens a demo bot's chat (the main bot's is open at the start), then its panel at 能力 · 技能. */
+/** Opens a demo bot's chat (the main bot's is open at the start), then its panel at Bot 核心 · 技能. */
 async function openSkills(botName: RegExp | null, bridge: NengyongBotBridge = createDemoBridge()) {
   const demo = renderDemoApp(bridge)
   if (botName) await demo.user.click(screen.getByRole('button', { name: botName }))
   await demo.user.click(screen.getByRole('button', { name: '展开面板' }))
-  await demo.user.click(within(panel()).getByRole('button', { name: /^能力/ }))
+  await demo.user.click(within(panel()).getByRole('button', { name: /^Bot 核心/ }))
   await demo.user.click(within(panel()).getByRole('button', { name: /^技能/ }))
   return demo
 }

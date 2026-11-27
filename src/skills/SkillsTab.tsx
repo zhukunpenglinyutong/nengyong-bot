@@ -30,7 +30,7 @@ interface Props {
   upload: SkillUpload | null // null on a device: skills are uploaded on the computer
 }
 
-/** The skills half of the 能力 tab: the skills installed on this bot, or one of them; on the main bot, every bot's. */
+/** The skills half of the Bot 核心 tab: the skills installed on this bot, or one of them; on the main bot, every bot's. */
 export function SkillsTab({ bot, bots, skills, open, onList, onFill, upload }: Props) {
   const words = strings().skills.list
   const { manager } = useSkills()

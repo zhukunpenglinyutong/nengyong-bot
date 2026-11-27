@@ -85,7 +85,7 @@ export const bot = {
   panel: {
     tabs: {
       feed: '近况',
-      abilities: '能力',
+      abilities: 'Bot 核心',
       miniApps: '小程序',
       library: '资料库',
     },

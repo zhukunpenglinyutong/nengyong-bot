@@ -87,7 +87,7 @@ export const bot: Strings['bot'] = {
   panel: {
     tabs: {
       feed: 'Activity',
-      abilities: 'Abilities',
+      abilities: 'Core',
       miniApps: 'Mini apps',
       library: 'Library',
     },

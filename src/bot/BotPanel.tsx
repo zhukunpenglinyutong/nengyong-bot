@@ -22,7 +22,7 @@ interface Props {
   panel: PanelData
   isDebug: boolean // recent tasks are for whoever debugs the bot, hidden otherwise
   tab: PanelTab
-  ability: Ability // what the 能力 tab shows
+  ability: Ability // what the Bot 核心 tab shows
   onTab: (tab: PanelTab) => void
   onAbility: (ability: Ability) => void
   onFill: (text: string) => void // puts a message in the box for the user to finish and send
