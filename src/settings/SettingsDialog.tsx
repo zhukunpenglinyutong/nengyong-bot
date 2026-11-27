@@ -70,6 +70,7 @@ export function SettingsDialog({
   devices,
   dismissed,
   onRestore,
+  onDelete,
   ...updateProps
 }: Props) {
   const [page, setPage] = useState(initialPage)
@@ -132,7 +133,7 @@ export function SettingsDialog({
         {page === 'tools' && <ToolsSettings bridge={bridge} />}
         {page === 'devices' && <DevicesSettings bridge={bridge} live={devices} />}
         {page === 'data' && <DataSettings bridge={bridge} />}
-        {page === 'dismissed' && <DismissedSettings dismissed={dismissed} onRestore={onRestore} />}
+        {page === 'dismissed' && <DismissedSettings dismissed={dismissed} onRestore={onRestore} onDelete={onDelete} />}
         {page === 'usage' && <UsageSettings bridge={bridge} bots={bots} />}
         {page === 'nengyongKey' && <NengyongKeySettings />}
         {page === 'limits' && <LimitsSettings limits={limits} onLimitsChange={onLimitsChange} />}

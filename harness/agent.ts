@@ -1,3 +1,4 @@
+import fs from 'node:fs'
 import { generateText } from 'ai'
 import type { AttachmentFile } from '../shared/attachment'
 import type { BotModels, Entry, HarnessEvent, Quote } from '../shared/bridge'
@@ -16,7 +17,7 @@ import { answerDutyOffer, setReview } from './duty'
 import { dutyTools } from './dutyTools'
 import { historyTools } from './historyTools'
 import type { Mcp } from './mcp'
-import { miniAppOf } from './miniApps'
+import { miniAppFolder, miniAppOf } from './miniApps'
 import { modelTools } from './modelTools'
 import { systemSections } from './prompt'
 import { type ModelChoices, type ModelObject, modelIdOf, runModel } from './runModel'
@@ -306,6 +307,20 @@ export function createHarness(options: HarnessOptions) {
     context: (botId: string): ContextView | null => (store.get().bots[botId] ? chatInput(botId).context : null),
     setDebug(isOn: boolean) {
       isDebug = isOn
+    },
+    /** Deletes a bot let go, with everything the harness keeps of it. */
+    deleteBot(botId: string) {
+      const bot = store.get().bots[botId]
+      if (!bot) throw new Error(strings().harness.unknownBot(botId))
+      if (store.get().roster.includes(botId)) throw new Error(strings().harness.botNotDismissed)
+      replies.get(botId)?.stop.abort()
+      batches.delete(botId)
+      tasks.stopBot(botId)
+      tokensPerChar.delete(botId)
+      for (const app of bot.miniApps)
+        fs.rmSync(workspace.resolve(miniAppFolder(app.id)), { recursive: true, force: true })
+      options.skills.removeBot(botId)
+      store.deleteBot(botId)
     },
     startWaitingTasks: tasks.startWaiting,
     botModels,

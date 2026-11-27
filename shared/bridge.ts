@@ -65,6 +65,8 @@ export interface NengyongBotBridge {
   getSidebar: () => Promise<SidebarState | null> // null until the first save
   needsOnboarding: () => Promise<boolean> // the onboarding has not run yet: it comes first, even over saved data
   saveSidebar: (sidebar: SidebarState) => Promise<NewBot[]> // returns bots the harness created that the sidebar has not shown yet
+  // only a bot let go: its brain, chats, tasks, skills and mini apps are deleted; the files it wrote stay
+  deleteBot: (botId: string) => Promise<void>
   getDataDir: () => Promise<string>
   openDataDir: () => Promise<void> // shows the data dir in Finder
   moveDataDir: () => Promise<void> // asks for a new place; on success the app restarts with the data there

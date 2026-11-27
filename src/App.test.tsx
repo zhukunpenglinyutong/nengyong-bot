@@ -185,6 +185,7 @@ function fakeBridge(hasModel = true): NengyongBotBridge {
     getSidebar: vi.fn(async () => null),
     needsOnboarding: vi.fn(async () => false),
     saveSidebar: vi.fn(async () => []),
+    deleteBot: vi.fn(async () => {}),
     getDataDir: vi.fn(async () => '/Users/me/.nengyongbot/data'),
     openDataDir: vi.fn(async () => {}),
     moveDataDir: vi.fn(async () => {}),

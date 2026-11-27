@@ -7,6 +7,7 @@ import {
   daysLeftOf,
   deleteSection,
   dismissBot,
+  forgetBot,
   INITIAL_SIDEBAR,
   markSeen,
   markUnseenAsSeen,
@@ -121,6 +122,14 @@ describe('sidebar updates', () => {
     expect(back.bots.find((bot) => bot.id === 'support')).toEqual(DEMO.bots.find((bot) => bot.id === 'support'))
     expect('support' in restoreBot(deleteSection(gone, 's1'), 'support').placement).toBe(false)
     expect(restoreBot(gone, 'nobody')).toBe(gone)
+  })
+
+  it('drops a bot from the recycle bin for good, leaving the rest of it alone', () => {
+    const gone = dismissBot(dismissBot(DEMO, 'support', 5), 'repo', 6)
+    const forgotten = forgetBot(gone, 'support')
+    expect(forgotten.dismissed.map(({ bot }) => bot.id)).toEqual(['repo'])
+    expect(ids(forgotten.bots)).not.toContain('support')
+    expect(forgetBot(gone, 'nobody')).toBe(gone)
   })
 
   it('forgets bots let go once their days to be restored have run out', () => {

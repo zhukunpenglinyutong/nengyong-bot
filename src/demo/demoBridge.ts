@@ -353,6 +353,11 @@ export function createDemoBridge(): NengyongBotBridge {
       sidebar = next
       return []
     },
+    async deleteBot(botId) {
+      transcripts.delete(botId)
+      panels.delete(botId)
+      skills = Object.fromEntries(Object.entries(skills).filter(([id]) => id !== botId))
+    },
     getDataDir: async () => words.noDataDir,
     openDataDir: webOnly,
     moveDataDir: webOnly,

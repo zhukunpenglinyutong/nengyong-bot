@@ -24,11 +24,16 @@ export const settings: Strings['settings'] = {
   dismissed: {
     title: 'Bot recycle bin',
     intro: (days) =>
-      `A bot you let go sits in the recycle bin for ${plural(days, 'day')} and can be restored any time: back in its section, with its memories, chats and routines. After that it is gone for good.`,
+      `A bot you let go sits in the recycle bin for ${plural(days, 'day')} and can be restored any time: back in its section, with its memories, chats and routines. You can also delete it for good, with its data; after ${plural(days, 'day')} it is gone anyway.`,
     empty: 'The recycle bin is empty.',
     daysLeft: (days) => `${plural(days, 'day')} left`,
     restore: 'Restore',
     restoreBot: (name) => `Restore ${name}`,
+    delete: 'Delete for good',
+    deleteBot: (name) => `Delete ${name} for good`,
+    deleteTitle: (name) => `Delete “${name}” for good?`,
+    deleteBody:
+      'Its memories, chats, tasks, routines, flows, skills and mini apps are deleted. Files it wrote in the library stay. This cannot be undone.',
   },
   data: {
     exported: (path) => `Exported to ${path}`,

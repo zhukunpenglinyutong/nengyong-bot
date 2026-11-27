@@ -34,6 +34,7 @@ import {
   addUnread,
   createBot,
   dismissBot,
+  forgetBot,
   INITIAL_SIDEBAR,
   markSeen,
   markUnseenAsSeen,
@@ -290,6 +291,10 @@ export function App({ bridge, initialSidebar = INITIAL_SIDEBAR, needsOnboarding 
                   devices={settings.devices}
                   dismissed={sidebar.dismissed}
                   onRestore={(id) => setSidebar((state) => restoreBot(state, id))}
+                  onDelete={async (id) => {
+                    await bridge.deleteBot(id)
+                    setSidebar((state) => forgetBot(state, id))
+                  }}
                   update={update.state}
                   busyBots={busyBots}
                   onCheckUpdate={update.check}

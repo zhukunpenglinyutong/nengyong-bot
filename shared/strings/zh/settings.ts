@@ -20,11 +20,16 @@ export const settings = {
   dismissed: {
     title: 'Bot 回收站',
     intro: (days: number) =>
-      `离职的 Bot 先在回收站里放 ${days} 天，期间随时能恢复：回到原来的分组，记忆、聊天记录和例行任务都还在。过了 ${days} 天就再也找不回了。`,
+      `离职的 Bot 先在回收站里放 ${days} 天，期间随时能恢复：回到原来的分组，记忆、聊天记录和例行任务都还在。也可以直接彻底删除，把它的数据一起清掉；过了 ${days} 天就再也找不回了。`,
     empty: '回收站是空的。',
     daysLeft: (days: number) => `还剩 ${days} 天`,
     restore: '恢复',
     restoreBot: (name: string) => `恢复 ${name}`,
+    delete: '彻底删除',
+    deleteBot: (name: string) => `彻底删除 ${name}`,
+    deleteTitle: (name: string) => `彻底删除“${name}”？`,
+    deleteBody:
+      '它的记忆、聊天记录、任务、例行任务、流程、技能和小程序都会删掉，资料库里它写的文件会留下。删了就找不回来了。',
   },
   data: {
     exported: (path: string) => `已导出到 ${path}`,

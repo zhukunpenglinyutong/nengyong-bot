@@ -363,3 +363,30 @@ it('keeps deletions across a reopen', () => {
   store.close()
   expect(texts(createStore(file).history('chief'))).toEqual(['b'])
 })
+
+it('deletes a bot with its chat, task, usage and place in the recycle bin', () => {
+  const lead = { id: 'lead', name: '开源负责人', shape: 'blob' as const, color: '#1E1E22' }
+  const store = createStore(file)
+  store.addBot(lead, '管开源治理')
+  store.saveSidebar(SidebarState.parse({ bots: [MAIN_BOT], dismissed: [{ bot: lead, at: 1 }] }))
+  store.append('lead', { kind: 'user', text: 'a' })
+  store.saveTask(task({ id: 't1', botId: 'lead', requestedBy: 'lead' }))
+  store.append('t1', { kind: 'from-bot', from: 'lead', text: '查版本' })
+  store.addUsage({
+    at: 2,
+    runId: 't1',
+    transcriptId: 't1',
+    botId: 'lead',
+    model: 'deepseek-flash',
+    input: 1,
+    cached: 0,
+    output: 1,
+  })
+  store.deleteBot('lead')
+  expect(store.get().bots.lead).toBeUndefined()
+  expect(store.get().roster).not.toContain('lead')
+  expect(store.get().pending).toEqual([])
+  expect([store.history('lead'), store.range('t1', 1), store.tasksOf('lead', 10)]).toEqual([[], [], []])
+  expect(store.usageRuns(0)).toEqual([])
+  expect(store.sidebar()?.dismissed).toEqual([])
+})

@@ -132,6 +132,7 @@ export function createRemoteBridge(): { bridge: NengyongBotBridge; connection: C
     getSidebar: () => call('getSidebar', []),
     needsOnboarding: async () => false,
     saveSidebar: desktopOnly,
+    deleteBot: desktopOnly,
     getDataDir: desktopOnly,
     openDataDir: desktopOnly,
     moveDataDir: desktopOnly,

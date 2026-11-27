@@ -1,6 +1,7 @@
 export const harness = {
   unknownBot: (id: string) => `未知的 Bot：${id}`,
   noRunningTask: (id: string) => `没有进行中的任务 ${id}`,
+  botNotDismissed: '先在侧边栏让它离职，才能彻底删除',
   chat: {
     attachment: '（附件）',
     traceTitle: '聊天',

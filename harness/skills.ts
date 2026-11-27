@@ -255,7 +255,13 @@ export function createSkills({ dir, store, emit }: SkillsOptions) {
     return folderOf(botId, name)
   }
 
-  return { offer, upload, answer, answerUpload, remove, views, files, file, folder, use }
+  /** Every skill of a bot being deleted, and the cards it left open. */
+  function removeBot(botId: string) {
+    fs.rmSync(path.join(dir, botId), { recursive: true, force: true })
+    for (const [id, offer] of offers) if (offer.view.botId === botId) offers.delete(id)
+  }
+
+  return { offer, upload, answer, answerUpload, remove, removeBot, views, files, file, folder, use }
 }
 
 export type Skills = ReturnType<typeof createSkills>

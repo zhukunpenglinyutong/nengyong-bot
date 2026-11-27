@@ -177,6 +177,12 @@ export function restoreBot(state: SidebarState, id: string): SidebarState {
   return createBot(rest, { ...dismissed.bot, section })
 }
 
+/** Drops a bot from the recycle bin after the harness deleted its data. */
+export function forgetBot(state: SidebarState, id: string): SidebarState {
+  const dismissed = state.dismissed.some(({ bot }) => bot.id === id)
+  return dismissed ? { ...state, dismissed: state.dismissed.filter(({ bot }) => bot.id !== id) } : state
+}
+
 const DAY_MS = 86_400_000
 
 /** Whole days left to restore a bot let go at `at`; 0 once it is gone for good. */

@@ -109,6 +109,14 @@ export function createStore(file: string) {
     'select min(at) as at, run_id as runId, transcript_id as transcriptId, bot_id as botId, model, sum(input) as input, sum(cached) as cached, sum(output) as output from usage where at >= ? group by run_id, transcript_id, bot_id, model',
   )
   const readFirstUsage = db.prepare('select min(at) as at from usage')
+  const deleteEntries = db.prepare(
+    'delete from entries where transcript_id = ? or transcript_id in (select id from tasks where bot_id = ?)',
+  )
+  const deleteDeleted = db.prepare(
+    'delete from deleted where transcript_id = ? or transcript_id in (select id from tasks where bot_id = ?)',
+  )
+  const deleteTasks = db.prepare('delete from tasks where bot_id = ?')
+  const deleteUsage = db.prepare('delete from usage where bot_id = ?')
 
   const value = (key: string) => readValue.get(key)?.value
   let state: HarnessState = load()
@@ -139,6 +147,18 @@ export function createStore(file: string) {
     for (const b of bots) next[b.id] = next[b.id] ? { ...next[b.id], name: b.name } : newBrain(b.id, b.name)
     save({ ...state, bots: next, roster: [...ids, ...pending.map((p) => p.id)], pending })
     return pending
+  }
+
+  /** null until the renderer saves one. */
+  function readSidebar(): SidebarState | null {
+    const stored = value('sidebar')
+    if (typeof stored !== 'string') return null
+    try {
+      const parsed = SidebarState.safeParse(JSON.parse(stored))
+      return parsed.success ? parsed.data : null
+    } catch {
+      return null // not JSON: the renderer starts from its initial sidebar and overwrites it on the next change
+    }
   }
 
   return {
@@ -207,20 +227,39 @@ export function createStore(file: string) {
       })
     },
     /** null until the renderer saves one: it then starts from its initial sidebar. */
-    sidebar(): SidebarState | null {
-      const stored = value('sidebar')
-      if (typeof stored !== 'string') return null
-      try {
-        const parsed = SidebarState.safeParse(JSON.parse(stored))
-        return parsed.success ? parsed.data : null
-      } catch {
-        return null // not JSON: the renderer starts from its initial sidebar and overwrites it on the next change
-      }
-    },
+    sidebar: readSidebar,
     /** Saves the sidebar and syncs the roster with its bots; returns what `syncRoster` returns. */
     saveSidebar(sidebar: SidebarState): NewBot[] {
       writeValue.run('sidebar', JSON.stringify(sidebar))
       return syncRoster(sidebar.bots)
+    },
+    /** Deletes a bot's brain, its chats and tasks with what became of them, its usage, and its place in the recycle bin. */
+    deleteBot(botId: string) {
+      if (!state.bots[botId]) throw new Error(strings().harness.unknownBot(botId))
+      db.exec('begin')
+      try {
+        deleteDeleted.run(botId, botId)
+        deleteEntries.run(botId, botId)
+        deleteTasks.run(botId)
+        deleteUsage.run(botId)
+        db.exec('commit')
+      } catch (error) {
+        db.exec('rollback')
+        throw error
+      }
+      const bots = Object.fromEntries(Object.entries(state.bots).filter(([id]) => id !== botId))
+      save({
+        ...state,
+        bots,
+        roster: state.roster.filter((id) => id !== botId),
+        pending: state.pending.filter((bot) => bot.id !== botId),
+      })
+      const sidebar = readSidebar()
+      if (sidebar?.dismissed.some(({ bot }) => bot.id === botId))
+        writeValue.run(
+          'sidebar',
+          JSON.stringify({ ...sidebar, dismissed: sidebar.dismissed.filter(({ bot }) => bot.id !== botId) }),
+        )
     },
     /** A consistent copy into a new file, safe while the app keeps writing. */
     backupTo(target: string) {

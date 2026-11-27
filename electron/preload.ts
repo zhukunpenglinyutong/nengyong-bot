@@ -45,6 +45,7 @@ const bridge: NengyongBotBridge = {
   getSidebar: () => ipcRenderer.invoke('nengyongbot:getSidebar'),
   needsOnboarding: () => ipcRenderer.invoke('nengyongbot:needsOnboarding'),
   saveSidebar: (sidebar) => ipcRenderer.invoke('nengyongbot:saveSidebar', sidebar),
+  deleteBot: (botId) => ipcRenderer.invoke('nengyongbot:deleteBot', botId),
   getDataDir: () => ipcRenderer.invoke('nengyongbot:getDataDir'),
   openDataDir: () => ipcRenderer.invoke('nengyongbot:openDataDir'),
   moveDataDir: () => ipcRenderer.invoke('nengyongbot:moveDataDir'),

@@ -3,6 +3,7 @@ import type { Strings } from '../../strings'
 export const harness: Strings['harness'] = {
   unknownBot: (id) => `Unknown bot: ${id}`,
   noRunningTask: (id) => `No running task ${id}`,
+  botNotDismissed: 'Let the bot go from the sidebar before deleting it for good',
   chat: {
     attachment: '(attachment)',
     traceTitle: 'Chat',

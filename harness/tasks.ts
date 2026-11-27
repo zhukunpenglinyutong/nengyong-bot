@@ -223,7 +223,13 @@ export function createTaskRunner(options: TaskRunnerOptions) {
     publish(task.botId)
   }
 
-  return { start, startRoutine, stop, startWaiting }
+  /** Stops what a bot being deleted still runs or has waiting; its rows go with the bot. */
+  function stopBot(botId: string) {
+    waiting = waiting.filter((id) => store.task(id)?.botId !== botId)
+    for (const [id, controller] of running) if (store.task(id)?.botId === botId) controller.abort()
+  }
+
+  return { start, startRoutine, stop, stopBot, startWaiting }
 }
 
 export type TaskRunner = ReturnType<typeof createTaskRunner>

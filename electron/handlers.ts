@@ -207,6 +207,7 @@ export function createHandlers({ home, dataDir, store, emit, window, onLanguageC
         if (!known.has(id) && id !== MAIN_BOT_ID) emit({ kind: 'entry', botId: id, entry: welcome(store, id) })
       return shown
     },
+    deleteBot: (botId) => harness.deleteBot(BotId.parse(botId)),
     getModelServices: () => modelServices.view(),
     listModels: (accountId) => modelServices.listModels(accountId),
     saveAccount: async (input, use) => withModelsShown(await modelServices.saveAccount(input, use)),
