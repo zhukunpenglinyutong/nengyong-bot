@@ -158,7 +158,8 @@ export function createHarness(options: HarnessOptions) {
       const { system, messages, tools, context } = chatInput(botId)
       let counted: ContextView = context
       emit({ kind: 'context', botId, context })
-      await runTurn({
+      const maxSteps = limits().chatSteps
+      const { finishReason } = await runTurn({
         store,
         workspace,
         emit,
@@ -169,7 +170,7 @@ export function createHarness(options: HarnessOptions) {
         system,
         messages,
         tools,
-        maxSteps: limits().chatSteps,
+        maxSteps,
         silenceSeconds: limits().modelSilenceSeconds,
         stopSignal: stop.signal,
         onDraft: (text) => emit({ kind: 'draft', botId, text }),
@@ -190,6 +191,7 @@ export function createHarness(options: HarnessOptions) {
         },
       })
       if (isDebug) emit({ kind: 'context', botId, context: chatInput(botId).context }) // with this turn's reply in it
+      if (finishReason === 'tool-calls') throw new Error(strings().harness.chat.outOfSteps(maxSteps))
     } catch (error) {
       if (!stop.signal.aborted) throw error
     } finally {

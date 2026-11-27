@@ -704,6 +704,16 @@ describe('harness turn', () => {
     )
   })
 
+  it('tells the user a reply that used up its steps mid-work may be unfinished, instead of stopping quietly', async () => {
+    const working = () => step('再记一条', [{ name: 'remember', input: { text: '喜欢简洁', scope: 'user' } }])
+    const model = new MockLanguageModelV4({ doStream: [working(), working()] })
+    const { harness } = setup(model, () => ({ chatSteps: 2 }))
+    await harness.send('chief', '把我的偏好都记下来')
+    expect(events).toContainEqual(
+      expect.objectContaining({ kind: 'error', message: expect.stringContaining('用完了 2 步') }),
+    )
+  })
+
   it('finds an old message by keyword and opens it with the conversation around it', async () => {
     const model = new MockLanguageModelV4({
       doStream: [
@@ -1321,7 +1331,7 @@ describe('background tasks', () => {
     await vi.waitFor(() => expect(statuses()).toEqual(['done', 'done']))
   })
 
-  it('marks tasks that were running when the app quit as interrupted, without starting a turn', () => {
+  it('marks tasks that were running when the app quit as interrupted and says so in the chat that started them, without starting a turn', () => {
     const model = scriptedModel({ chat: [], task: [] })
     const { store } = setup(model)
     const task = {
@@ -1348,6 +1358,9 @@ describe('background tasks', () => {
       limits: () => DEFAULT_LIMITS,
     })
     expect(['t1', 't2', 't3'].map((id) => store.task(id)?.status)).toEqual(['interrupted', 'interrupted', 'done'])
+    const results = store.history('chief').flatMap((entry) => (entry.kind === 'task-result' ? [entry] : []))
+    expect(results.map((entry) => entry.taskId).sort()).toEqual(['t1', 't2'])
+    expect(results[0]).toMatchObject({ status: 'failed', title: '调研', text: expect.stringContaining('被打断') })
     expect(model.doStreamCalls).toHaveLength(0)
   })
 

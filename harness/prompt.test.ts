@@ -174,6 +174,12 @@ it('tells the chat its tasks can run commands, and that older memories saying ot
   expect(system).toContain('记忆或摘要里和它冲突的旧说法')
 })
 
+it('tells the chat to start a task before saying it has, and never to promise work it started no task for', () => {
+  const system = chatSystem(state, null, bot, [], [], 5, MODELS)
+  expect(system).toContain('先调用 start_task，拿到返回后再用一句话告诉用户你开了任务')
+  expect(system).toContain('没调用 start_task 就不要说')
+})
+
 it('tells a task it cannot hand work to another bot, and to say in its result who should do what', () => {
   expect(taskSystem(state, bot, [], undefined, undefined)).toContain('你不能再开任务、派活给别的 Bot')
 })

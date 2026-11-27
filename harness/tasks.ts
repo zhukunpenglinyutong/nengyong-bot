@@ -43,7 +43,17 @@ export function createTaskRunner(options: TaskRunnerOptions) {
   const running = new Map<string, AbortController>()
   let waiting: string[] = []
   const publish = (botId: string) => emit({ kind: 'tasks', botId, tasks: taskViews(store, botId) })
-  for (const task of store.unfinishedTasks()) store.saveTask({ ...task, status: 'interrupted', endedAt: Date.now() })
+  for (const task of store.unfinishedTasks()) {
+    store.saveTask({ ...task, status: 'interrupted', endedAt: Date.now() })
+    store.append(task.requestedBy, {
+      kind: 'task-result',
+      taskId: task.id,
+      title: task.title,
+      status: 'failed',
+      text: strings().harness.tasks.interrupted,
+      flowId: task.flowId,
+    })
+  }
 
   function start({ brief, ...fields }: NewTask): Task {
     const status = running.size < limits().runningTasks ? 'running' : 'waiting'

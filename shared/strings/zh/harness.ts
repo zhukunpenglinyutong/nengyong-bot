@@ -6,6 +6,7 @@ export const harness = {
     traceTitle: '聊天',
     quoteMissing: '要回复的那条消息不在这段聊天里',
     noModel: '未设置',
+    outOfSteps: (maxSteps: number) => `这一轮用完了 ${maxSteps} 步还没做完，回复可能没写完。跟它说「继续」就能接着做`,
   },
   modelErrors: {
     noKey: '还没有设置 API Key',
@@ -33,6 +34,7 @@ export const harness = {
   tasks: {
     noConclusion: '任务结束了，但没有写出结论',
     timedOut: '超时：任务运行太久仍未完成，已中止',
+    interrupted: '应用在任务进行中退出了，任务被打断，没有做完',
     outOfSteps: (lastStatus: string | undefined) => `步数用完仍未完成${lastStatus ? `，停在「${lastStatus}」` : ''}`,
     resultClipped: (length: number, ref: string) =>
       `（结论共 ${length} 字，全文用 read_history 打开 ${ref}，按提示续读）`,

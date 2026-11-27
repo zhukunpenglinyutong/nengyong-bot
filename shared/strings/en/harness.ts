@@ -8,6 +8,8 @@ export const harness: Strings['harness'] = {
     traceTitle: 'Chat',
     quoteMissing: 'The message you are replying to is not in this chat',
     noModel: 'Not set',
+    outOfSteps: (maxSteps) =>
+      `This turn used all ${maxSteps} steps before finishing, so the reply may be incomplete. Say “continue” to pick it up`,
   },
   modelErrors: {
     noKey: 'No API key is set yet',
@@ -38,6 +40,7 @@ export const harness: Strings['harness'] = {
   tasks: {
     noConclusion: 'The task ended without writing a conclusion',
     timedOut: 'Timed out: the task ran too long without finishing and was stopped',
+    interrupted: 'The app quit while the task was running, so it was cut off before finishing',
     outOfSteps: (lastStatus) => `Out of steps before finishing${lastStatus ? `, stopped at “${lastStatus}”` : ''}`,
     resultClipped: (length, ref) =>
       ` (the conclusion has ${length} characters; open ${ref} with read_history for all of it, reading on as it says)`,
