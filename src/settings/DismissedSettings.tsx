@@ -13,7 +13,7 @@ interface Props {
 
 const REFRESH_MS = 60_000
 
-/** 离职冷静期: the bots let go lately, each restorable until its days run out. */
+/** Bot 回收站: the bots let go lately, each restorable until its days run out. */
 export function DismissedSettings({ dismissed, onRestore }: Props) {
   const words = strings().settings.dismissed
   const now = useNow(REFRESH_MS)

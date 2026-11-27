@@ -53,7 +53,7 @@ export const sidebar: Strings['sidebar'] = {
     letGo: 'Let go…',
     letGoTitle: (name) => `Let “${name}” go`,
     letGoBody: (days) =>
-      `It leaves the sidebar and waits in Settings › Cooling-off for ${plural(days, 'day')}, with its memories and chats, ready to be restored. After that it is gone for good.`,
+      `It leaves the sidebar and sits in Settings › Bot recycle bin for ${plural(days, 'day')}, with its memories and chats, ready to be restored. After that it is gone for good.`,
     letGoConfirm: 'Let go',
     staffNumber: (number) => `Staff no. ${number}`,
     pin: 'Pin',

@@ -134,7 +134,7 @@ export function chatTools({ botId, store, emit, tasks, limits, models }: ChatCon
     ...(botId === MAIN_BOT_ID
       ? {
           dismiss_bot: tool({
-            description: `让一个 Bot 离职：它离开侧边栏，在设置「离职冷静期」里留 ${DISMISSED_KEEP_DAYS} 天，期间用户能恢复，之后再也找不回。用户明确同意了才用。`,
+            description: `让一个 Bot 离职：它离开侧边栏，在设置「Bot 回收站」里放 ${DISMISSED_KEEP_DAYS} 天，期间用户能恢复，之后再也找不回。用户明确同意了才用。`,
             inputSchema: z.object({ botId: z.string().describe('要离职的 Bot 的 id') }),
             execute: async ({ botId: target }) => {
               if (target === MAIN_BOT_ID) throw new Error('主 Bot 不能离职')

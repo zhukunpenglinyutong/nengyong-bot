@@ -22,10 +22,10 @@ export const settings: Strings['settings'] = {
       "Shows recent tasks in the bot's panel, and the context, each turn's trace and memory changes on the island. You can also switch it from the island.",
   },
   dismissed: {
-    title: 'Cooling-off',
+    title: 'Bot recycle bin',
     intro: (days) =>
-      `A bot you let go waits here for ${plural(days, 'day')} and can be restored any time: back in its section, with its memories, chats and routines. After that it is gone for good.`,
-    empty: 'No bots have been let go.',
+      `A bot you let go sits in the recycle bin for ${plural(days, 'day')} and can be restored any time: back in its section, with its memories, chats and routines. After that it is gone for good.`,
+    empty: 'The recycle bin is empty.',
     daysLeft: (days) => `${plural(days, 'day')} left`,
     restore: 'Restore',
     restoreBot: (name) => `Restore ${name}`,
@@ -54,7 +54,7 @@ export const settings: Strings['settings'] = {
       tools: 'Tools',
       devices: 'Devices',
       data: 'Data',
-      dismissed: 'Cooling-off',
+      dismissed: 'Bot recycle bin',
       usage: 'Usage',
       nengyongKey: 'Nengyong Key',
       limits: 'Limits',

@@ -219,7 +219,7 @@ describe('bot menu', () => {
     expect(screen.getByRole('textbox', { name: '跟 小满 说点什么' })).toBeInTheDocument()
   })
 
-  it('brings a bot that was let go back from 离职冷静期 in the settings', async () => {
+  it('brings a bot that was let go back from the Bot recycle bin in the settings', async () => {
     const { user } = renderDemoApp()
     openMenu(row(/Bug 反馈整理/))
     await user.click(item('离职…'))
@@ -228,10 +228,10 @@ describe('bot menu', () => {
     )
     await user.click(screen.getByRole('button', { name: '设置' }))
     const dialog = await screen.findByRole('dialog', { name: '模型服务' })
-    await user.click(within(dialog).getByRole('button', { name: '离职冷静期' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Bot 回收站' }))
     expect(within(dialog).getByText('还剩 7 天')).toBeInTheDocument()
     await user.click(within(dialog).getByRole('button', { name: '恢复 Bug 反馈整理' }))
-    expect(within(dialog).getByText('没有离职的 Bot。')).toBeInTheDocument()
+    expect(within(dialog).getByText('回收站是空的。')).toBeInTheDocument()
     expect(row(/Bug 反馈整理/)).toBeInTheDocument()
   })
 

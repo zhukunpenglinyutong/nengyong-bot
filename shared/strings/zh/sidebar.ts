@@ -50,7 +50,7 @@ export const sidebar = {
     letGo: '离职…',
     letGoTitle: (name: string) => `让“${name}”离职`,
     letGoBody: (days: number) =>
-      `离职后它会离开侧边栏，在设置「离职冷静期」里留 ${days} 天，期间随时能恢复，记忆和聊天记录都在；过了 ${days} 天就再也找不回了。`,
+      `离职后它会离开侧边栏，在设置「Bot 回收站」里放 ${days} 天，期间随时能恢复，记忆和聊天记录都在；过了 ${days} 天就再也找不回了。`,
     letGoConfirm: '离职',
     staffNumber: (number: string) => `工号 ${number}`,
     pin: '置顶',

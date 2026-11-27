@@ -36,7 +36,7 @@ const PAGES: { page: Exclude<SettingsPage, 'releases'>; label: string; icon: Ico
   { page: 'tools', label: strings().settings.dialog.pages.tools, icon: 'plug' },
   { page: 'devices', label: strings().settings.dialog.pages.devices, icon: 'phone' },
   { page: 'data', label: strings().settings.dialog.pages.data, icon: 'folder' },
-  { page: 'dismissed', label: strings().settings.dialog.pages.dismissed, icon: 'leave' },
+  { page: 'dismissed', label: strings().settings.dialog.pages.dismissed, icon: 'trash' },
   { page: 'usage', label: strings().settings.dialog.pages.usage, icon: 'chart' },
   { page: 'limits', label: strings().settings.dialog.pages.limits, icon: 'sliders', isDebugOnly: true },
 ]

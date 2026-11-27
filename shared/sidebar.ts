@@ -13,7 +13,7 @@ export interface SidebarState {
   seenAt: Record<string, number> // botId -> when the user last opened or left its chat; a task that failed before then is not flagged
   ungroupedCollapsed: boolean
   hiddenCollapsed: boolean
-  dismissed: Dismissed[] // let go in the last DISMISSED_KEEP_DAYS days, out of `bots`; 设置「离职冷静期」restores them
+  dismissed: Dismissed[] // let go in the last DISMISSED_KEEP_DAYS days, out of `bots`; 设置「Bot 回收站」restores them
 }
 
 /** A bot let go: its look, and the section it was in so restoring puts it back there. */

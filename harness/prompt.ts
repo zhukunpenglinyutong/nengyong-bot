@@ -60,7 +60,7 @@ const SKILL_RULES = [
 const MAIN_SKILL_RULE =
   '- 你是主 Bot：每个 Bot 的技能你都能用（写成「Bot id/名字」），install_skill 和 remove_skill 也能填 botId 替别的 Bot 装、卸。但事情本来归哪个 Bot 管，就派给它做（start_task 填 botId），不要拿它的技能自己做。提到别的 Bot 的技能写成 [名字](skill:Bot id/名字)。'
 
-const MAIN_DISMISS_RULE = `- 用户要让某个 Bot 离职（删掉、不要了）时，用 dismiss_bot：先说清是哪几个，用户同意了再做。离职的 Bot 在设置「离职冷静期」里留 ${DISMISSED_KEEP_DAYS} 天，用户在那里能恢复，之后再也找不回；你没法恢复，用户要恢复就请他去那里点「恢复」。`
+const MAIN_DISMISS_RULE = `- 用户要让某个 Bot 离职（删掉、不要了）时，用 dismiss_bot：先说清是哪几个，用户同意了再做。离职的 Bot 在设置「Bot 回收站」里放 ${DISMISSED_KEEP_DAYS} 天，用户在那里能恢复，之后再也找不回；你没法恢复，用户要恢复就请他去那里点「恢复」。`
 
 const miniAppFilesLine = (app: MiniApp) => {
   const { version } = latestVersion(app)
