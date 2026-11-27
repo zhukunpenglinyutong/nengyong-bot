@@ -11,7 +11,7 @@ interface Props {
   onPick: (kind: SkillUploadKind) => void
 }
 
-/** The skills tab's 上传技能 button: a menu of what to upload from this computer, a skill folder or an archive. */
+/** The skills tab's 上传技能 icon button: a menu of what to upload from this computer, a skill folder or an archive. */
 export function SkillUploader({ botName, isMain, isPicking, onPick }: Props) {
   const words = strings().skills.upload
   const items: MenuEntry[] = [
@@ -23,11 +23,12 @@ export function SkillUploader({ botName, isMain, isPicking, onPick }: Props) {
     <MenuButton
       menuLabel={words.title}
       items={items}
+      aria-label={words.title}
+      title={words.title}
       disabled={isPicking}
-      className="inline-flex h-7 items-center gap-1 rounded-full px-2.5 text-sm text-soft disabled:opacity-40"
+      className="grid size-7 shrink-0 place-items-center rounded-full text-soft disabled:opacity-40"
     >
       <Icon name="upload" size={15} />
-      {words.title}
     </MenuButton>
   )
 }

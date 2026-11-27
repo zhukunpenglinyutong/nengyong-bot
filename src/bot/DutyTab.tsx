@@ -84,10 +84,8 @@ function KeyResultRow({ keyResult: { text, window, source, progress } }: { keyRe
   const words = strings().bot.duty
   return (
     <div className="px-3 pt-2.5 pb-3 text-sm leading-[1.4]">
-      <span className="flex items-baseline gap-2">
-        <span className="min-w-0 flex-1 text-ink">{text}</span>
-        <span className="shrink-0 text-soft tabular-nums">{progress?.text ?? words.noProgress}</span>
-      </span>
+      <span className="block text-ink">{text}</span>
+      <span className="mt-1 block text-xs text-soft tabular-nums">{progress?.text ?? words.noProgress}</span>
       <span className="mt-1.5 block h-1 overflow-hidden rounded-full bg-bubble">
         <span
           data-verdict={progress?.verdict}

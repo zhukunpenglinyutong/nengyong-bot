@@ -277,7 +277,7 @@ src/        渲染进程（React）。只 import shared。
   <button role="switch" aria-checked={on} className="h-5 w-8 bg-line aria-checked:bg-ink" />
   ```
 
-- **能点的就用 `<button>` 或 `<a href>`，三种反馈由 `src/index.css` 的 base 层统一给出：** 小手；悬停和键盘聚焦时，在按钮原有背景上叠一层 8% 的文字色（白底变灰，黑底变亮）；按下时缩到 0.97。组件里不写 `cursor-pointer`、`cursor-default`，也不写 `hover:bg-*`、`focus:bg-*`。选中态照常写（`aria-current:bg-hover`），悬停叠色会自动叠在它上面。不能点的时候用 `disabled` 或 `aria-disabled`，三种反馈会一起去掉。`<div onClick>` Biome 会拦，其余写法 `conventions.test.ts` 会拦。
+- **能点的就用 `<button>` 或 `<a href>`，两种反馈由 `src/index.css` 的 base 层统一给出：** 小手；悬停和键盘聚焦时，在按钮原有背景上叠一层 8% 的文字色（白底变灰，黑底变亮）。按下时什么都不变，不缩放（`active:scale-*`、`whileTap` 都不写）：宽的按钮一缩，两边会露出一道缝。组件里不写 `cursor-pointer`、`cursor-default`，也不写 `hover:bg-*`、`focus:bg-*`。选中态照常写（`aria-current:bg-hover`），悬停叠色会自动叠在它上面。不能点的时候用 `disabled` 或 `aria-disabled`，两种反馈会一起去掉。`<div onClick>` Biome 会拦，其余写法 `conventions.test.ts` 会拦。
 - **点下去，结果要看得见。** 结果自己就在眼前的（开关翻过来、列表变了、窗口开了）不用另说；结果不在眼前的（复制、自动保存、存到别处），就在用户点的地方说一句，过两秒自己消失：用 `ui/useFlash`，比如按钮文字换成「已保存」。失败一定要说出来，不能只进 console。复制只走 `ui/useCopy`，菜单项写 `copy: 文本`，两者都会在原地显示「已复制」或「复制失败」（`conventions.test.ts` 会拦）。
 - **重复的样式抽成组件，不导出 class 字符串常量。** 要的是 `<IconButton>`，不是 `circleBtn`。
 - class 串写在一行，不在模板字符串里换行。

@@ -46,7 +46,7 @@ export function Pill({ isOn, onClick, children }: PillProps) {
       type="button"
       onClick={onClick}
       aria-pressed={isOn}
-      className="relative inline-flex h-7 items-center rounded-full bg-bubble px-3 text-sm text-soft transition-colors duration-150 aria-pressed:text-canvas"
+      className="relative inline-flex h-7 shrink-0 items-center whitespace-nowrap rounded-full bg-bubble px-3 text-sm text-soft transition-colors duration-150 aria-pressed:text-canvas"
     >
       {isOn && <motion.span layoutId="pill-bg" transition={SPRING} className="absolute inset-0 rounded-full bg-ink" />}
       <span className="relative inline-flex items-center gap-1.5">{children}</span>

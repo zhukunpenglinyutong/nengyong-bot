@@ -91,7 +91,7 @@ body {
   }
 }
 
-/* Tailwind v4's preflight leaves buttons with the arrow cursor and no hover or press state; every clickable
+/* Tailwind v4's preflight leaves buttons with the arrow cursor and no hover state; every clickable
    gets them here, in the base layer so a utility can still override. The hover tint is a layer of the text
    colour over whatever background the button has: white darkens, ink lightens, nothing to pick per button. */
 @layer base {
@@ -109,9 +109,6 @@ body {
     &[role^="menuitem"]:focus,
     &[role="option"][aria-selected="true"] {
       background-image: linear-gradient(var(--hover-tint), var(--hover-tint));
-    }
-    &:active {
-      scale: 0.97;
     }
   }
   /* a text field dressed as plain text (the panel's bot name) tints on hover the same way, so it reads as editable */

@@ -136,7 +136,7 @@ function ServerRow({ server }: { server: McpServerView }) {
         type="button"
         aria-expanded={isOpen}
         onClick={() => setIsOpen(!isOpen)}
-        className="group flex w-full items-center justify-between gap-8 bg-none px-5 py-4 text-left active:scale-100"
+        className="group flex w-full items-center justify-between gap-8 bg-none px-5 py-4 text-left"
       >
         <span className="min-w-0">
           <span className="block text-md text-ink">{server.name}</span>

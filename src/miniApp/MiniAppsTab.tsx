@@ -37,15 +37,12 @@ export function MiniAppsTab({ miniApps, runs, tasks, thumbUrl, onFill }: Props) 
             const status = run && runStatus(run, latest.version, now)
             const isEditing = isBeingChanged(app.id, tasks)
             return (
-              <li
-                key={app.id}
-                className="relative overflow-hidden rounded-lg bg-surface shadow-ring has-[button:active]:scale-97"
-              >
+              <li key={app.id} className="relative overflow-hidden rounded-lg bg-surface shadow-ring">
                 <MiniAppThumb src={thumbUrl(app)} height={100} />
                 <button
                   type="button"
                   onClick={(event) => openMiniApp(app.id, event.currentTarget)}
-                  className="flex w-full flex-col gap-0.5 border-t border-line px-2.5 pt-2 pb-2.5 text-left after:absolute after:inset-0 active:scale-none"
+                  className="flex w-full flex-col gap-0.5 border-t border-line px-2.5 pt-2 pb-2.5 text-left after:absolute after:inset-0"
                 >
                   <span className="flex items-center gap-1.5">
                     <MiniAppTile app={app} size={20} />
