@@ -74,6 +74,7 @@ const NO_ENTRIES: Record<Entry['kind'], number> = {
   'from-bot': 0,
   routine: 0,
   'task-result': 0,
+  'skill-answer': 0,
   tool: 0,
 }
 

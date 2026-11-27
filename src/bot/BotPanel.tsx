@@ -26,7 +26,9 @@ import { Segmented } from '../ui/Segmented'
 import { Switch } from '../ui/Switch'
 import { useNow } from '../ui/useNow'
 import { BotBadge } from './BotBadge'
-import { FlowsTab } from './FlowsTab'
+import type { SkillFilesTarget, SkillReader } from '../skills/SkillFilesDialog'
+import type { SkillUploads } from '../skills/useSkillUpload'
+import { type Ability, AbilitiesTab } from './AbilitiesTab'
 import type { Look } from './LookPicker'
 import { PanelCard, PanelEmpty, PanelSectionTitle } from './PanelCard'
 import { ModelTag, PanelModels } from './PanelModels'
@@ -41,10 +43,15 @@ interface Props {
   panel: PanelData
   isDebug: boolean // recent tasks are for whoever debugs the bot, hidden otherwise
   tab: PanelTab
-  openFlowId: string | null // the flow the 流程 tab shows; the list when null or gone
+  ability: Ability // what the 能力 tab shows
   onTab: (tab: PanelTab) => void
-  onOpenFlow: (flowId: string | null) => void // also switches to the 流程 tab
+  onAbility: (ability: Ability) => void
+  onOpenFlow: (flowId: string | null) => void // also switches to the 能力 tab
   onFill: (text: string) => void // puts a message in the box for the user to finish and send
+  skillReader: SkillReader
+  onOpenSkillFiles: (target: SkillFilesTarget) => void
+  onRemoveSkill?: (botId: string, names: string[]) => Promise<void> // absent on a device: skills are removed on the computer
+  skillUploads?: SkillUploads // absent on a device: skills are uploaded on the computer
   miniAppRuns: Run[] // of its mini apps that have been opened: how each is doing
   thumbUrl: (app: MiniApp) => string
   onOpenMiniApp: (miniAppId: string, from: Element) => void
@@ -57,12 +64,12 @@ interface Props {
   onPickOutfit?: (outfit: OutfitId[]) => void
 }
 
-export const PanelTab = z.enum(['feed', 'flows', 'miniApps', 'library']).catch('feed')
+export const PanelTab = z.enum(['feed', 'abilities', 'miniApps', 'library']).catch('feed')
 export type PanelTab = z.infer<typeof PanelTab>
 
 const TABS = [
   { id: 'feed', label: strings().bot.panel.tabs.feed, icon: 'pulse' },
-  { id: 'flows', label: strings().bot.panel.tabs.flows, icon: 'flow' },
+  { id: 'abilities', label: strings().bot.panel.tabs.abilities, icon: 'skill' },
   { id: 'miniApps', label: strings().bot.panel.tabs.miniApps, icon: 'cube' },
   { id: 'library', label: strings().bot.panel.tabs.library, icon: 'folder' },
 ] as const satisfies readonly { id: PanelTab; label: string; icon: IconName }[]
@@ -74,10 +81,15 @@ export function BotPanel({
   panel,
   isDebug,
   tab,
-  openFlowId,
+  ability,
   onTab,
+  onAbility,
   onOpenFlow,
   onFill,
+  skillReader,
+  onOpenSkillFiles,
+  onRemoveSkill,
+  skillUploads,
   miniAppRuns,
   thumbUrl,
   onOpenMiniApp,
@@ -103,14 +115,19 @@ export function BotPanel({
             onOpenFlow={onOpenFlow}
           />
         )
-      case 'flows':
+      case 'abilities':
         return (
-          <FlowsTab
-            flows={panel.flows}
-            tasks={panel.tasks}
-            openFlowId={openFlowId}
-            onOpen={onOpenFlow}
+          <AbilitiesTab
+            bot={bot}
+            bots={bots}
+            panel={panel}
+            ability={ability}
+            onAbility={onAbility}
             onFill={onFill}
+            reader={skillReader}
+            onOpenSkillFiles={onOpenSkillFiles}
+            onRemoveSkill={onRemoveSkill}
+            skillUploads={skillUploads}
           />
         )
       case 'miniApps':

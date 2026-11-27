@@ -82,6 +82,7 @@ export function useHarness(bridge: NengyongBotBridge, options: Options) {
       case 'activity':
       case 'routines':
       case 'flows':
+      case 'skills':
       case 'mini-apps':
       case 'mini-app-data':
       case 'library':

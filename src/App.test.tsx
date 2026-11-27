@@ -155,13 +155,28 @@ function fakeBridge(hasModel = true): NengyongBotBridge {
     history: vi.fn(async () => []),
     deleteMessages: vi.fn(async () => {}),
     previews: vi.fn(async () => ({ repo: '明天 **10 点** 开会，见 [CEO](bot:chief)' })),
-    panel: vi.fn(async () => ({ routines: [], flows: [], miniApps: [], library: [], tasks: [], models: NO_MODELS })),
+    panel: vi.fn(async () => ({
+      routines: [],
+      flows: [],
+      skills: [],
+      miniApps: [],
+      library: [],
+      tasks: [],
+      models: NO_MODELS,
+    })),
     tasksAndRoutines: vi.fn(async () => ({})),
     context: vi.fn(async () => null),
     setDebug: vi.fn(async () => {}),
     setRoutineEnabled: vi.fn(async () => {}),
     openLibraryItem: vi.fn(async () => {}),
     stopTask: vi.fn(async () => {}),
+    answerSkillOffer: vi.fn(async () => {}),
+    uploadSkill: vi.fn(async () => null),
+    answerSkillUpload: vi.fn(async () => {}),
+    removeSkills: vi.fn(async () => {}),
+    skillFiles: vi.fn(async () => []),
+    skillFile: vi.fn(async () => null),
+    revealSkill: vi.fn(async () => {}),
     getSidebar: vi.fn(async () => null),
     needsOnboarding: vi.fn(async () => false),
     saveSidebar: vi.fn(async () => []),
@@ -514,7 +529,15 @@ describe('App on a scripted bridge', () => {
     ]
     bridge = {
       ...fakeBridge(),
-      panel: vi.fn(async () => ({ routines: [], flows: [], miniApps: [], library: [], tasks, models: NO_MODELS })),
+      panel: vi.fn(async () => ({
+        routines: [],
+        flows: [],
+        skills: [],
+        miniApps: [],
+        library: [],
+        tasks,
+        models: NO_MODELS,
+      })),
     }
     renderApp()
     const list = await screen.findByRole('list', { name: '后台任务' })
@@ -539,7 +562,15 @@ describe('App on a scripted bridge', () => {
     ]
     bridge = {
       ...fakeBridge(),
-      panel: vi.fn(async () => ({ routines: [], flows: [], miniApps: [], library: [], tasks, models: NO_MODELS })),
+      panel: vi.fn(async () => ({
+        routines: [],
+        flows: [],
+        skills: [],
+        miniApps: [],
+        library: [],
+        tasks,
+        models: NO_MODELS,
+      })),
     }
     const user = userEvent.setup()
     renderApp()
@@ -1245,6 +1276,7 @@ describe('the island at the top of the chat', () => {
       panel: vi.fn(async () => ({
         routines: [],
         flows: [],
+        skills: [],
         miniApps: [],
         library: [],
         tasks: [running],

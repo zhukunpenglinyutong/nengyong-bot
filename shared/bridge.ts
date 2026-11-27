@@ -9,6 +9,7 @@ import type { Language } from './language'
 import type { MiniApp } from './miniApp'
 import type { AccountInput, AccountUse, ModelChoice, ModelServicesView } from './modelServices'
 import type { SidebarState } from './sidebar'
+import type { SkillFileView, SkillOffer, SkillRef, SkillUploadKind, SkillView } from './skill'
 import type { Price, UsageView } from './usage'
 
 /** The contract between the Electron main process (harness) and the renderer. */
@@ -43,6 +44,17 @@ export interface NengyongBotBridge {
   setDebug: (isOn: boolean) => Promise<void> // context and trace events are sent only while debug mode is on
   setRoutineEnabled: (botId: string, routineId: string, isEnabled: boolean) => Promise<void>
   openLibraryItem: (path: string) => Promise<void> // relative to the library, or absolute inside it
+  // the user's answer to an install card in botId's chat: the skills to install, none to turn it down; throws a
+  // readable reason once the card has expired
+  answerSkillOffer: (botId: string, offer: string, names: string[]) => Promise<void>
+  // asks for a skill folder or archive on this computer and reads the skills in it for botId; null when cancelled
+  uploadSkill: (botId: string, kind: SkillUploadKind) => Promise<SkillOffer | null>
+  // the user's answer to the card an upload showed in botId's panel, as above; nothing goes in the chat
+  answerSkillUpload: (botId: string, offer: string, names: string[]) => Promise<void>
+  removeSkills: (botId: string, names: string[]) => Promise<void> // of that bot, all or none; their folders are deleted
+  skillFiles: (ref: SkillRef) => Promise<SkillFileView[]> // for the files dialog, SKILL.md first
+  skillFile: (ref: SkillRef, path: string) => Promise<string | null> // its text; null when it is not text or too big
+  revealSkill: (botId: string, name: string) => Promise<void> // shows its folder in Finder
   stopTask: (botId: string, taskId: string) => Promise<void> // only a task this bot runs
   getSidebar: () => Promise<SidebarState | null> // null until the first save
   needsOnboarding: () => Promise<boolean> // the onboarding has not run yet: it comes first, even over saved data
@@ -117,6 +129,14 @@ export const Entry = z.discriminatedUnion('kind', [
     model: z.string().optional(), // what it ran on, absent on results from before it was recorded
     fallbackFrom: z.string().optional(), // as on a bot entry
   }), // what a task handed back to the chat of the bot that started it
+  // the user's answer to an install card in this chat: the skills ticked, installed on `botId`; none when turned down
+  z.object({
+    ...stamp,
+    kind: z.literal('skill-answer'),
+    offer: z.string(),
+    botId: z.string(),
+    names: z.array(z.string()),
+  }),
   z.object({
     ...stamp,
     kind: z.literal('tool'),
@@ -144,6 +164,7 @@ export type HarnessEvent =
   | { kind: 'bot-renamed'; botId: string; name: string }
   | { kind: 'routines'; botId: string; routines: RoutineView[] }
   | { kind: 'flows'; botId: string; flows: Flow[] }
+  | { kind: 'skills'; botId: string; skills: SkillView[] } // what its panel lists: the main bot's lists every bot's
   | { kind: 'mini-apps'; botId: string; miniApps: MiniApp[] }
   | { kind: 'mini-app-data'; botId: string; miniAppId: string; data: unknown; dataAt: number } // a task put new data in
   | { kind: 'library'; botId: string; library: LibraryItem[] }
@@ -214,6 +235,7 @@ export type TasksAndRoutines = Pick<PanelData, 'tasks' | 'routines'>
 export interface PanelData {
   routines: RoutineView[]
   flows: Flow[]
+  skills: SkillView[] // its own; the main bot's are every bot's, since it can use them all
   miniApps: MiniApp[]
   library: LibraryItem[]
   tasks: TaskView[]

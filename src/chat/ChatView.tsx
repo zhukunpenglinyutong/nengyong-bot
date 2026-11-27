@@ -6,6 +6,8 @@ import type { Flow } from '../../shared/flow'
 import type { MiniApp } from '../../shared/miniApp'
 import { plainText } from '../../shared/plainText'
 import type { SidebarState } from '../../shared/sidebar'
+import type { SkillView } from '../../shared/skill'
+import type { SkillFilesTarget } from '../skills/SkillFilesDialog'
 import type { SendKey } from '../preferences'
 import { BotAvatar } from '../bot/BotAvatar'
 import { ViewingMiniApp } from '../miniApp/ViewingMiniApp'
@@ -42,6 +44,10 @@ interface Props {
   onOpenBot: (botId: string) => void
   flows: Flow[] // for resolving [name](flow:id) mentions in replies
   onOpenFlow: (flowId: string) => void
+  skills: SkillView[] // for resolving [name](skill:…) mentions in replies
+  onOpenSkill: (botId: string, name: string) => void
+  onAnswerSkillOffer?: (offer: string, names: string[]) => Promise<void> // an install card's buttons; absent on a device, which only looks
+  onOpenSkillFiles: (target: SkillFilesTarget) => void
   miniApps: MiniApp[] // for resolving [name](app:id) links in replies
   onOpenMiniApp: (miniAppId: string, from: Element) => void
   thumbUrl: (app: MiniApp) => string
@@ -90,6 +96,10 @@ export function ChatView({
   onOpenBot,
   flows,
   onOpenFlow,
+  skills,
+  onOpenSkill,
+  onAnswerSkillOffer,
+  onOpenSkillFiles,
   miniApps,
   onOpenMiniApp,
   thumbUrl,
@@ -215,6 +225,7 @@ export function ChatView({
           </div>
           <MentionContext
             value={{
+              chatBotId: bot.id,
               bots: sidebar.bots,
               open: jumpTo,
               flows,
@@ -224,6 +235,10 @@ export function ChatView({
               thumbUrl,
               fileUrl: attachmentUrl,
               openFile: onOpenFile,
+              skills,
+              openSkill: onOpenSkill,
+              answerSkillOffer: onAnswerSkillOffer,
+              openSkillFiles: onOpenSkillFiles,
             }}
           >
             <MessageList

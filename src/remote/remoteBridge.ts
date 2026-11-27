@@ -117,6 +117,14 @@ export function createRemoteBridge(): { bridge: NengyongBotBridge; connection: C
       window.open(REMOTE_API.library + pathOf(path), '_blank', 'noopener')
     },
     stopTask: (botId, taskId) => call('stopTask', [botId, taskId]),
+    // installing, removing and the Finder belong to the computer; a device only looks at a skill's files
+    answerSkillOffer: desktopOnly,
+    uploadSkill: desktopOnly,
+    answerSkillUpload: desktopOnly,
+    removeSkills: desktopOnly,
+    skillFiles: (ref) => call('skillFiles', [ref]),
+    skillFile: (ref, path) => call('skillFile', [ref, path]),
+    revealSkill: desktopOnly,
     getSidebar: () => call('getSidebar', []),
     needsOnboarding: async () => false,
     saveSidebar: desktopOnly,

@@ -9,6 +9,7 @@ import { z } from 'zod'
 import { createHarness } from './agent'
 import type { Mcp } from './mcp'
 import type { ModelChoices } from './runModel'
+import { createSkills } from './skills'
 import { createStore, type Store } from './store'
 import { createWorkspace } from './workspace'
 import { MAIN_BOT } from '../shared/bot'
@@ -70,6 +71,7 @@ function setup(
   const harness = createHarness({
     store,
     workspace: createWorkspace(path.join(dir, 'library')),
+    skills: createSkills({ dir: path.join(dir, 'skills'), store, emit: (e) => events.push(e) }),
     getModel: () => model,
     models,
     getApiKey: () => null,
@@ -361,6 +363,7 @@ describe('harness turn', () => {
     const later = createHarness({
       store,
       workspace: createWorkspace(path.join(dir, 'library')),
+      skills: createSkills({ dir: path.join(dir, 'skills'), store, emit: () => {} }),
       getModel: () => pause,
       models: choicesOf(),
       getApiKey: () => null,
@@ -570,7 +573,7 @@ describe('harness turn', () => {
     release()
     await Promise.all([first, ...later])
     expect(model.doStreamCalls).toHaveLength(2)
-    expect(store.history('chief').map((e) => (e.kind === 'tool' ? '' : e.text))).toEqual([
+    expect(store.history('chief').map((e) => ('text' in e ? e.text : ''))).toEqual([
       'A',
       'A 的回答',
       'B',
@@ -1216,6 +1219,7 @@ describe('background tasks', () => {
     createHarness({
       store,
       workspace: createWorkspace(path.join(dir, 'library')),
+      skills: createSkills({ dir: path.join(dir, 'skills'), store, emit: () => {} }),
       getModel: () => model,
       models: choicesOf(),
       getApiKey: () => null,
@@ -1812,5 +1816,95 @@ describe('model choices', () => {
       routines: [{ id: 'r1', name: '日报', model: KIMI }],
       flows: [{ id: RELEASE_FLOW.id, name: RELEASE_FLOW.name, model: null }],
     })
+  })
+})
+
+describe('skills', () => {
+  /** A skill folder on this computer, as the user would paste its path into the chat. */
+  function skillFolder(name: string): string {
+    const root = path.join(dir, 'sources', name)
+    fs.mkdirSync(root, { recursive: true })
+    fs.writeFileSync(
+      path.join(root, 'SKILL.md'),
+      `---\nname: ${name}\ndescription: Use ${name} for PDFs.\n---\n# Steps`,
+    )
+    return root
+  }
+
+  const offerOf = (store: Store, botId: string) => {
+    const [entry] = store.toolEntries(botId, 'install_skill')
+    const output = entry?.kind === 'tool' ? entry.output : undefined
+    return z.object({ offer: z.string() }).parse(output).offer
+  }
+
+  it('installs only once the user says yes on the card, and the bot hears about it in its next turn', async () => {
+    const model = new MockLanguageModelV4({
+      doStream: [
+        step(undefined, [{ name: 'install_skill', input: { source: skillFolder('pdf') } }]),
+        step('看一下卡片。'),
+        step('装好了。'),
+      ],
+    })
+    const { store, harness } = setup(model)
+    await harness.send('chief', '装一下这个技能')
+    expect(store.get().bots.chief.skills).toEqual([])
+    harness.answerSkillOffer('chief', offerOf(store, 'chief'), ['pdf'])
+    expect(store.history('chief').at(-1)).toMatchObject({ kind: 'skill-answer', names: ['pdf'] })
+    await vi.waitFor(() => expect(model.doStreamCalls).toHaveLength(3))
+    expect(store.get().bots.chief.skills).toMatchObject([{ name: 'pdf' }])
+    expect(store.history('chief').map((entry) => entry.kind)).toContain('skill-answer')
+    expect(JSON.stringify(model.doStreamCalls[2].prompt)).toContain('点了「装上」')
+  })
+
+  it('lets only the main bot install for another bot', async () => {
+    const model = new MockLanguageModelV4({
+      doStream: [
+        step(undefined, [{ name: 'install_skill', input: { source: skillFolder('pdf'), botId: 'chief' } }]),
+        step('不行。'),
+      ],
+    })
+    const { store, harness } = setup(model)
+    await harness.send('secretary', '给 CEO 装个技能')
+    const [entry] = store.toolEntries('secretary', 'install_skill')
+    expect(JSON.stringify(entry?.kind === 'tool' ? entry.output : null)).toContain('只有')
+  })
+
+  it("lists the team's skills to the main bot, and a bot only its own", async () => {
+    const model = new MockLanguageModelV4({ doStream: [step('好。'), step('好。')] })
+    const { store, harness } = setup(model)
+    const skill = {
+      name: 'notes',
+      description: '整理发版说明',
+      source: { kind: 'local' as const, root: '/x', path: '/x' },
+      installedAt: 1,
+      fileCount: 1,
+      scripts: [],
+      isUserInvoked: false,
+    }
+    store.updateBot('secretary', { skills: [skill] })
+    await harness.send('chief', '你好')
+    await harness.send('secretary', '你好')
+    expect(systemOf(model, 0)).toContain('- secretary/notes（秘书 的）：整理发版说明')
+    expect(systemOf(model, 1)).toContain('- notes：整理发版说明')
+  })
+
+  it('names the skills only the user calls on, without their descriptions', async () => {
+    const model = new MockLanguageModelV4({ doStream: [step('好。')] })
+    const { store, harness } = setup(model)
+    const skill = (name: string, isUserInvoked: boolean) => ({
+      name,
+      description: `${name} 的说明`,
+      source: { kind: 'local' as const, root: '/x', path: '/x' },
+      installedAt: 1,
+      fileCount: 1,
+      scripts: [],
+      isUserInvoked,
+    })
+    store.updateBot('secretary', {
+      skills: [skill('grilling', false), skill('grill-me', true), skill('handoff', true)],
+    })
+    await harness.send('secretary', '你好')
+    expect(systemOf(model, 0)).toContain('- grilling：grilling 的说明\n- 用户点名才用，不要自己挑：grill-me、handoff')
+    expect(systemOf(model, 0)).not.toContain('grill-me 的说明')
   })
 })

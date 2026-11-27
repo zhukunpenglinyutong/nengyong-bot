@@ -7,6 +7,7 @@ import { TIMEZONE } from '../shared/timezone'
 
 export const DATABASE_FILE = 'nengyongbot.db'
 export const LIBRARY_DIR = 'library'
+export const SKILLS_DIR = 'skills' // one folder per bot, one per skill in it: harness/skills.ts
 const DATA_DIR_FILE = 'data-dir.txt'
 const LEGACY_DATABASE_FILE = 'superbot.db' // what backups exported while the app was called Super Bot hold
 
@@ -110,14 +111,16 @@ function renameLegacyDatabase(dir: string) {
 
 function copyData(store: Store, from: string, to: string) {
   fs.mkdirSync(to, { recursive: true })
-  const library = path.join(from, LIBRARY_DIR)
+  const folders = [LIBRARY_DIR, SKILLS_DIR]
   try {
     store.backupTo(path.join(to, DATABASE_FILE))
-    if (fs.existsSync(library)) fs.cpSync(library, path.join(to, LIBRARY_DIR), { recursive: true })
+    for (const folder of folders)
+      if (fs.existsSync(path.join(from, folder)))
+        fs.cpSync(path.join(from, folder), path.join(to, folder), { recursive: true })
   } catch (error) {
     // remove only what this copy wrote: the folder itself may be one the user just made
     fs.rmSync(path.join(to, DATABASE_FILE), { force: true })
-    fs.rmSync(path.join(to, LIBRARY_DIR), { recursive: true, force: true })
+    for (const folder of folders) fs.rmSync(path.join(to, folder), { recursive: true, force: true })
     const reason = error instanceof Error ? error.message : String(error)
     throw new Error(strings().main.data.copyFailed(reason))
   }

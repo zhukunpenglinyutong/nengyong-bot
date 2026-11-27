@@ -104,13 +104,11 @@ function Usage({ initial, onSetPrice, bots }: Omit<LoadedProps, 'loading'> & { i
       <Heading>
         <PickerButton
           menuLabel={strings().usage.page.measure}
-          loadItems={async () =>
-            MEASURE_IDS.map((id) => ({
-              label: MEASURES[id].label,
-              checked: id === measureId,
-              onSelect: () => setMeasureId(id),
-            }))
-          }
+          items={MEASURE_IDS.map((id) => ({
+            label: MEASURES[id].label,
+            checked: id === measureId,
+            onSelect: () => setMeasureId(id),
+          }))}
         >
           <span className="px-1">{measure.label}</span>
         </PickerButton>

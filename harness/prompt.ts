@@ -31,6 +31,38 @@ const miniAppLine = (app: MiniApp) => {
   return `- [${app.id}] ${app.name} v${version}（最近一版：${change}）`
 }
 
+const TEAM_SKILL_CHARS = 200 // the main bot lists every bot's skills: each description is cut to keep its prompt short
+
+/**
+ * The skills a bot can use, one per line: its own, for the main bot also every other bot's as <bot id>/<name>; '' for
+ * none. The ones only the user calls on are named on one last line, without their descriptions.
+ */
+function skillsText(state: HarnessState, bot: BotBrain): string {
+  const owned = [
+    ...bot.skills.map((skill) => ({ skill, name: skill.name, description: skill.description })),
+    ...(bot.id === MAIN_BOT_ID ? state.roster.filter((id) => id !== bot.id) : []).flatMap((id) =>
+      (state.bots[id]?.skills ?? []).map((skill) => ({
+        skill,
+        name: `${id}/${skill.name}（${state.bots[id]?.name ?? id} 的）`,
+        description: clip(skill.description, TEAM_SKILL_CHARS),
+      })),
+    ),
+  ]
+  const onRequest = owned.filter(({ skill }) => skill.isUserInvoked).map(({ name }) => name)
+  return [
+    ...owned.filter(({ skill }) => !skill.isUserInvoked).map(({ name, description }) => `- ${name}：${description}`),
+    ...(onRequest.length ? [`- 用户点名才用，不要自己挑：${onRequest.join('、')}`] : []),
+  ].join('\n')
+}
+
+const SKILL_RULES = [
+  '- 技能：装给你的做事方法包（一份说明，加上脚本和资料），列在「你的技能」里。要做的事和某个技能对得上时，用 start_task 开任务，brief 里写明「用技能 名字」，任务会先读它再照着做。提到技能时写成 [名字](skill:名字)。',
+  '- 用户给你技能的 GitHub 链接或电脑上技能文件夹的路径、要你装上时，用 install_skill：它只在聊天里出一张确认卡，用户点了「装上」才算装好，你会收到结果，在那之前不要说装好了。链接里有好几个技能（技能合集）时，卡片会全部列出来，用户自己勾选装哪些。用户要卸载时用 remove_skill。',
+]
+
+const MAIN_SKILL_RULE =
+  '- 你是主 Bot：每个 Bot 的技能你都能用（写成「Bot id/名字」），install_skill 和 remove_skill 也能填 botId 替别的 Bot 装、卸。但事情本来归哪个 Bot 管，就派给它做（start_task 填 botId），不要拿它的技能自己做。提到别的 Bot 的技能写成 [名字](skill:Bot id/名字)。'
+
 const miniAppFilesLine = (app: MiniApp) => {
   const { version } = latestVersion(app)
   return `- [${app.id}] ${app.name} v${version}：页面 ${miniAppPath(app.id, version)}，数据 ${miniAppDataPath(app.id)}`
@@ -94,6 +126,7 @@ export function systemSections(
       text: bot.routines.length ? bot.routines.map((routine) => routineLine(routine, bot.flows)).join('\n') : '暂无。',
     },
     { heading: '你的流程', text: bot.flows.length ? bot.flows.map(flowText).join('\n\n') : '暂无。' },
+    { heading: '你的技能', text: skillsText(state, bot) || '暂无。' },
     { heading: '你的小程序', text: bot.miniApps.length ? bot.miniApps.map(miniAppLine).join('\n') : '暂无。' },
     ...(unfinished.length
       ? [{ heading: '进行中的任务', text: unfinished.map((task) => unfinishedLine(task, now)).join('\n') }]
@@ -122,6 +155,8 @@ export function systemSections(
         '- 小程序：图文讲不清、要反复看或要点来点去的东西（数据看板、排期表、日报预览），可以做成小程序，显示在用户面板的「小程序」里，点开是一个手机大小的窗口。新做或修改都用 start_task，改已有的（包括只换数据）填 miniAppId。一段话能说清的照常回复，不要做成小程序；拿不准就问用户要不要做。',
         '- 提到小程序时写成 [名字](app:ID)，聊天里会显示成能点开的卡片。用户发消息时开着你的某个小程序，或者消息是从小程序里发来的，消息前会注明，「改一下」说的就是那一个。要每天刷新小程序的数据，就建例行任务，prompt 里写明用 update_app_data 更新哪个小程序（写上 id）。',
         '- 用户要定期做的事（每天、每周、每隔一段时间），用 create_routine 建例行任务：到点会作为你的一个任务在后台跑，做完你会收到结论并告诉用户，所以 prompt 要写成给任务的完整说明。用户说过偏好的时区就填上，否则不填（默认北京时间）。暂停或恢复用 set_routine_enabled，不要了用 delete_routine，要改就删掉重建；收到它的结论时也可以按用户的要求暂停或删掉它。例行任务只在应用开着时运行，要提前告诉用户。',
+        ...SKILL_RULES,
+        ...(bot.id === MAIN_BOT_ID ? [MAIN_SKILL_RULE] : []),
         modelRule(models, bot.id === MAIN_BOT_ID),
         '- 你只能管自己的例行任务。例行任务跑起来也是后台任务，不能再开任务交给别的 Bot；用户要别的 Bot 定期做事，请用户直接跟那个 Bot 说，由它建在自己名下，结论也回到它的聊天。',
         ...baseRules(),
@@ -204,6 +239,7 @@ export function taskSystem(
   miniApp: MiniApp | undefined, // the mini app the task changes
   now = new Date(),
 ): string {
+  const skills = skillsText(state, bot)
   return joinSections([
     {
       heading: null,
@@ -211,6 +247,7 @@ export function taskSystem(
     },
     ...knowledge(state, bot, '尚未设定。'),
     ...(flow ? [{ heading: `按流程「${flow.name}」做`, text: flowText(flow) }] : []),
+    ...(skills ? [{ heading: '你的技能', text: skills }] : []),
     ...(bot.miniApps.length ? [{ heading: '你的小程序', text: bot.miniApps.map(miniAppFilesLine).join('\n') }] : []),
     ...(miniApp ? [{ heading: '这次要改的小程序', text: miniAppFilesLine(miniApp) }] : []),
     {
@@ -222,6 +259,7 @@ export function taskSystem(
             ]
           : []),
         '- 按任务说明做完。说明里给了 ref（形如 chief#12）就用 read_history 打开看上下文；需要更早的信息用 search_history。',
+        '- 任务说明里提到某个技能，或者要做的事和「你的技能」里的某个对得上时，先用 use_skill 打开它，照着它的说明做；说明里提到的资料和脚本在技能文件夹里（use_skill 给出绝对路径），资料用 read_file 读，脚本用 run_command 跑。技能说明里叫你调用 Skill tool（call the Skill tool with X），就是用 use_skill 打开技能 X。',
         '- 你最后写的那段文字就是交回的结论，会转给聊天窗口里的你，由它告诉用户：先写结果，再写文件路径和来源链接。',
         '- 你不能问用户：需要用户决定的事，先做完能做的部分，在结论里写清要问什么。',
         '- 你不能记忆、建 Bot、改例行任务或流程：值得长期记住的事实、流程该改进的地方，写进结论。任务要你做这些，就在结论里说明这要用户在聊天里直接跟你说，不是没有权限。',
@@ -277,6 +315,13 @@ export function toMessages(
             content: `（任务「${e.title}」[${e.taskId}] ${e.status === 'done' ? '完成了' : '失败了'}，这是任务交回的结论，不是用户发的；过程从 ${e.taskId}#1 开始，可以用 read_history 打开）\n${e.text}`,
           },
         ]
+      case 'skill-answer': {
+        const target = e.botId === transcriptId ? '你' : `「${state.bots[e.botId]?.name ?? e.botId}」[${e.botId}]`
+        const content = e.names.length
+          ? `（系统记录，不是用户发的）用户在确认卡上点了「装上」：技能 ${e.names.join('、')} 已经装给${target}，现在就能用；卡上别的没勾，没有装。`
+          : '（系统记录，不是用户发的）用户在确认卡上点了「不装」：卡上的技能一个都没有装。'
+        return [{ role: 'user', content }]
+      }
       case 'tool':
         return [{ role: 'user', content: `（系统记录，不是用户发的）你${toolNote(e)}` }]
       default:
@@ -289,7 +334,7 @@ const NOTE_FIELD_CHARS = 200
 const shorten = (text: string) => (text.length > NOTE_FIELD_CHARS ? `${clip(text, NOTE_FIELD_CHARS)}…` : text)
 
 /** A tool record as one line for the model: what was called and how it went, without the output itself. */
-export function toolNote(entry: Extract<Entry, { kind: 'tool' }>): string {
+function toolNote(entry: Extract<Entry, { kind: 'tool' }>): string {
   const args = shorten(JSON.stringify(entry.input ?? {}))
   const { output } = entry
   if (typeof output === 'object' && output !== null && 'error' in output)
@@ -299,10 +344,19 @@ export function toolNote(entry: Extract<Entry, { kind: 'tool' }>): string {
   return `调用了 ${entry.name}（参数 ${args}），当时拿到了 ${size} 字的结果（这里不再重复原文）`
 }
 
+/** A record that is not a message, as one line: what a tool did, or how the user answered an install card. */
+export function recordNote(entry: Extract<Entry, { kind: 'tool' | 'skill-answer' }>): string {
+  if (entry.kind === 'tool') return toolNote(entry)
+  return entry.names.length
+    ? `在确认卡上点了「装上」，技能 ${entry.names.join('、')} 装给了 ${entry.botId}`
+    : '在确认卡上点了「不装」，卡上的技能一个都没有装'
+}
+
 /** Who wrote an entry, for transcripts the model reads as plain text (summaries, search results). */
 export function speaker(entry: Entry, state: HarnessState, botName: string): string {
   switch (entry.kind) {
     case 'user':
+    case 'skill-answer':
       return '用户'
     case 'bot':
       return botName

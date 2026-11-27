@@ -127,6 +127,10 @@ The sync plan draft is in \`sync/sync-plan-draft.md\` if you want a look.`,
     flowSaved: (mention, steps) =>
       `Saved: ${mention}, ${plural(steps, 'step')}. Say the word next time and I'll follow it.`,
     restored: (version) => `Restored to v${version}`,
+    skillOffer:
+      'I had a look: it teaches me to build spreadsheets properly, with one script that recalculates the formulas. Check the card; I’ll install it once you say yes.',
+    skillInstalled: (mention) => `Installed. From now on I follow ${mention} for spreadsheets.`,
+    skillDeclined: 'Fine, I won’t install it.',
     noDataDir: '(The web version saves no data)',
     greeting: (boss, team) => `Hi, I'm ${boss}.${team.length ? ` To start, I hired ${team.join(', ')}.` : ''}`,
   },

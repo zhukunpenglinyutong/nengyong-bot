@@ -18,6 +18,7 @@ import { releases } from './zh/releases'
 import { remote } from './zh/remote'
 import { settings } from './zh/settings'
 import { sidebar } from './zh/sidebar'
+import { skills } from './zh/skills'
 import { ui } from './zh/ui'
 import { usage } from './zh/usage'
 
@@ -43,6 +44,7 @@ export const zh = {
   remote,
   settings,
   sidebar,
+  skills,
   ui,
   usage,
 }

@@ -66,8 +66,8 @@ export const bot = {
     day: (days: number) => `第 ${days} 天`,
     chats: '对话',
     chatCount: (count: number) => `${count} 次`,
-    flows: '流程',
-    flowCount: (count: number) => `${count} 个`,
+    abilities: '能力',
+    abilityCount: (count: number) => `${count} 个`,
     swipe: '刷卡，翻到背面看工位',
     swiped: '滴 · 已刷卡',
     staffNumber: (number: string) => `工号 ${number}`,
@@ -85,9 +85,14 @@ export const bot = {
   panel: {
     tabs: {
       feed: '近况',
-      flows: '流程',
+      abilities: '能力',
       miniApps: '小程序',
       library: '资料库',
+    },
+    abilityKinds: {
+      label: '能力的种类',
+      flows: '流程',
+      skills: '技能',
     },
     details: 'Bot 详情',
     content: '面板内容',

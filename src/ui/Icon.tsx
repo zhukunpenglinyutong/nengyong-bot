@@ -90,6 +90,7 @@ const PATHS = {
     </>
   ),
   download: <path d="M12 4.5v10M7.5 10.5 12 15l4.5-4.5M5 19.5h14" />,
+  upload: <path d="M12 15v-10M7.5 9 12 4.5 16.5 9M5 19.5h14" />,
   bellDot: (
     <>
       <path d="M6.5 16.5V11a5.5 5.5 0 0 1 8.2-4.8M17.5 12v4.5l1.5 1.5H5l1.5-1.5" />
@@ -187,6 +188,14 @@ const PATHS = {
       <circle cx="6" cy="6" r="2" />
       <circle cx="6" cy="18" r="2" />
       <path d="M6 8v8M11 6h8M11 12h8M11 18h8" />
+    </>
+  ),
+  // a book with a spark: a skill someone else wrote, installed on a bot
+  skill: (
+    <>
+      <path d="M5 5.5A1.5 1.5 0 0 1 6.5 4H18v13H6.5A1.5 1.5 0 0 0 5 18.5z" />
+      <path d="M5 18.5A1.5 1.5 0 0 0 6.5 20H18v-3" />
+      <path d="M11.5 7.5l.9 2 2 .9-2 .9-.9 2-.9-2-2-.9 2-.9z" />
     </>
   ),
   sliders: (

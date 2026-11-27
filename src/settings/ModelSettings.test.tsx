@@ -61,6 +61,19 @@ it('puts the models of each account in its own submenu once there are several ac
   expect(await screen.findByRole('menuitemcheckbox', { name: 'gpt-5' })).toBeInTheDocument()
 })
 
+it('opens the menu at once, while an account that does not answer is still loading its models', async () => {
+  const { bridge, user } = renderPage({ ...CONNECTED, accounts: [DEEPSEEK, OPENAI] })
+  bridge.listModels.mockImplementation((accountId: string) =>
+    accountId === 'openai' ? new Promise<string[]>(() => {}) : Promise.resolve(['deepseek-flash']),
+  )
+  await user.click(screen.getByRole('button', { name: /deepseek-flash/ }))
+  expect(screen.getByRole('menuitem', { name: '添加其他服务商…' })).toBeInTheDocument()
+  await user.hover(screen.getByRole('menuitem', { name: /OpenAI/ }))
+  expect(await screen.findByRole('menuitem', { name: '正在读取模型…' })).toHaveAttribute('aria-disabled', 'true')
+  await user.hover(screen.getByRole('menuitem', { name: /DeepSeek/ }))
+  expect(await screen.findByRole('menuitemcheckbox', { name: 'deepseek-flash' })).toBeInTheDocument()
+})
+
 it('says why an account could not list its models instead of an empty menu', async () => {
   const { bridge, user } = renderPage()
   bridge.listModels.mockRejectedValue(

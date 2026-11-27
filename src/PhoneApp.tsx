@@ -5,6 +5,7 @@ import type { NengyongBotBridge } from '../shared/bridge'
 import { latestVersion, type MiniApp } from '../shared/miniApp'
 import type { SidebarState } from '../shared/sidebar'
 import { activityLabel } from './activityLabel'
+import { ABILITY_LISTS, type Ability } from './bot/AbilitiesTab'
 import { BotPanel, type PanelTab } from './bot/BotPanel'
 import { BotActivityContext, useBotActivities } from './bot/botActivity'
 import { ChatView, type ComposerFill } from './chat/ChatView'
@@ -20,6 +21,7 @@ import { RemovedPage } from './remote/RemovedPage'
 import type { ConnectionStore } from './remote/remoteBridge'
 import { ReplyNotice } from './remote/ReplyNotice'
 import { PhoneBotList } from './sidebar/PhoneBotList'
+import { SkillFilesDialog, type SkillFilesTarget } from './skills/SkillFilesDialog'
 import { createBot, renameBot } from './sidebar/sidebarState'
 import { IconButton } from './ui/IconButton'
 import { useDocumentTheme } from './ui/useDocumentTheme'
@@ -42,7 +44,8 @@ export function PhoneApp({ bridge, connection, initialSidebar }: Props) {
   const [openId, setOpenId] = usePersistentState('phoneBotId', OpenBotId)
   const [isPanelOpen, setIsPanelOpen] = useState(false)
   const [panelTab, setPanelTab] = useState<PanelTab>('feed')
-  const [openFlowId, setOpenFlowId] = useState<string | null>(null)
+  const [ability, setAbility] = useState<Ability>(ABILITY_LISTS.flows)
+  const [skillFiles, setSkillFiles] = useState<SkillFilesTarget | null>(null)
   const [unread, setUnread] = useState<Record<string, number>>({})
   const [composerFill, setComposerFill] = useState<ComposerFill>({ text: '', count: 0 })
   const [runs, dispatchRuns] = useReducer(miniAppRuns, EMPTY_RUNS)
@@ -57,7 +60,7 @@ export function PhoneApp({ bridge, connection, initialSidebar }: Props) {
   const openBot = (id: string) => {
     setOpenId(id)
     setIsPanelOpen(false)
-    setOpenFlowId(null)
+    setAbility((current) => ABILITY_LISTS[current.kind])
     setUnread(({ [id]: _seen, ...rest }) => rest)
     notices.seen(id)
   }
@@ -69,11 +72,13 @@ export function PhoneApp({ bridge, connection, initialSidebar }: Props) {
       () => {},
     )
   }
-  const openFlow = (flowId: string | null) => {
-    setPanelTab('flows')
-    setOpenFlowId(flowId)
+  const openAbility = (next: Ability) => {
+    setPanelTab('abilities')
+    setAbility(next)
     setIsPanelOpen(true)
   }
+  const openFlow = (flowId: string | null) => openAbility({ kind: 'flows', flowId })
+  const openSkill = (botId: string, name: string) => openAbility({ kind: 'skills', skill: { botId, name } })
   const fillComposer = (text: string) => {
     setIsPanelOpen(false)
     setComposerFill(({ count }) => ({ text, count: count + 1 }))
@@ -136,6 +141,9 @@ export function PhoneApp({ bridge, connection, initialSidebar }: Props) {
                 onOpenBot={openBot}
                 flows={thread.panel.flows}
                 onOpenFlow={openFlow}
+                skills={thread.panel.skills}
+                onOpenSkill={openSkill}
+                onOpenSkillFiles={setSkillFiles}
                 miniApps={thread.panel.miniApps}
                 onOpenMiniApp={openMiniApp}
                 thumbUrl={thumbUrl}
@@ -167,13 +175,16 @@ export function PhoneApp({ bridge, connection, initialSidebar }: Props) {
                 panel={thread.panel}
                 isDebug={false}
                 tab={panelTab}
-                openFlowId={openFlowId}
+                ability={ability}
                 onTab={(tab) => {
                   setPanelTab(tab)
-                  setOpenFlowId(null)
+                  setAbility((current) => ABILITY_LISTS[current.kind])
                 }}
+                onAbility={setAbility}
                 onOpenFlow={openFlow}
                 onFill={fillComposer}
+                skillReader={bridge}
+                onOpenSkillFiles={setSkillFiles}
                 miniAppRuns={runs.runs.filter((run) => run.botId === bot.id)}
                 thumbUrl={thumbUrl}
                 onOpenMiniApp={openMiniApp}
@@ -183,6 +194,9 @@ export function PhoneApp({ bridge, connection, initialSidebar }: Props) {
               />
             </PhoneSheet>
           )}
+        </AnimatePresence>
+        <AnimatePresence>
+          {skillFiles && <SkillFilesDialog target={skillFiles} reader={bridge} onClose={() => setSkillFiles(null)} />}
         </AnimatePresence>
         <MiniAppHost
           runs={runs}

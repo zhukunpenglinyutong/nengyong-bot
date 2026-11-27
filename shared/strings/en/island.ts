@@ -23,6 +23,8 @@ export const island: Strings['island'] = {
     fellBack: (model) => `${model} unreachable, used the main model`,
     xp: (points) => `+${points} XP`,
     flowLearned: 'Learned a new flow',
+    skillLearned: 'Learned a new skill',
+    skillLearnedBy: (bot) => `${bot} learned a new skill`,
     flowUpdated: 'Flow updated',
     view: 'View',
   },

@@ -8,6 +8,8 @@ import type { Mcp } from './mcp'
 import { miniAppTools } from './miniApps'
 import { taskSystem } from './prompt'
 import { type ModelChoices, type ModelObject, type RunModel, runModel } from './runModel'
+import type { Skills } from './skills'
+import { skillTaskTools } from './skillTools'
 import type { Store } from './store'
 import { clip } from './textWindow'
 import { runTurn } from './turn'
@@ -25,6 +27,7 @@ interface TaskRunnerOptions {
   models: ModelChoices
   getApiKey: () => string | null
   mcp: Mcp
+  skills: Skills
   emit: (event: HarnessEvent) => void
   deliver: (botId: string, input: EntryInput) => void
   limits: () => Limits
@@ -160,6 +163,7 @@ export function createTaskRunner(options: TaskRunnerOptions) {
         }),
         ...historyTools(store, current),
         ...miniAppTools({ botId: task.botId, store, workspace, emit }),
+        ...skillTaskTools({ botId: task.botId, skills: options.skills }),
       },
       maxSteps: current.taskSteps,
       abortSignal,

@@ -5,6 +5,7 @@ import { BotId, MAIN_BOT_ID, secretary } from '../shared/bot'
 import { isUnfinished, type NengyongBotBridge } from '../shared/bridge'
 import { latestVersion, type MiniApp } from '../shared/miniApp'
 import type { SidebarState } from '../shared/sidebar'
+import { ABILITY_LISTS, type Ability } from './bot/AbilitiesTab'
 import { BotPanel, PanelTab } from './bot/BotPanel'
 import { BotActivityContext, useBotActivities } from './bot/botActivity'
 import { PanelFrame } from './bot/PanelFrame'
@@ -24,6 +25,7 @@ import { UpdatePopup } from './settings/UpdatePopup'
 import { popupOf } from './settings/updateState'
 import { useUpdate } from './settings/useUpdate'
 import { Sidebar } from './sidebar/Sidebar'
+import { SkillFilesDialog, type SkillFilesTarget } from './skills/SkillFilesDialog'
 import { COLLAPSED_RAIL_WIDTH, RAIL_WIDTH, SidebarWidth } from './sidebar/sidebarLayout'
 import {
   addUnread,
@@ -60,7 +62,8 @@ export function App({ bridge, initialSidebar = INITIAL_SIDEBAR, needsOnboarding 
   const [sidebarWidth, setSidebarWidth] = usePersistentState('sidebarWidth', SidebarWidth)
   const [panelOpen, setPanelOpen] = usePersistentState('panelOpen', Closed)
   const [panelTab, setPanelTab] = usePersistentState('panelTab', PanelTab)
-  const [openFlowId, setOpenFlowId] = useState<string | null>(null)
+  const [ability, setAbility] = useState<Ability>(ABILITY_LISTS.flows)
+  const [skillFiles, setSkillFiles] = useState<SkillFilesTarget | null>(null)
   const [composerFill, setComposerFill] = useState<ComposerFill>({ text: '', count: 0 })
   const [sidebar, setSidebar] = useState(() => markUnseenAsSeen(initialSidebar, Date.now()))
   const [onboarding, setOnboarding] = useState<'deciding' | 'hired' | null>(needsOnboarding ? 'deciding' : null)
@@ -78,15 +81,19 @@ export function App({ bridge, initialSidebar = INITIAL_SIDEBAR, needsOnboarding 
   const openBot = (id: string) => {
     const now = Date.now()
     setBotId(id)
-    setOpenFlowId(null)
+    setAbility((current) => ABILITY_LISTS[current.kind])
     setSidebar((state) => markSeen(setUnread(state, id, false), [bot.id, id], now))
     notices.seen(id)
   }
-  const openFlow = (flowId: string | null) => {
+  const openAbility = (next: Ability) => {
     setPanelOpen(true)
-    setPanelTab('flows')
-    setOpenFlowId(flowId)
+    setPanelTab('abilities')
+    setAbility(next)
   }
+  const openFlow = (flowId: string | null) => openAbility({ kind: 'flows', flowId })
+  const openSkill = (botId: string, name: string) => openAbility({ kind: 'skills', skill: { botId, name } })
+  const revealOf = ({ ref }: SkillFilesTarget) =>
+    ref.kind === 'installed' ? () => bridge.revealSkill(ref.botId, ref.name) : undefined
   const fillComposer = (text: string) => setComposerFill(({ count }) => ({ text, count: count + 1 }))
   const harness = useHarness(bridge, {
     activeId: bot.id,
@@ -158,6 +165,10 @@ export function App({ bridge, initialSidebar = INITIAL_SIDEBAR, needsOnboarding 
             onOpenBot={openBot}
             flows={thread.panel.flows}
             onOpenFlow={openFlow}
+            skills={thread.panel.skills}
+            onOpenSkill={openSkill}
+            onAnswerSkillOffer={(offer, names) => bridge.answerSkillOffer(bot.id, offer, names)}
+            onOpenSkillFiles={setSkillFiles}
             miniApps={thread.panel.miniApps}
             onOpenMiniApp={openMiniApp}
             thumbUrl={thumbUrl}
@@ -179,6 +190,7 @@ export function App({ bridge, initialSidebar = INITIAL_SIDEBAR, needsOnboarding 
                 onDismissNotice={notices.dismiss}
                 onOpenBot={openBot}
                 onOpenFlow={openFlow}
+                onOpenSkill={openSkill}
                 onDebugChange={(isDebug) => setPreferences((current) => ({ ...current, isDebug }))}
               />
             }
@@ -199,13 +211,18 @@ export function App({ bridge, initialSidebar = INITIAL_SIDEBAR, needsOnboarding 
               panel={thread.panel}
               isDebug={preferences.isDebug}
               tab={panelTab}
-              openFlowId={openFlowId}
+              ability={ability}
               onTab={(tab) => {
                 setPanelTab(tab)
-                setOpenFlowId(null)
+                setAbility((current) => ABILITY_LISTS[current.kind])
               }}
+              onAbility={setAbility}
               onOpenFlow={openFlow}
               onFill={fillComposer}
+              skillReader={bridge}
+              onOpenSkillFiles={setSkillFiles}
+              onRemoveSkill={bridge.removeSkills}
+              skillUploads={bridge}
               miniAppRuns={miniAppRunsState.runs.filter((run) => run.botId === bot.id)}
               thumbUrl={thumbUrl}
               onOpenMiniApp={openMiniApp}
@@ -220,6 +237,16 @@ export function App({ bridge, initialSidebar = INITIAL_SIDEBAR, needsOnboarding 
             />
           </PanelFrame>
         </div>
+        <AnimatePresence>
+          {skillFiles && (
+            <SkillFilesDialog
+              target={skillFiles}
+              reader={bridge}
+              onReveal={revealOf(skillFiles)}
+              onClose={() => setSkillFiles(null)}
+            />
+          )}
+        </AnimatePresence>
         <MiniAppHost
           runs={miniAppRunsState}
           dispatch={dispatchMiniAppRuns}

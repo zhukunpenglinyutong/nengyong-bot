@@ -17,6 +17,7 @@ export const debug = {
       bot: '回复',
       tool: '工具记录',
       'task-result': '任务结论',
+      'skill-answer': '技能确认',
       'from-bot': '委托',
       routine: '例行任务',
     },

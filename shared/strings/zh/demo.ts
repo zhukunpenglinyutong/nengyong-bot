@@ -119,6 +119,9 @@ export const demo = {
     flowSaved: (mention: string, steps: number) => `存好了：${mention}，${steps} 步。下次说一声，我就照着做。`,
     restored: (version: number) => `恢复成 v${version} 的样子`,
     noDataDir: '（网页版不保存数据）',
+    skillOffer: '我看了一下：它教我按规范做 Excel，带 1 个重新算公式的脚本。你看一下卡片，确认后我就装上。',
+    skillInstalled: (mention: string) => `装好了。以后做表格，我都先照 ${mention} 的做法来。`,
+    skillDeclined: '好，不装了。',
     greeting: (boss: string, team: string[]) =>
       `你好，我是${boss}。${team.length ? `先帮你招了 ${team.join('、')}。` : ''}`,
   },

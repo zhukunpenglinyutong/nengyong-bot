@@ -64,6 +64,7 @@ export const EMPTY_THREAD: Thread = {
   panel: {
     routines: [],
     flows: [],
+    skills: [],
     miniApps: [],
     library: [],
     tasks: [],
@@ -116,6 +117,8 @@ export function harnessState(state: Threads, event: ThreadEvent): Threads {
       return patch(state, event.botId, { panel: { ...threadOf(state, event.botId).panel, routines: event.routines } })
     case 'flows':
       return patch(state, event.botId, { panel: { ...threadOf(state, event.botId).panel, flows: event.flows } })
+    case 'skills':
+      return patch(state, event.botId, { panel: { ...threadOf(state, event.botId).panel, skills: event.skills } })
     case 'mini-apps':
       return patch(state, event.botId, { panel: { ...threadOf(state, event.botId).panel, miniApps: event.miniApps } })
     case 'mini-app-data': {

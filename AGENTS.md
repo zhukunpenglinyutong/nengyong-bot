@@ -108,7 +108,9 @@ src/        渲染进程（React）。只 import shared。
   | Section | 侧边栏里的一个分组 |
   | Task | Bot 在后台做的一件事：一次运行、独立上下文，过程记在以它的 id 命名的 transcript 里，做完把结论投回发起方的聊天 |
   | Routine | Bot 的例行任务：到点（cron + 时区）把一段指令作为这个 Bot 的一个 Task 在后台跑，结论投回它的聊天；显示在面板「近况」里 |
-  | flow | 流程：Bot 存下来、以后照着做的一套做法（`shared/flow.ts` 的 `Flow`）：名字、什么时候用、步骤、注意事项。Bot 在聊天里用 save_flow 存和改（用户同意了才存），全部写进它的系统提示词；Task 和 Routine 可以按它的某个流程做（`flowId`），任务的系统提示词里带上那个流程。显示在面板「流程」里，回复里写成 `[名字](flow:id)`，渲染成可点的流程名 |
+  | flow | 流程：Bot 存下来、以后照着做的一套做法（`shared/flow.ts` 的 `Flow`）：名字、什么时候用、步骤、注意事项。Bot 在聊天里用 save_flow 存和改（用户同意了才存），全部写进它的系统提示词；Task 和 Routine 可以按它的某个流程做（`flowId`），任务的系统提示词里带上那个流程。显示在面板「能力 · 流程」里，回复里写成 `[名字](flow:id)`，渲染成可点的流程名 |
+  | skill | 技能：别人写好、装给某个 Bot 的做事方法包（`shared/skill.ts` 的 `Skill`）：一个含 SKILL.md 的文件夹，加上脚本和资料，格式和 Claude Code 的 Skills 一样。文件在数据目录的 `skills/<Bot id>/<名字>/`，装了哪些记在那个 Bot 的 `BotBrain.skills`。一张确认卡（`SkillOffer`）列出指向的地方找到的所有技能（技能合集也是一张卡），用户勾选后点「装上」才装；找法照 `npx skills`：技能文件夹里嵌套的 SKILL.md 算它的一部分，`metadata.internal` 的不列，同名的留第一个，装不了的连同原因列在卡上。每个 Bot 最多 150 个。两种装法：在聊天里，Bot 用 install_skill 读出技能，卡出在聊天里，答复记成一条 `skill-answer` Entry；或在面板「能力 · 技能」里从电脑上传（`SkillUploader`）一个技能文件夹或 .zip、.skill 压缩包，卡出在面板里，不进聊天、不叫醒 Bot。从同一个 GitHub 仓库、或电脑上同一个文件夹或压缩包装来的技能是一个技能合集（`SkillCollections` 的 `collectionOf`），面板里按合集分组列出。卸载用 remove_skill（一次可以好几个）、面板里技能的「卸载」或合集的「全部卸载」。use_skill、install_skill、remove_skill 只认自己的技能，主 Bot 的认所有 Bot 的；技能文件夹不另设保护，后台任务的文件工具和 run_command 照样读写得到，和资料库之外的文件一样。提示词里只列名字和描述，SKILL.md 写了 `disable-model-invocation: true` 的（`isUserInvoked`）只列名字，用户点名才用；后台任务用 use_skill 读全文再照着做，技能说明里的 Skill tool 就是 use_skill。显示在面板「能力 · 技能」里，回复里写成 `[名字](skill:名字)`，别的 Bot 的写成 `[名字](skill:Bot id/名字)` |
+  | ability | 能力：面板里流程和技能合在一起的页签（`AbilitiesTab`），里面用两颗胶囊切换；工牌上的「能力」是它的流程数加它自己的技能数 |
   | mini app | 小程序：Bot 写的一个手机竖屏大小的单文件 HTML 页面，加上它放进去的数据（`shared/miniApp.ts` 的 `MiniApp`）。后台任务用 save_app 新做或改页面，每改一次页面就是一个新版本，版本号只跟页面走；update_app_data 只换数据，不升版本。页面和数据存在资料库的 `apps/<id>/` 下。显示在面板「小程序」里，回复里写成 `[名字](app:id)`，渲染成聊天卡片；点开是浮在应用上的窗口（`MiniAppWindow`：沙箱 iframe，不能联网），右上角胶囊能收起到浮窗（`MiniAppDock`）或关闭。收起的 5 分钟内还收任务放进来的新数据，之后挂起；关掉的保留 30 分钟，之后销毁，再打开要重新启动（`miniAppRuns`）。页面通过 `window.nengyongbot` 读数据、存回数据、替用户给 Bot 发消息 |
   | language | 应用的语言：简体中文或英文（`shared/language.ts` 的 `Language`）。设置「通用 · 地区」里选，存在 `home/language.json`，没选过就跟系统；设备跟着电脑，演示和没配对的页面跟着浏览器。换了窗口重新加载。界面上的字在 `shared/strings/`，见「语言」 |
   | timezone | 应用的时区：固定北京时间（`shared/timezone.ts` 的 `TIMEZONE`，即 `Asia/Shanghai`），不看本机时区。Bot 眼里的现在、例行任务的默认时区、界面上的时间都按它算；设置「通用 · 地区」里显示 |
@@ -135,7 +137,7 @@ src/        渲染进程（React）。只 import shared。
   | quote | 用户回复聊天里某一条消息时带上的那一条：悬停消息点「回复」，输入框上方显示它；发出的用户 Entry 记下它的 seq 和开头（`quote`），气泡上方显示，模型读到这段开头和它的 ref |
   | requestId | Bot 一条回复来自哪次模型接口调用：接口给这次调用的响应 ID，记在 Entry 的 `requestId` 上；消息菜单「复制请求 ID」复制它，接口没给就没有这一项 |
   | queued | Bot 正在跑一轮时用户发来的消息：先显示成排队，这一轮结束后，下一轮把它们一起读进去、只回一次；开始读时才落盘 |
-  | badge | 工牌：面板顶上挂在绳上的 Bot 卡片（`BotBadge`）。卡头是段位的颜色（Lv.60 起扫光，满级转彩虹），印着 Bot 自己的外形；卡上写着入职第几天（新建的 Bot 从 id 里的创建时间算，内置的从第一条 Entry 算）、对话次数、流程数和工号（id 末 4 位，内置的用整个 id）。点条形码「刷卡」翻到背面的 desk，每次打开都从正面开始 |
+  | badge | 工牌：面板顶上挂在绳上的 Bot 卡片（`BotBadge`）。卡头是段位的颜色（Lv.60 起扫光，满级转彩虹），印着 Bot 自己的外形；卡上写着入职第几天（新建的 Bot 从 id 里的创建时间算，内置的从第一条 Entry 算）、对话次数、能力数（流程加技能）和工号（id 末 4 位，内置的用整个 id）。点条形码「刷卡」翻到背面的 desk，每次打开都从正面开始 |
   | desk | 工位：工牌的背面（`BotDesk`，插画在 `src/bot/desk/`）。Bot 坐在桌前，在做什么由 `deskState.ts` 算：回复、跑任务、任务失败时在干活，没活时摸鱼（刷短剧、打游戏、望窗外、打盹，10 分钟换一种，按 Bot id 错开）。书架上一本文件夹是一个 flow，便利贴是 Routine，纸堆是 library，绿植随入职天数长大，家具随段位升级，窗外和钟按 timezone 走。摆件能点，跳到面板对应的页签；戳 Bot 它会说一句，摸鱼时被戳会把屏幕切成报表 |
   | look | Bot 的外形：`shape` + `color`。创建对话框和面板头像编辑器里用 `LookPicker` 挑；Bot 有 avatar 时不画它 |
   | avatar | Bot 上传的图片头像：`Bot.avatar` 里一段 256×256 的 WebP data URL，有它时各处头像画这张图。面板头像编辑器「上传」页拖拽、粘贴或选本地图片，在圆形取景框里拖动缩放，存下来就换掉原来的外形；再挑一次外形或「移除图片」就回到 look |

@@ -1,9 +1,10 @@
-import { type KeyboardEvent, type ReactNode, useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from 'react'
+import { type KeyboardEvent, type ReactNode, useEffect, useEffectEvent, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, useIsPresent } from 'motion/react'
 import { Icon, type IconName } from './Icon'
 import { POP } from './motion'
 import { useAutoDismiss } from './useAutoDismiss'
+import { type ElementSize, useElementSize } from './useElementSize'
 import { COPIED_LABEL, useCopy } from './useCopy'
 
 export interface MenuItem {
@@ -45,9 +46,6 @@ interface PanelProps {
 function MenuPanel({ items, label, at, onCloseAll, onBack, header, tiles = [] }: PanelProps) {
   const ref = useRef<HTMLDivElement>(null)
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([])
-  const [pos, setPos] = useState(
-    at.kind === 'point' ? { left: at.x, top: at.y } : { left: at.rect.right + 4, top: at.rect.top - 6 },
-  )
   const [open, setOpen] = useState<{ index: number; rect: DOMRect } | null>(null)
   const [copied, copy] = useCopy()
   const [copiedIndex, setCopiedIndex] = useState<number>()
@@ -56,18 +54,7 @@ function MenuPanel({ items, label, at, onCloseAll, onBack, header, tiles = [] }:
   const entries = [...tiles, ...items]
   const enabled = entries.flatMap((item, i) => (isItem(item) && !item.disabled ? [i] : []))
 
-  // keep inside the viewport; submenus flip to the left of their parent when there is no room
-  useLayoutEffect(() => {
-    const el = ref.current
-    if (!el) return
-    const { width, height } = el.getBoundingClientRect()
-    const isSub = at.kind === 'anchor'
-    let left = isSub ? at.rect.right + 4 : at.x
-    if (left + width > window.innerWidth - EDGE)
-      left = isSub ? at.rect.left - width - 4 : window.innerWidth - width - EDGE
-    const top = Math.min(isSub ? at.rect.top - 6 : at.y, window.innerHeight - height - EDGE)
-    setPos({ left: Math.max(EDGE, left), top: Math.max(EDGE, top) })
-  }, [at])
+  const pos = placeOf(at, useElementSize(ref))
 
   const firstEnabled = enabled[0]
   useEffect(() => itemRefs.current[firstEnabled]?.focus(), [firstEnabled])
@@ -231,6 +218,20 @@ function MenuPanel({ items, label, at, onCloseAll, onBack, header, tiles = [] }:
       )}
     </>
   )
+}
+
+/** Where a panel of `size` stays inside the viewport; submenus flip to the left of their parent when there is no room. */
+function placeOf(at: PanelProps['at'], size: ElementSize | null): { left: number; top: number } {
+  const isSub = at.kind === 'anchor'
+  const left = isSub ? at.rect.right + 4 : at.x
+  const top = isSub ? at.rect.top - 6 : at.y
+  if (!size) return { left, top }
+  const fitsRight = left + size.width <= window.innerWidth - EDGE
+  const flipped = isSub ? at.rect.left - size.width - 4 : window.innerWidth - size.width - EDGE
+  return {
+    left: Math.max(EDGE, fitsRight ? left : flipped),
+    top: Math.max(EDGE, Math.min(top, window.innerHeight - size.height - EDGE)),
+  }
 }
 
 interface Props {

@@ -5,6 +5,7 @@ import { Flow } from '../shared/flow'
 import { listOf } from '../shared/listOf'
 import { MiniApp } from '../shared/miniApp'
 import { ModelChoice } from '../shared/modelServices'
+import { Skill } from '../shared/skill'
 import type { TokenCounts } from '../shared/usage'
 import { Routine } from './routines'
 
@@ -32,6 +33,7 @@ export const BotBrain = z.object({
   routines: orDefault(listOf(Routine), []),
   flows: orDefault(listOf(Flow), []),
   miniApps: orDefault(listOf(MiniApp), []), // their pages and data are files in the library: see miniApps.ts
+  skills: orDefault(listOf(Skill), []), // their files are in the data dir's skills/<bot id>/: see skills.ts
   model: ModelChoice.optional().catch(undefined), // what its chat runs on, set when the user asked in the chat; absent: the main model
   taskModel: ModelChoice.optional().catch(undefined), // what its tasks run on when neither they nor their flow name one; absent: the main model
 })

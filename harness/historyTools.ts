@@ -4,7 +4,7 @@ import { BOT_ID_PATTERN } from '../shared/bot'
 import type { Entry } from '../shared/bridge'
 import type { Limits } from '../shared/limits'
 import { TIMEZONE } from '../shared/timezone'
-import { speaker, toolNote } from './prompt'
+import { recordNote, speaker } from './prompt'
 import type { Store } from './store'
 import { clip, Offset, textWindow } from './textWindow'
 import type { HarnessState } from './types'
@@ -33,15 +33,15 @@ export function historyTools(store: Store, { searchPreviewChars, readWindowChars
           store
             .history(id)
             .flatMap((entry) =>
-              entry.kind !== 'tool' && entry.text.toLowerCase().includes(needle) ? [{ id, entry }] : [],
+              'text' in entry && entry.text.toLowerCase().includes(needle) ? [{ id, entry, text: entry.text }] : [],
             ),
         )
         return hits
           .toSorted((a, b) => a.entry.at - b.entry.at)
           .slice(-20)
-          .map(({ id, entry }) => {
+          .map(({ id, entry, text }) => {
             const name = state.bots[id]?.name ?? id
-            return { bot: name, ...historyItem(state, id, name, entry, preview(entry.text)) }
+            return { bot: name, ...historyItem(state, id, name, entry, preview(text)) }
           })
       },
     }),
@@ -65,7 +65,7 @@ export function historyTools(store: Store, { searchPreviewChars, readWindowChars
         const entries = store.range(id, seq - around, seq + around)
         if (!entries.some((e) => e.seq === seq)) throw new Error(`没有这条记录：${ref}`)
         return entries.map((e) => {
-          if (e.kind === 'tool') return historyItem(state, id, name, e, toolNote(e))
+          if (!('text' in e)) return historyItem(state, id, name, e, recordNote(e))
           const text = e.seq === seq ? textWindow(e.text, offset, readWindowChars) : preview(e.text)
           return historyItem(state, id, name, e, text)
         })

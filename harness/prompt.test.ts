@@ -5,7 +5,7 @@ import { expect, it } from 'vitest'
 import { joinSections } from '../shared/debug'
 import type { MiniApp } from '../shared/miniApp'
 import type { SidebarState } from '../shared/sidebar'
-import { systemSections, taskSystem, toMessages, toolNote } from './prompt'
+import { recordNote, systemSections, taskSystem, toMessages } from './prompt'
 import type { BotBrain, HarnessState, Task } from './types'
 import { createWorkspace } from './workspace'
 
@@ -14,13 +14,19 @@ const emptyLibrary = () => createWorkspace(fs.mkdtempSync(path.join(os.tmpdir(),
 const stamp = { seq: 1, at: 0 }
 
 it('notes how long a successful result was, not the result itself', () => {
-  const note = toolNote({ ...stamp, kind: 'tool', name: 'read_file', input: { path: 'a.md' }, output: 'z'.repeat(500) })
+  const note = recordNote({
+    ...stamp,
+    kind: 'tool',
+    name: 'read_file',
+    input: { path: 'a.md' },
+    output: 'z'.repeat(500),
+  })
   expect(note).toBe('调用了 read_file（参数 {"path":"a.md"}），当时拿到了 500 字的结果（这里不再重复原文）')
 })
 
 it('clips a long failure message, which can carry the whole rejected input', () => {
   const error = `Invalid input for tool write_file: ${'x'.repeat(30_000)}`
-  const note = toolNote({ ...stamp, kind: 'tool', name: 'write_file', input: {}, output: { error } })
+  const note = recordNote({ ...stamp, kind: 'tool', name: 'write_file', input: {}, output: { error } })
   expect(note.startsWith('调用 write_file 失败（参数 {}）：Invalid input for tool write_file')).toBe(true)
   expect(note.length).toBeLessThan(300)
 })
@@ -50,6 +56,7 @@ const bot: BotBrain = {
   routines: [],
   flows: [],
   miniApps: [],
+  skills: [],
 }
 
 it('lists the running tasks with their progress, then as many that ended as the limits say', () => {

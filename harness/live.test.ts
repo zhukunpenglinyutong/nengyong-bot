@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest'
 import { createDeepSeek } from '@ai-sdk/deepseek'
 import { createHarness } from './agent'
 import { createModelCatalog } from './modelCatalog'
+import { createSkills } from './skills'
 import { createStore } from './store'
 import { createWorkspace } from './workspace'
 import type { HarnessEvent } from '../shared/bridge'
@@ -27,6 +28,7 @@ describe.skipIf(!key)('live DeepSeek', () => {
     const harness = createHarness({
       store,
       workspace: createWorkspace(path.join(dir, 'lib')),
+      skills: createSkills({ dir: path.join(dir, 'skills'), store, emit: (e) => events.push(e) }),
       getModel: () => model,
       models: { accounts: () => [], list: async () => [], of: () => null },
       getApiKey: () => key ?? null,

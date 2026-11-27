@@ -68,8 +68,8 @@ export const bot: Strings['bot'] = {
     day: (days) => `Day ${days}`,
     chats: 'Chats',
     chatCount: (count) => String(count),
-    flows: 'Flows',
-    flowCount: (count) => String(count),
+    abilities: 'Abilities',
+    abilityCount: (count) => String(count),
     swipe: 'Swipe the badge to see the desk on the back',
     swiped: 'Beep · swiped',
     staffNumber: (number) => `No. ${number}`,
@@ -87,9 +87,14 @@ export const bot: Strings['bot'] = {
   panel: {
     tabs: {
       feed: 'Activity',
-      flows: 'Flows',
+      abilities: 'Abilities',
       miniApps: 'Mini apps',
       library: 'Library',
+    },
+    abilityKinds: {
+      label: 'Kind of ability',
+      flows: 'Flows',
+      skills: 'Skills',
     },
     details: 'Bot details',
     content: 'Panel content',

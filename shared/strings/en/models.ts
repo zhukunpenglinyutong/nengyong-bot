@@ -76,11 +76,11 @@ export const models: Strings['models'] = {
     customHint: 'Relays, company intranets and self-hosted services',
   },
   picker: {
-    loadFailed: (reason) => `Could not load: ${reason}`,
     comingSoon: 'Coming soon',
   },
   menu: {
     noAccounts: 'No accounts yet',
+    loading: 'Loading models…',
     loadFailed: (reason) => `Could not load models: ${reason}`,
     noModels: 'This account lists no models',
   },

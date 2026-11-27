@@ -15,6 +15,7 @@ import { miniAppPage } from '../../shared/miniAppPage'
 import { DEFAULT_LIMITS } from '../../shared/limits'
 import { DEEPSEEK_MODEL } from '../../shared/modelServices'
 import { newId } from '../../shared/newId'
+import { isScript, SKILL_FILE, Skill, type SkillOffer, type SkillRef, type SkillView } from '../../shared/skill'
 import type { SidebarState } from '../../shared/sidebar'
 import type { Price } from '../../shared/usage'
 import { browserLanguage, saveBrowserLanguage } from '../browserLanguage'
@@ -28,6 +29,7 @@ import {
 } from './demoData'
 import { demoContext, demoTraces } from './demoDebug'
 import { DEMO_MINI_APP_FILES } from './demoMiniApps'
+import { DEMO_SKILL_FILES, demoOffer, demoSkills, demoUpload } from './demoSkills'
 import { demoUsage } from './demoUsage'
 import { strings } from '../../shared/strings'
 
@@ -39,16 +41,19 @@ const AUTO_REPLY = words.autoReply
 const EMPTY_PANEL: PanelData = {
   routines: [],
   flows: [],
+  skills: [],
   miniApps: [],
   library: [],
   tasks: [],
   models: DEMO_BOT_MODELS,
 }
+const SKILL_LINK = 'github.com/' // a message with one makes the demo bot offer its spreadsheet skill
 const LEARN_WORD = words.learnWord // a message with it makes the demo bot save DEMO_LEARNED_FLOW
 type Said =
   | { kind: 'user'; text: string; attachments?: string[]; quote?: Quote; miniApp?: SentFrom }
   | { kind: 'bot'; text: string; suggestions?: string[]; model?: string; requestId?: string }
   | { kind: 'tool'; name: string; input: unknown; output: unknown }
+  | { kind: 'skill-answer'; offer: string; botId: string; names: string[] }
 type SentFrom = { id: string; name: string; version: number; isSentByApp: boolean }
 const MINI_APP_REPLY = words.miniAppReply
 const webOnly = () => Promise.reject(new Error(words.webOnly))
@@ -69,6 +74,8 @@ export function createDemoBridge(): NengyongBotBridge {
   let sidebar: SidebarState | null = null
   let filledPrices = new Map<string, Price>()
   let devices: DevicesView = DEMO_DEVICES_OFF
+  let skills = demoSkills(Date.now()) // by the bot that has them
+  const offers = new Map<string, SkillOffer>()
   const emit = (event: HarnessEvent) => listeners.forEach((listener) => listener(event))
   const append = (botId: string, said: Said) => {
     const known = transcripts.get(botId) ?? []
@@ -94,6 +101,39 @@ export function createDemoBridge(): NengyongBotBridge {
   const pageOf = (miniAppId: string, version: number) => {
     const files = miniAppFiles.get(miniAppId)
     return miniAppPage(files?.pages[version] ?? words.pageMissing, files?.data)
+  }
+  // the main bot can use every bot's skills, so its panel lists them all
+  const skillsOf = (botId: string): SkillView[] =>
+    botId === MAIN_BOT_ID ? Object.values(skills).flat() : (skills[botId] ?? [])
+  const setSkills = (botId: string, change: (list: SkillView[]) => SkillView[]) => {
+    skills = { ...skills, [botId]: change(skills[botId] ?? []) }
+    emit({ kind: 'skills', botId, skills: skillsOf(botId) })
+    if (botId !== MAIN_BOT_ID) emit({ kind: 'skills', botId: MAIN_BOT_ID, skills: skillsOf(MAIN_BOT_ID) })
+  }
+  const offerSkill = (botId: string): string => {
+    const offer = demoOffer(botId, newId('k'))
+    offers.set(offer.offer, offer)
+    append(botId, { kind: 'tool', name: 'install_skill', input: {}, output: offer })
+    return words.skillOffer
+  }
+  // the card's answer: installs the skills ticked; either way the card is spent
+  const settleOffer = (offerId: string, names: string[]): SkillOffer => {
+    const offer = offers.get(offerId)
+    if (!offer) throw new Error(strings().harness.skills.offerGone)
+    offers.delete(offerId)
+    const chosen = offer.skills
+      .filter((skill) => names.includes(skill.name))
+      .map((skill) => Skill.parse({ ...skill, installedAt: Date.now() })) // drops what only the card needs
+    if (chosen.length)
+      setSkills(offer.botId, (list) => [
+        ...list.filter((each) => !names.includes(each.name)),
+        ...chosen.map((skill) => ({ ...skill, botId: offer.botId, uses: 0, lastUsedAt: null })),
+      ])
+    return offer
+  }
+  const filesOf = (ref: SkillRef): Record<string, string> => {
+    if (ref.kind === 'offer' && !offers.has(ref.offer)) throw new Error(strings().harness.skills.offerGone)
+    return DEMO_SKILL_FILES[ref.name] ?? {}
   }
   const learnFlow = (botId: string): string => {
     const flow = { ...DEMO_LEARNED_FLOW, id: newId('f'), updatedAt: Date.now() }
@@ -122,7 +162,7 @@ export function createDemoBridge(): NengyongBotBridge {
         return path
       })
       const quoted = transcripts.get(botId)?.find((entry) => entry.seq === quoteSeq)
-      const quote = quoted && quoted.kind !== 'tool' ? { seq: quoted.seq, text: quoted.text } : undefined
+      const quote = quoted && 'text' in quoted ? { seq: quoted.seq, text: quoted.text } : undefined
       const miniApp = miniAppId === null ? undefined : sentFrom(botId, miniAppId, false)
       append(botId, {
         kind: 'user',
@@ -132,7 +172,8 @@ export function createDemoBridge(): NengyongBotBridge {
         ...(miniApp ? { miniApp } : {}),
       })
       emit({ kind: 'busy', botId, busy: true })
-      const reply = text.toLowerCase().includes(LEARN_WORD) ? learnFlow(botId) : AUTO_REPLY
+      const isLearning = text.toLowerCase().includes(LEARN_WORD)
+      const reply = isLearning ? learnFlow(botId) : text.includes(SKILL_LINK) ? offerSkill(botId) : AUTO_REPLY
       emit({ kind: 'context', botId, context: demoContext(transcripts.get(botId) ?? []) })
       const traces = demoTraces(botId, text, Date.now())
       for (const trace of traces.slice(0, -1)) {
@@ -188,7 +229,7 @@ export function createDemoBridge(): NengyongBotBridge {
           return last ? [[botId, last.text]] : []
         }),
       ),
-    panel: async (botId) => panels.get(botId) ?? EMPTY_PANEL,
+    panel: async (botId) => ({ ...(panels.get(botId) ?? EMPTY_PANEL), skills: skillsOf(botId) }),
     tasksAndRoutines: async () =>
       Object.fromEntries([...panels].map(([botId, { tasks, routines }]) => [botId, { tasks, routines }])),
     context: async (botId) => demoContext(transcripts.get(botId) ?? []),
@@ -203,6 +244,36 @@ export function createDemoBridge(): NengyongBotBridge {
       panels.set(botId, { ...panel, routines })
       emit({ kind: 'routines', botId, routines })
     },
+    async answerSkillOffer(botId, offerId, names) {
+      const offer = settleOffer(offerId, names)
+      append(botId, { kind: 'skill-answer', offer: offerId, botId: offer.botId, names })
+      const [name] = names
+      append(botId, {
+        kind: 'bot',
+        text: name ? words.skillInstalled(`[${name}](skill:${name})`) : words.skillDeclined,
+      })
+    },
+    async uploadSkill(botId) {
+      const offer = demoUpload(botId, newId('k'), Date.now())
+      offers.set(offer.offer, offer)
+      return offer
+    },
+    async answerSkillUpload(_botId, offerId, names) {
+      settleOffer(offerId, names)
+    },
+    async removeSkills(botId, names) {
+      setSkills(botId, (list) => list.filter((skill) => !names.includes(skill.name)))
+    },
+    skillFiles: async (ref) =>
+      Object.entries(filesOf(ref))
+        .map(([path, text]) => ({ path, bytes: text.length, isScript: isScript(path) }))
+        .sort((a, b) => Number(b.path === SKILL_FILE) - Number(a.path === SKILL_FILE) || a.path.localeCompare(b.path)),
+    async skillFile(ref, path) {
+      const text = filesOf(ref)[path]
+      if (text === undefined) throw new Error(strings().harness.skills.fileGone(path))
+      return text
+    },
+    revealSkill: webOnly,
     async stopTask(botId, taskId) {
       const panel = panels.get(botId) ?? EMPTY_PANEL
       const tasks = panel.tasks.map(

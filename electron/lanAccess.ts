@@ -32,6 +32,8 @@ const DEVICE_METHODS = [
   'tasksAndRoutines',
   'setRoutineEnabled',
   'stopTask',
+  'skillFiles',
+  'skillFile',
   'getSidebar',
   'getModelServices',
   'getLimits',

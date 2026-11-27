@@ -27,6 +27,7 @@ const brain = (id: string, routines: Routine[]): BotBrain => ({
   routines,
   flows: [],
   miniApps: [],
+  skills: [],
 })
 
 const stateWith = (routines: Routine[], roster = ['chief']): HarnessState => ({

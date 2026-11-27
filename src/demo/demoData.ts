@@ -152,6 +152,7 @@ export const DEMO_BOT_MODELS: BotModels = { main: DEMO_MAIN_MODEL, chat: null, t
 
 export const DEMO_PANELS: Record<string, PanelData> = {
   release: {
+    skills: [],
     routines: [
       {
         id: 'friday-release',
@@ -192,6 +193,7 @@ export const DEMO_PANELS: Record<string, PanelData> = {
     models: { main: DEMO_MAIN_MODEL, chat: { model: 'deepseek-pro', isGone: false }, tasks: null },
   },
   repo: {
+    skills: [],
     routines: [
       {
         id: 'daily-stars',
@@ -208,6 +210,7 @@ export const DEMO_PANELS: Record<string, PanelData> = {
     models: DEMO_BOT_MODELS,
   },
   support: {
+    skills: [],
     routines: [],
     flows: [],
     miniApps: [],
@@ -228,6 +231,7 @@ export const DEMO_PANELS: Record<string, PanelData> = {
     models: DEMO_BOT_MODELS,
   },
   [DEMO_MINI_APP_BOT]: {
+    skills: [],
     routines: [],
     flows: [],
     miniApps: DEMO_MINI_APPS,
@@ -238,6 +242,7 @@ export const DEMO_PANELS: Record<string, PanelData> = {
   [MAIN_BOT.id]: {
     flows: [],
     miniApps: [],
+    skills: [],
     routines: [
       {
         id: 'ai',

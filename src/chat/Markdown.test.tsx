@@ -8,10 +8,23 @@ afterEach(cleanup)
 const LIBRARY_IMAGE = '/Users/me/data/library/UI参考/海报 1.png'
 const LIBRARY_IMAGE_URL = 'file:///Users/me/data/library/UI%E5%8F%82%E8%80%83/%E6%B5%B7%E6%8A%A5%201.png'
 
-function renderReply(text: string, openFile = vi.fn()) {
+const SKILL = {
+  name: 'pdf',
+  description: 'For PDFs.',
+  source: { kind: 'local' as const, root: '/x', path: '/x' },
+  installedAt: 1,
+  fileCount: 1,
+  scripts: [],
+  isUserInvoked: false,
+  uses: 0,
+  lastUsedAt: null,
+}
+
+function renderReply(text: string, openFile = vi.fn(), openSkill = vi.fn()) {
   render(
     <MentionContext
       value={{
+        chatBotId: 'chief',
         bots: [],
         open: vi.fn(),
         flows: [],
@@ -21,6 +34,13 @@ function renderReply(text: string, openFile = vi.fn()) {
         thumbUrl: () => '',
         fileUrl: (path) => `attachment:${path}`,
         openFile,
+        skills: [
+          { ...SKILL, botId: 'chief' },
+          { ...SKILL, botId: 'balance' },
+        ],
+        openSkill,
+        answerSkillOffer: vi.fn(),
+        openSkillFiles: vi.fn(),
       }}
     >
       <Markdown text={text} />
@@ -55,4 +75,22 @@ it('opens a library image at full size when clicked', () => {
   renderReply(`![海报](${LIBRARY_IMAGE_URL})`)
   fireEvent.click(screen.getByRole('button', { name: '查看 海报' }))
   expect(screen.getByRole('dialog', { name: '海报' })).toBeInTheDocument()
+})
+
+it("opens a skill named in a reply, the chat's own unless the link says whose", () => {
+  const openSkill = vi.fn()
+  renderReply('用 [pdf](skill:pdf) 和 [pdf](skill:balance/pdf)', vi.fn(), openSkill)
+  const [own, theirs] = screen.getAllByRole('button', { name: 'pdf' })
+  fireEvent.click(own)
+  fireEvent.click(theirs)
+  expect(openSkill.mock.calls).toEqual([
+    ['chief', 'pdf'],
+    ['balance', 'pdf'],
+  ])
+})
+
+it('leaves a skill no bot has as plain text', () => {
+  renderReply('[xlsx](skill:xlsx)')
+  expect(screen.queryByRole('button')).toBeNull()
+  expect(screen.getByText('xlsx')).toBeInTheDocument()
 })

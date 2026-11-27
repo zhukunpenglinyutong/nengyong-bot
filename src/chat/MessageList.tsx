@@ -13,6 +13,7 @@ import { useMentions } from './MentionContext'
 import { MentionText } from './MentionText'
 import { MessageActions } from './MessageActions'
 import { SelectableRow } from './SelectableRow'
+import { SkillOfferCard } from '../skills/SkillOfferCard'
 import type { Selection, SelectionEvent } from './selection'
 import { strings } from '../../shared/strings'
 
@@ -63,7 +64,7 @@ function MessageItem({
   onDelete,
   animateIn,
 }: ItemProps) {
-  const { bots } = useMentions()
+  const { bots, chatBotId, answerSkillOffer, openSkillFiles } = useMentions()
   const enter = animateIn ? ENTER : { initial: false as const }
   const row = (seq: number | undefined) => ({
     seq,
@@ -159,6 +160,22 @@ function MessageItem({
           )}
           {message.at !== undefined && <LinkedMiniApps text={message.text} at={message.at} />}
         </SelectableRow>
+      )
+    }
+    case 'skill-offer': {
+      const { offer } = message
+      const forBot = offer.botId === chatBotId ? undefined : bots.find((candidate) => candidate.id === offer.botId)
+      const botName = forBot?.name ?? bots.find((candidate) => candidate.id === chatBotId)?.name ?? offer.botId
+      return (
+        <motion.div {...enter} className="my-2 max-w-[min(600px,80%)] self-start">
+          <SkillOfferCard
+            offer={offer}
+            installed={message.installed}
+            forBot={forBot}
+            onAnswer={answerSkillOffer && ((names) => answerSkillOffer(offer.offer, names))}
+            onViewFiles={(name) => openSkillFiles({ ref: { kind: 'offer', offer: offer.offer, name }, name, botName })}
+          />
+        </motion.div>
       )
     }
     default:

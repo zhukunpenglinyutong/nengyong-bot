@@ -74,11 +74,11 @@ export const models = {
     nengyongKeyHint: 'Nengyong Bot 官方，免注册',
   },
   picker: {
-    loadFailed: (reason: string) => `读取失败：${reason}`,
     comingSoon: '即将开放，敬请期待',
   },
   menu: {
     noAccounts: '还没有账号',
+    loading: '正在读取模型…',
     loadFailed: (reason: string) => `读不到模型：${reason}`,
     noModels: '这个账号没有列出模型',
   },

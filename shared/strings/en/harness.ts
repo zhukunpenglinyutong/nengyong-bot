@@ -68,6 +68,37 @@ export const harness: Strings['harness'] = {
     noVersion: (name, version) => `“${name}” has no v${version}`,
     pageMissing: (name, version) => `The page file of “${name}” v${version} is missing`,
   },
+  skills: {
+    notFound: (name) => `No skill named ${name}`,
+    offerGone:
+      'This install card has expired (after 30 minutes, or when the app restarts): ask the bot to read the skill again',
+    uploadGone: 'This install card has expired (after 30 minutes, or when the app restarts): upload the skill again',
+    fileGone: (file) => `The skill has no file ${file}`,
+    full: (max, room) =>
+      `A bot can have at most ${max} skills, so ${room} more fit: tick fewer, or remove ones it no longer uses`,
+    noSkill: 'No skill here: there is no SKILL.md',
+    tooManySkills: (count, max) =>
+      `There are ${count} skills here, and a card holds at most ${max}: pick one of their folders instead`,
+    tooLargeTogether: (max) => `The skills here add up to more than ${max} MB: pick one of their folders instead`,
+    noneInstallable: (skipped) =>
+      `None of the skills here can be installed:\n${skipped.map(({ folder, reason }) => `- ${folder}: ${reason}`).join('\n')}`,
+    folderMissing: (folder) => `Folder not found: ${folder}`,
+    folderTooBig: (folder) => `${folder} holds too many files to be a skill folder: pick the skill folder itself`,
+    noSkillFile: 'The folder has no SKILL.md: a skill folder needs one at its top',
+    badName: (name) =>
+      `The skill name “${name}” is not valid: use lowercase letters, digits and dashes, at most 64 characters`,
+    noDescription: 'SKILL.md has no description at its top: it should say when to use the skill',
+    sameFile: (one, other) => `The skill has two files whose names differ only in case: ${one} and ${other}`,
+    unsafePath: (file) => `The skill has an unsafe file path: ${file}`,
+    tooManyFiles: (count, max) => `Too many files (${count}): a skill can have at most ${max}`,
+    tooLarge: (megabytes, max) => `Too large (${megabytes} MB): a skill can be at most ${max} MB`,
+    archiveTooLarge: (max) => `The archive is larger than ${max} MB`,
+    archiveUnpacksTooLarge: (max) => `The archive unpacks to more than ${max} MB`,
+    archiveBroken: 'The archive is damaged, or not a .zip',
+    archiveEncrypted: 'The archive is password-protected: use one without a password',
+    archiveUnsupported:
+      'The archive uses a format or compression this app cannot read: make a regular .zip and try again',
+  },
   onboarding: {
     alreadyDone: 'The onboarding is already done',
     secretaryDuty:
