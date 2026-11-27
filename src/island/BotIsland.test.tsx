@@ -173,6 +173,31 @@ it('counts the steps of a running turn and opens on them', async () => {
   expect(screen.getByText('进行中')).toBeInTheDocument()
 })
 
+it('opens on the context again once the turn it was opened on is over', async () => {
+  const user = userEvent.setup()
+  const { rerender } = island({ isBusy: true, traces: [turn] })
+  await user.click(screen.getByRole('button', { name: /步 2\/12/ }))
+  await user.keyboard('{Escape}')
+  rerender(
+    <BotIsland
+      bot={MAIN_BOT}
+      bots={[MAIN_BOT]}
+      entries={[remembered]}
+      tasks={[]}
+      flows={[]}
+      isBusy={false}
+      isDebug
+      context={context}
+      traces={[{ ...turn, endedAt: 9000 }]}
+      notice={undefined}
+      onDismissNotice={vi.fn()}
+      onDebugChange={vi.fn()}
+    />,
+  )
+  await user.click(await screen.findByRole('button', { name: /CEO/ }))
+  expect(screen.getByRole('tab', { name: '上下文' })).toHaveAttribute('aria-selected', 'true')
+})
+
 it('lists what the chat changed, with the record it came from', async () => {
   const user = userEvent.setup()
   island()

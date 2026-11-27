@@ -69,11 +69,12 @@ export function BotIsland(props: Props) {
     setIsExpanded(false)
     flashToggledDebug(isOn)
   }
-  const expand = () => setIsExpanded(true)
-  const openTrace = () => {
-    setTab('trace')
+  const openOn = (next: DebugTab) => {
+    setTab(next)
     setIsExpanded(true)
   }
+  const expand = () => openOn('context')
+  const openTrace = () => openOn('trace')
   const chatTrace = traces.find((trace) => trace.id === bot.id)
 
   const view = (): View => {
