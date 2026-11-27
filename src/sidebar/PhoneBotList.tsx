@@ -1,15 +1,14 @@
 import { useState } from 'react'
 import type { Bot } from '../../shared/bot'
-import { plainText } from '../../shared/plainText'
 import { type SidebarState } from '../../shared/sidebar'
 import { ELAPSED_REFRESH_MS } from '../elapsedLabel'
 import type { Thread } from '../harnessState'
 import { sidebarView } from '../sidebarView'
 import { Icon } from '../ui/Icon'
 import { useNow } from '../ui/useNow'
-import { botStatusOf, statusLineOf } from './botStatus'
+import { botStatusOf } from './botStatus'
 import { StatusAvatar } from './StatusAvatar'
-import { UnreadBadge } from './UnreadBadge'
+import { StatusLine } from './StatusLine'
 import { strings } from '../../shared/strings'
 
 interface Props {
@@ -79,7 +78,6 @@ interface RowProps {
 
 function BotRow({ bot, thread, seenAt, unread, now, onOpen }: RowProps) {
   const status = botStatusOf(thread, seenAt, false)
-  const line = statusLineOf(status, now)
   return (
     <button onClick={() => onOpen(bot.id)} className="group flex w-full items-center gap-3 px-5 py-2.5 text-left">
       <StatusAvatar bot={bot} size={44} dotSize={15} status={status} />
@@ -87,16 +85,7 @@ function BotRow({ bot, thread, seenAt, unread, now, onOpen }: RowProps) {
         <span data-unread={unread > 0 || undefined} className="truncate text-base data-unread:font-semibold">
           {bot.name}
         </span>
-        <span className="flex min-w-0 items-center gap-2">
-          <small
-            data-live={(line !== null && status.kind !== 'failed') || undefined}
-            data-failed={status.kind === 'failed' || undefined}
-            className="min-w-0 flex-1 truncate text-sm text-muted data-failed:text-danger data-live:text-soft"
-          >
-            {line ?? plainText(thread.preview)}
-          </small>
-          <UnreadBadge count={unread} />
-        </span>
+        <StatusLine status={status} preview={thread.preview} unread={unread} now={now} />
       </span>
     </button>
   )

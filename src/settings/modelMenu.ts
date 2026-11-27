@@ -1,9 +1,10 @@
 import type { AccountView, ModelChoice } from '../../shared/modelServices'
+import type { Loaded } from '../ipcErrorMessage'
 import type { MenuEntry } from '../ui/ContextMenu'
 import { strings } from '../../shared/strings'
 
 /** Where reading an account's models is: still going, its models, or why they could not be read. */
-export type ModelList = { kind: 'loading' } | { kind: 'listed'; models: string[] } | { kind: 'failed'; message: string }
+export type ModelList = { kind: 'loading' } | Loaded<string[]>
 
 /** The models of each account to pick from, in a submenu per account once there are several: the main model menu. */
 export function modelMenu(
@@ -32,9 +33,9 @@ function modelItems(
       return [{ label: strings().models.menu.loading, disabled: true }]
     case 'failed':
       return [{ label: strings().models.menu.loadFailed(list.message), disabled: true }]
-    case 'listed':
-      if (list.models.length === 0) return [{ label: strings().models.menu.noModels, disabled: true }]
-      return list.models.map((model) => ({
+    case 'loaded':
+      if (list.value.length === 0) return [{ label: strings().models.menu.noModels, disabled: true }]
+      return list.value.map((model) => ({
         label: model,
         checked: chosen?.accountId === account.id && chosen.model === model,
         onSelect: () => onPick({ accountId: account.id, model }),

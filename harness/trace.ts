@@ -1,7 +1,7 @@
-import type { LanguageModelUsage, TextStreamPart, ToolSet } from 'ai'
+import type { TextStreamPart, ToolSet } from 'ai'
 import type { Compaction, Trace, TraceStep } from '../shared/debug'
-import type { TokenCounts } from '../shared/usage'
 import { clip } from './textWindow'
+import { usageOf } from './usage'
 
 const SHOWN_CHARS = 2000 // of each input, output and paragraph: enough to see what happened, small enough to send each step
 
@@ -82,12 +82,3 @@ function withOutput(trace: Trace, callId: string, name: string, output: unknown,
 }
 
 const shown = (value: unknown) => clip(JSON.stringify(value) ?? '', SHOWN_CHARS)
-
-export function usageOf(usage: LanguageModelUsage): TokenCounts | null {
-  if (usage.inputTokens === undefined) return null
-  return {
-    input: usage.inputTokens,
-    cached: usage.inputTokenDetails.cacheReadTokens ?? 0,
-    output: usage.outputTokens ?? 0,
-  }
-}

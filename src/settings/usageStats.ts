@@ -1,5 +1,6 @@
 import { type Bot, StoredBot } from '../../shared/bot'
-import { type TokenCounts, USAGE_DAYS, type UsageRecord, type UsageView } from '../../shared/usage'
+import { type TokenCounts, USAGE_DAYS, type UsageRecord, type UsageSource, type UsageView } from '../../shared/usage'
+import type { IconName } from '../ui/Icon'
 import { strings } from '../../shared/strings'
 
 export type Dimension = 'bot' | 'source' | 'model'
@@ -130,11 +131,18 @@ export function changeOf(view: MeasuredView, range: Range): number | null {
   return totalsOf(inDays(start, view.today)).amount / previous - 1
 }
 
-const SOURCE_NAMES: Record<UsageRecord['source']['kind'], string> = {
-  chat: strings().usage.sources.chat,
-  routine: strings().usage.sources.routine,
-  bot: strings().usage.sources.bot,
+interface Source {
+  name: string
+  icon: IconName
+  runs: (runs: number) => string // what its runs are called: turns of chat, runs of a routine, tasks
 }
+
+/** Where the bots' model calls came from, by the key the breakdown groups them under: the source's kind. */
+export const SOURCES: Record<string, Source> = {
+  chat: { name: strings().usage.sources.chat, icon: 'chat', runs: strings().usage.counts.turns },
+  routine: { name: strings().usage.sources.routine, icon: 'clock', runs: strings().usage.counts.runs },
+  bot: { name: strings().usage.sources.bot, icon: 'team', runs: strings().usage.counts.tasks },
+} satisfies Record<UsageSource['kind'], Source>
 
 export interface UsageNames {
   botOf: (id: string) => Bot
@@ -150,7 +158,7 @@ export function namesOf(bots: Bot[], view: UsageView): UsageNames {
       case 'bot':
         return botOf(key).name
       case 'source':
-        return key === 'chat' || key === 'routine' || key === 'bot' ? SOURCE_NAMES[key] : key
+        return SOURCES[key].name
       case 'model':
         return key
       default:

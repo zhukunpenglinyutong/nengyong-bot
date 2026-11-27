@@ -38,22 +38,11 @@ interface Props {
   onPickAvatar?: (avatar: string | undefined) => void
   onPickOutfit?: (outfit: OutfitId[]) => void
   onOpenTab: (tab: PanelTab) => void
-  onOpenFlow: (flowId: string | null) => void
 }
 
 /** The top of the panel: the bot's staff badge on a lanyard, its band in the colour of the tier. It swings in and leans after
  * the pointer; swiping its barcode turns it over to the bot's desk, and it always starts on its front. */
-export function BotBadge({
-  bot,
-  entries,
-  panel,
-  onRename,
-  onPickLook,
-  onPickAvatar,
-  onPickOutfit,
-  onOpenTab,
-  onOpenFlow,
-}: Props) {
+export function BotBadge({ bot, entries, panel, onRename, onPickLook, onPickAvatar, onPickOutfit, onOpenTab }: Props) {
   const words = strings().bot.badge
   const trust = useMemo(() => trustOf(entries), [entries])
   const now = useNow(ELAPSED_REFRESH_MS)
@@ -133,7 +122,7 @@ export function BotBadge({
             )}
             <Rank trust={trust} />
             <dl className="mx-4 mt-3.5 grid grid-cols-3 divide-x divide-line border-t border-dashed border-line pt-3">
-              <Field label={words.onTheJob} title={words.joinedOn(dateLabel(joinedAt))}>
+              <Field label={words.onTheJob} title={words.joinedOn(fullDateLabel(joinedAt))}>
                 {words.day(days)}
               </Field>
               <Field label={words.chats}>{words.chatCount(trust.messages)}</Field>
@@ -152,7 +141,6 @@ export function BotBadge({
                 panel={panel}
                 now={now}
                 onOpenTab={onOpenTab}
-                onOpenFlow={onOpenFlow}
                 onLeave={() => turn(false)}
               />
             )}
@@ -284,7 +272,7 @@ function Field({ label, title, children }: { label: string; title?: string; chil
   )
 }
 
-const dateLabel = (at: number) =>
+const fullDateLabel = (at: number) =>
   new Date(at).toLocaleDateString(locale(), { timeZone: TIMEZONE, year: 'numeric', month: 'long', day: 'numeric' })
 
 /** Bars drawn from the id's characters, so a bot always wears the same code; it does not scan. */

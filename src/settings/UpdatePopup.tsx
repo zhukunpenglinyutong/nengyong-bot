@@ -2,13 +2,13 @@ import { motion, useIsPresent } from 'motion/react'
 import type { ReactNode } from 'react'
 import { BYTES_PER_MB } from '../../shared/limits'
 import { strings } from '../../shared/strings'
-import { dateLabel } from '../chat/chatMessages'
+import { dateLabel } from '../timeLabel'
 import { IconButton } from '../ui/IconButton'
 import { POP } from '../ui/motion'
 import appIcon from './appIcon.webp'
 import { BusyWarning } from './BusyWarning'
 import { RELEASES } from './releases'
-import { SettingsButton, SettingsPrimaryButton } from './SettingsSection'
+import { Button, PrimaryButton } from '../ui/Button'
 import type { Popup } from './updateState'
 import { WhatsNewLink } from './WhatsNewLink'
 
@@ -52,8 +52,8 @@ function PopupBody({ popup, busyBots, onInstall, onClose, onOpenNotes }: Props) 
           </div>
           <BusyWarning names={busyBots} />
           <Actions>
-            <SettingsButton onClick={onClose}>{words.later}</SettingsButton>
-            <SettingsPrimaryButton onClick={onInstall}>{words.install}</SettingsPrimaryButton>
+            <Button onClick={onClose}>{words.later}</Button>
+            <PrimaryButton onClick={onInstall}>{words.install}</PrimaryButton>
           </Actions>
         </>
       )
@@ -85,8 +85,8 @@ function PopupBody({ popup, busyBots, onInstall, onClose, onOpenNotes }: Props) 
           <Head title={words.installFailed} detail={popup.message} isFailure onClose={onClose} />
           <BusyWarning names={busyBots} />
           <Actions>
-            <SettingsButton onClick={onClose}>{words.close}</SettingsButton>
-            <SettingsPrimaryButton onClick={onInstall}>{words.retry}</SettingsPrimaryButton>
+            <Button onClick={onClose}>{words.close}</Button>
+            <PrimaryButton onClick={onInstall}>{words.retry}</PrimaryButton>
           </Actions>
         </>
       )
@@ -100,8 +100,8 @@ function PopupBody({ popup, busyBots, onInstall, onClose, onOpenNotes }: Props) 
             ))}
           </ul>
           <Actions>
-            <SettingsButton onClick={onClose}>{words.gotIt}</SettingsButton>
-            <SettingsPrimaryButton onClick={onOpenNotes}>{words.openNotes}</SettingsPrimaryButton>
+            <Button onClick={onClose}>{words.gotIt}</Button>
+            <PrimaryButton onClick={onOpenNotes}>{words.openNotes}</PrimaryButton>
           </Actions>
         </>
       )

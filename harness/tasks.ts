@@ -4,6 +4,7 @@ import { strings } from '../shared/strings'
 import { newId } from '../shared/newId'
 import { describeError, NoKeyError } from './describeError'
 import { historyTools } from './historyTools'
+import { libraryItems } from './library'
 import type { Mcp } from './mcp'
 import { miniAppTools } from './miniApps'
 import { taskSystem } from './prompt'
@@ -25,7 +26,7 @@ interface TaskRunnerOptions {
   workspace: Workspace
   getModel: () => ModelObject | null // the main model
   models: ModelChoices
-  getApiKey: () => string | null
+  searchKey: () => string | null
   mcp: Mcp
   skills: Skills
   emit: (event: HarnessEvent) => void
@@ -39,7 +40,7 @@ type NewTask = Pick<Task, 'botId' | 'requestedBy' | 'source' | 'title' | 'flowId
 
 /** Runs tasks in the background, a few at a time; each hands its conclusion to the chat that started it. */
 export function createTaskRunner(options: TaskRunnerOptions) {
-  const { store, workspace, getModel, getApiKey, emit, deliver, limits } = options
+  const { store, workspace, getModel, searchKey, emit, deliver, limits } = options
   const running = new Map<string, AbortController>()
   let waiting: string[] = []
   const publish = (botId: string) => emit({ kind: 'tasks', botId, tasks: taskViews(store, botId) })
@@ -149,8 +150,6 @@ export function createTaskRunner(options: TaskRunnerOptions) {
         : `来自「${state.bots[task.requestedBy]?.name ?? task.requestedBy}」`
     return runTurn({
       store,
-      workspace,
-      emit,
       botId: task.botId,
       transcriptId: task.id,
       runId: task.id,
@@ -167,7 +166,7 @@ export function createTaskRunner(options: TaskRunnerOptions) {
         ...mcp.tools,
         ...workTools({
           workspace,
-          apiKey: getApiKey,
+          searchKey,
           limits: current,
           onStatus: (text) => updateRunning(task.id, { statusText: text }),
         }),
@@ -178,6 +177,10 @@ export function createTaskRunner(options: TaskRunnerOptions) {
       maxSteps: current.taskSteps,
       silenceSeconds: current.modelSilenceSeconds,
       abortSignal,
+      onEntry: (entry) => {
+        if (entry.kind === 'tool' && entry.name === 'write_file')
+          emit({ kind: 'library', botId: task.botId, library: libraryItems(store, workspace, task.botId) })
+      },
       trace: { title: task.title, inputs: [brief], compaction: null },
       onTrace: (trace) => emit({ kind: 'trace', botId: task.botId, trace }),
     })

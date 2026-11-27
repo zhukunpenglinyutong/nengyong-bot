@@ -1,7 +1,7 @@
 import { KEPT_AFTER_CLOSE_MS, phaseOf, RUNNING_AFTER_MINIMIZE_MS, type Run } from './miniAppRuns'
 import { strings } from '../../shared/strings'
 
-export type RunStatus = { kind: 'update' | 'running' | 'suspended'; text: string }
+type RunStatus = { kind: 'update' | 'running' | 'suspended'; text: string }
 
 const minutesLeft = (ms: number) => Math.max(1, Math.ceil(ms / 60_000))
 

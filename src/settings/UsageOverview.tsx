@@ -1,7 +1,7 @@
 import { use } from 'react'
 import { MeasureContext } from './measure'
 import { ModelSwatch } from './ModelSwatch'
-import type { Periods } from './periods'
+import { byPeriod, type Periods } from './periods'
 import { UsageChart } from './UsageChart'
 import { dayLabel, tokenLabel } from './usageFormat'
 import {
@@ -24,6 +24,7 @@ interface Props {
   periods: Periods
   records: Measured[] // of the range
   colors: Map<string, string>
+  hasSeveralModels: boolean // the range used more than one model
   dimension: Dimension
   pointed: string | null
   names: UsageNames
@@ -31,15 +32,22 @@ interface Props {
 }
 
 /** The range at a glance: its total in the measure, a day (or an hour of today) on average, its tokens; then those, stacked by model. */
-export function UsageOverview({ view, range, periods, records, colors, onFillPrice, ...chart }: Props) {
+export function UsageOverview({
+  view,
+  range,
+  periods,
+  records,
+  colors,
+  hasSeveralModels,
+  onFillPrice,
+  ...chart
+}: Props) {
   const measure = use(MeasureContext)
   const totals = totalsOf(records)
-  const counted = periods.list.filter((period) => period.isCounted)
-  const amounts = counted.map(
-    (period) => totalsOf(records.filter((record) => periods.idOf(record) === period.id)).amount,
-  )
+  const counted = byPeriod(periods, records).filter((part) => part.period.isCounted)
+  const amounts = counted.map((part) => part.totals.amount)
   const peak = Math.max(...amounts)
-  const peakName = counted[amounts.indexOf(peak)]?.name ?? ''
+  const peakName = counted[amounts.indexOf(peak)]?.period.name ?? ''
   const unpriced = view.prices.find((entry) => !entry.price && records.some((record) => record.model === entry.model))
   const cachedShare = `${totals.input ? Math.round((totals.cached / totals.input) * 100) : 0}%`
   return (
@@ -79,8 +87,8 @@ export function UsageOverview({ view, range, periods, records, colors, onFillPri
           {strings().usage.overview.unpriced(tokenLabel(totals.unpriced), unpriced.model)}
         </button>
       )}
-      <Legend records={records} colors={colors} />
-      <UsageChart periods={periods} records={records} colors={colors} {...chart} />
+      {hasSeveralModels && <Legend records={records} colors={colors} />}
+      <UsageChart periods={periods} records={records} colors={colors} hasSeveralModels={hasSeveralModels} {...chart} />
     </div>
   )
 }
@@ -107,11 +115,10 @@ function Figure({ label, value, note, isLead }: { label: string; value: string; 
   )
 }
 
-/** Which colour is which model, in stacking order; only once the range used more than one model. */
+/** Which colour is which model, in stacking order. */
 function Legend({ records, colors }: { records: Measured[]; colors: Map<string, string> }) {
   const measure = use(MeasureContext)
   const models = inStackOrder(groupBy(records, KEY_OF.model), colors)
-  if (models.length < 2) return null
   return (
     <div className="mt-4 flex flex-wrap gap-x-5 gap-y-1.5 text-xs text-soft">
       {models.map((model) => (

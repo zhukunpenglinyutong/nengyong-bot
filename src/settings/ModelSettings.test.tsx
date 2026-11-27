@@ -86,14 +86,6 @@ it('says why an account could not list its models instead of an empty menu', asy
   )
 })
 
-it('says image generation is coming soon when its picker is pressed', async () => {
-  const { user } = renderPage()
-  const row = screen.getByText('图片生成').closest('div')?.parentElement
-  if (!row) throw new Error('no 图片生成 row')
-  await user.click(within(row).getByRole('button', { name: /未开启/ }))
-  expect(await screen.findByRole('menuitem', { name: '即将开放，敬请期待' })).toBeInTheDocument()
-})
-
 it('says a bot switches models by being asked in its chat, as the page has no switch per bot', () => {
   renderPage()
   expect(screen.getByText('Bot 默认都用它；某个 Bot 要换，直接在聊天里跟它说')).toBeInTheDocument()
@@ -167,9 +159,24 @@ it('says what stops working before an account in use is disconnected', async () 
   await user.click(screen.getByRole('button', { name: /DeepSeek.*在用/ }))
   const dialog = await screen.findByRole('dialog', { name: 'DeepSeek' })
   await user.click(within(dialog).getByRole('button', { name: '断开' }))
-  expect(within(dialog).getByText('断开后，主模型、网络搜索会停用')).toBeInTheDocument()
-  await user.click(within(dialog).getByRole('button', { name: '断开' }))
+  const confirm = await screen.findByRole('dialog', { name: '断开 DeepSeek？' })
+  expect(within(confirm).getByText('断开后，主模型、网络搜索会停用')).toBeInTheDocument()
+  await user.click(within(confirm).getByRole('button', { name: '断开' }))
   expect(bridge.removeAccount).toHaveBeenCalledWith('deepseek')
+})
+
+it('says why an account could not be disconnected', async () => {
+  const { bridge, user } = renderPage()
+  bridge.removeAccount.mockRejectedValue(
+    new Error("Error invoking remote method 'nengyongbot:removeAccount': Error: 钥匙串拒绝了删除"),
+  )
+  await user.click(screen.getByRole('button', { name: /DeepSeek.*在用/ }))
+  const dialog = await screen.findByRole('dialog', { name: 'DeepSeek' })
+  await user.click(within(dialog).getByRole('button', { name: '断开' }))
+  await user.click(
+    within(await screen.findByRole('dialog', { name: '断开 DeepSeek？' })).getByRole('button', { name: '断开' }),
+  )
+  expect(await within(dialog).findByRole('alert')).toHaveTextContent('钥匙串拒绝了删除')
 })
 
 it('opens on connecting DeepSeek when nothing is connected yet', () => {

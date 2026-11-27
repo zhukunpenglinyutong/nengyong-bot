@@ -19,18 +19,18 @@ it('keeps entries in order and without duplicates, whatever order they arrive in
 
 it('replaces the streamed draft with the committed reply and remembers it as the preview', () => {
   const state = run([
-    { kind: 'draft', botId: 'chief', text: '正在' },
+    { kind: 'streaming', botId: 'chief', text: '正在' },
     { kind: 'entry', botId: 'chief', entry: reply(1, '好了') },
   ])
-  expect(state.chief).toMatchObject({ draft: '', preview: '好了' })
+  expect(state.chief).toMatchObject({ streaming: '', preview: '好了' })
 })
 
 it('keeps the draft while the user entry of the same turn arrives', () => {
   const state = run([
-    { kind: 'draft', botId: 'chief', text: '正在' },
+    { kind: 'streaming', botId: 'chief', text: '正在' },
     { kind: 'entry', botId: 'chief', entry: user(1, '你好') },
   ])
-  expect(state.chief.draft).toBe('正在')
+  expect(state.chief.streaming).toBe('正在')
 })
 
 it('tracks progress only while a turn is running', () => {
@@ -78,7 +78,25 @@ it('merges loaded history with entries that arrived while it was loading', () =>
     { kind: 'loaded', botId: 'chief', entries: [user(1, 'a'), reply(2, 'b')], panel },
   ])
   expect(state.chief.entries.map((entry) => entry.seq)).toEqual([1, 2, 3])
-  expect(state.chief.panel).toBe(panel)
+  expect(state.chief.panel).toEqual(panel)
+})
+
+it('keeps panel changes that arrived while the history was loading over the loaded panel', () => {
+  const done = taskOf('日报')
+  const panel = {
+    routines: [routine(false)],
+    flows: [],
+    skills: [],
+    miniApps: [],
+    library: [],
+    tasks: [{ ...done, status: 'running' as const }],
+    models: NO_MODELS,
+  }
+  const state = run([
+    { kind: 'tasks', botId: 'chief', tasks: [done] },
+    { kind: 'loaded', botId: 'chief', entries: [], panel },
+  ])
+  expect(state.chief.panel).toEqual({ ...panel, tasks: [done] })
 })
 
 it('replaces the panel routines when the bot changes them, keeping the library', () => {

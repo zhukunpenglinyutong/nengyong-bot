@@ -111,13 +111,9 @@ export const settings: Strings['settings'] = {
     shrink: 'Shrink',
   },
   tools: {
-    cliTab: 'CLI tools',
     title: 'Tools',
     intro: "Tools on this computer that the bots' background tasks can use.",
-    toolType: 'Tool type',
     connecting: 'Connecting to MCP servers…',
-    cliOff: 'Off',
-    cliHint: 'Once on, bots can hand it work like writing code; it uses its own sign-in and quota.',
     invalidJson: 'The MCP config is not valid JSON',
     mcpConfig: 'MCP config',
     format: 'Format',
@@ -130,7 +126,6 @@ export const settings: Strings['settings'] = {
     noDescription: 'No description',
     connected: 'Connected',
     connectFailed: 'Failed to connect',
-    mcpTab: 'MCP',
   },
   limits: {
     title: 'Limits',

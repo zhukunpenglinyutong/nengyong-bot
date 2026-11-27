@@ -1,9 +1,8 @@
-import { isUnfinished, type RoutineView, type TaskView } from '../../shared/bridge'
-import { locale } from '../../shared/language'
-import { calendarDay, clockLabel, TIMEZONE } from '../../shared/timezone'
-import { activityLabel } from '../activityLabel'
+import { isUnfinished, type TaskView } from '../../shared/bridge'
 import { elapsedLabel } from '../elapsedLabel'
 import type { Thread } from '../harnessState'
+import { progressOf } from '../progressOf'
+import { whenLabel } from '../timeLabel'
 import { strings } from '../../shared/strings'
 
 /** What a bot is up to, as the sidebar shows it: one thing at a time, the first of these that holds. */
@@ -22,10 +21,8 @@ export function botStatusOf(thread: Thread, seenAt: number, isOpen: boolean): Bo
     undefined,
   )
   if (!isOpen && last?.status === 'failed' && (last.endedAt ?? 0) > seenAt) return { kind: 'failed', task: last }
-  if (thread.progress) {
-    const { activity, draw, since } = thread.progress
-    return { kind: 'replying', label: activityLabel(activity, draw), since }
-  }
+  const progress = progressOf(thread)
+  if (progress) return { kind: 'replying', ...progress }
   const unfinished = tasks.filter(isUnfinished)
   const running = unfinished.find((task) => task.status === 'running')
   if (running) return { kind: 'working', task: running, count: unfinished.length }
@@ -76,22 +73,4 @@ export function statusLineOf(status: BotStatus, now: number): string | null {
     default:
       return status satisfies never
   }
-}
-
-/** The routine that runs next, if any is going to. */
-export function nextRoutineOf(routines: RoutineView[]): (RoutineView & { nextRunAt: number }) | undefined {
-  return routines.reduce<(RoutineView & { nextRunAt: number }) | undefined>((soonest, routine) => {
-    const { nextRunAt } = routine
-    if (nextRunAt === null) return soonest
-    return soonest && soonest.nextRunAt <= nextRunAt ? soonest : { ...routine, nextRunAt }
-  }, undefined)
-}
-
-/** 8:05 today, 昨天 / 明天 8:05 a day off, the date further away. */
-export function whenLabel(at: number, now: number): string {
-  const days = calendarDay(at) - calendarDay(now)
-  if (days === 0) return clockLabel(at)
-  if (days === 1) return strings().app.time.tomorrow(clockLabel(at))
-  if (days === -1) return strings().app.time.yesterday(clockLabel(at))
-  return new Date(at).toLocaleDateString(locale(), { timeZone: TIMEZONE, month: 'long', day: 'numeric' })
 }

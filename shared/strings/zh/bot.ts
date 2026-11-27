@@ -130,10 +130,6 @@ export const bot = {
     tasksFollowMain: '跟随主模型，单独指定的标在每一条上',
     tasksAskedInChat: '你在聊天里让它换的，单独指定的标在每一条上',
   },
-  share: {
-    label: '分享',
-    soon: '暂未开放，敬请期待',
-  },
   flows: {
     teachStarter: '我带你做一遍，做完存成流程：',
     intro: '做过、你认可的做法，Bot 存成流程，下次照着做。',

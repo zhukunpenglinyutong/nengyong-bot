@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import type { Bot } from '../../shared/bot'
-import type { OfferedSkill, SkillOffer, SkillSource } from '../../shared/skill'
+import type { OfferedSkill, SkillOffer } from '../../shared/skill'
 import { strings } from '../../shared/strings'
 import { BotAvatar } from '../bot/BotAvatar'
 import { ipcErrorMessage } from '../ipcErrorMessage'
+import { Button, PrimaryButton } from '../ui/Button'
 import { Icon } from '../ui/Icon'
+import { sourceLabel } from './sourceLabel'
 
 interface Props {
   offer: SkillOffer
@@ -88,26 +90,16 @@ export function SkillOfferCard({ offer, installed, forBot, onAnswer, onViewFiles
           <span className="flex-1" />
           {onAnswer ? (
             <>
-              <button
-                type="button"
-                disabled={isSending}
-                onClick={() => send([])}
-                className="h-8 rounded-md border border-line bg-surface px-3 text-sm disabled:opacity-40"
-              >
+              <Button disabled={isSending} onClick={() => send([])}>
                 {words.decline}
-              </button>
-              <button
-                type="button"
-                disabled={isSending || !chosen.length}
-                onClick={() => send(chosen)}
-                className="h-8 rounded-md bg-ink px-3.5 text-sm text-canvas disabled:opacity-40"
-              >
+              </Button>
+              <PrimaryButton disabled={isSending || !chosen.length} onClick={() => send(chosen)}>
                 {answer.kind === 'sending' && answer.names.length
                   ? words.installing
                   : single
                     ? words.install
                     : words.installCount(chosen.length)}
-              </button>
+              </PrimaryButton>
             </>
           ) : (
             <span className="text-sm text-muted">{words.onComputer}</span>
@@ -137,7 +129,7 @@ function AnsweredLine({ offer, installed, forBot }: { offer: SkillOffer; install
 /** The one skill a card offers, in full: its scripts listed, since installing it means agreeing to them. */
 function OneSkill({ skill }: { skill: OfferedSkill }) {
   const words = strings().skills.offer
-  const facts = [sourceName(skill.source), skill.version && `v${skill.version}`, words.files(skill.fileCount)]
+  const facts = [sourceLabel(skill.source), skill.version && `v${skill.version}`, words.files(skill.fileCount)]
     .filter(Boolean)
     .join(' · ')
   return (
@@ -194,7 +186,7 @@ function SkillChecklist({ skills, chosen, onChange, onViewFiles }: ChecklistProp
         </span>
         <span className="min-w-0 flex-1 leading-snug">
           <span className="block text-md">{words.found(skills.length)}</span>
-          {first && <span className="block truncate text-xs text-muted">{sourceName(first.source)}</span>}
+          {first && <span className="block truncate text-xs text-muted">{sourceLabel(first.source)}</span>}
         </span>
       </div>
       <ul className="mt-2.5 max-h-[320px] divide-y divide-line overflow-y-auto rounded-md bg-canvas px-2.5">
@@ -256,5 +248,3 @@ function ScriptsBadge({ count }: { count: number }) {
     </span>
   )
 }
-
-const sourceName = (source: SkillSource) => (source.kind === 'github' ? source.repo : strings().skills.offer.fromFolder)

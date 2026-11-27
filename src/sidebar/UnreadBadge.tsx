@@ -1,6 +1,6 @@
 import { strings } from '../../shared/strings'
 
-export const MAX_SHOWN_UNREAD = 99
+const MAX_SHOWN_COUNT = 99
 
 /** How many replies wait unseen: a dot for one, the count for more. Nothing when there are none. */
 export function UnreadBadge({ count, className = '' }: { count: number; className?: string }) {
@@ -17,7 +17,12 @@ export function UnreadBadge({ count, className = '' }: { count: number; classNam
       aria-label={strings().sidebar.list.unreadCount(count)}
       className={`min-w-[18px] shrink-0 rounded-full bg-accent px-1 text-center text-xs leading-[18px] font-semibold text-white ${className}`}
     >
-      {count > MAX_SHOWN_UNREAD ? `${MAX_SHOWN_UNREAD}+` : count}
+      {cappedCount(count)}
     </span>
   )
+}
+
+/** A count as a badge shows it: 99+ past 99. */
+export function cappedCount(count: number): string {
+  return count > MAX_SHOWN_COUNT ? `${MAX_SHOWN_COUNT}+` : String(count)
 }

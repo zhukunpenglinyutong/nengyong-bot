@@ -3,54 +3,49 @@ import { type ReactNode, Suspense, use, useState } from 'react'
 import { SKILL_FILE, type SkillView, splitFrontmatter } from '../../shared/skill'
 import { strings } from '../../shared/strings'
 import { PanelCard, PanelSectionTitle } from '../bot/PanelCard'
-import { dateLabel, dateTimeLabel } from '../chat/chatMessages'
-import { ipcErrorMessage } from '../ipcErrorMessage'
+import { useNavigation } from '../NavigationContext'
+import { dateLabel, dateTimeLabel } from '../timeLabel'
+import { ipcErrorMessage, type Loaded, settle } from '../ipcErrorMessage'
+import { BackButton } from '../ui/BackButton'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { Icon } from '../ui/Icon'
-import type { SkillFilesTarget, SkillReader } from './SkillFilesDialog'
 import { SkillMarkdown } from './SkillMarkdown'
+import { useSkills } from './SkillsContext'
+import { sourceLabel } from './sourceLabel'
 
 interface Props {
   skill: SkillView
   botName: string // whose it is
   isOthers: boolean // the main bot's panel showing another bot's skill
-  reader: SkillReader
   onBack: () => void
   onFill: (text: string) => void
-  onOpenFiles: (target: SkillFilesTarget) => void
   onRemove?: () => Promise<void> // absent where skills are not removed (a device)
 }
 
 /** One skill in the panel: when the bot uses it, how (the start of its SKILL.md), the scripts it runs, and its uses. */
-export function SkillDetail({ skill, botName, isOthers, reader, onBack, onFill, onOpenFiles, onRemove }: Props) {
+export function SkillDetail({ skill, botName, isOthers, onBack, onFill, onRemove }: Props) {
   const words = strings().skills.detail
+  const { reader } = useSkills()
+  const { openSkillFiles } = useNavigation()
   const ref = { kind: 'installed', botId: skill.botId, name: skill.name } as const
-  const openFiles = () => onOpenFiles({ ref, name: skill.name, botName })
+  const openFiles = () => openSkillFiles({ ref, name: skill.name, botName })
   // read once per skill shown: its key changes with a reinstall, so a new version mounts a new one
-  const [instructions] = useState(() =>
-    reader.skillFile(ref, SKILL_FILE).then(
-      (text) => ({ text: text ?? '' }),
-      (error) => ({ text: '', error: ipcErrorMessage(error) }),
-    ),
-  )
+  const [instructions] = useState(() => settle(reader.skillFile(ref, SKILL_FILE)))
   const [isConfirming, setIsConfirming] = useState(false)
   const [failure, setFailure] = useState<string | null>(null)
-  const source = skill.source.kind === 'github' ? words.fromGitHub(skill.source.repo) : words.fromFolder
-  const facts = [skill.version && words.version(skill.version), source, words.installedOn(dateLabel(skill.installedAt))]
+  const facts = [
+    skill.version && words.version(skill.version),
+    sourceLabel(skill.source),
+    words.installedOn(dateLabel(skill.installedAt)),
+  ]
   const remove = () => onRemove?.().catch((error) => setFailure(words.removeFailed(ipcErrorMessage(error))))
   return (
     <div className="pt-3">
-      <button
-        type="button"
-        onClick={onBack}
-        aria-label={words.back}
-        className="-ml-1.5 flex items-center rounded-md py-0.5 pr-2 text-sm text-soft"
-      >
-        <span className="rotate-180">
-          <Icon name="chevron" size={16} />
-        </span>
-        {strings().skills.list.title}
-      </button>
+      <div className="text-soft">
+        <BackButton label={words.back} onClick={onBack}>
+          {strings().skills.list.title}
+        </BackButton>
+      </div>
       <h4 className="mt-2 text-xl leading-snug font-semibold break-all text-ink">{skill.name}</h4>
       <p className="mt-1 text-sm text-muted">{facts.filter(Boolean).join(' · ')}</p>
       {isOthers && (
@@ -127,11 +122,12 @@ export function SkillDetail({ skill, botName, isOthers, reader, onBack, onFill, 
   )
 }
 
-function Instructions({ loading }: { loading: Promise<{ text: string; error?: string }> }) {
-  const { text, error } = use(loading)
-  if (error) return <p className="text-sm text-danger">{strings().skills.files.failed(error)}</p>
+function Instructions({ loading }: { loading: Promise<Loaded<string | null>> }) {
+  const loaded = use(loading)
+  if (loaded.kind === 'failed')
+    return <p className="text-sm text-danger">{strings().skills.files.failed(loaded.message)}</p>
   // the front matter repeats the name and description shown above it
-  return <SkillMarkdown text={splitFrontmatter(text).body} />
+  return <SkillMarkdown text={splitFrontmatter(loaded.value ?? '').body} />
 }
 
 function FillButton({ onClick, children }: { onClick: () => void; children: ReactNode }) {

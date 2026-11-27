@@ -8,15 +8,16 @@ import {
   type ModelChoice,
   type ModelServicesView,
 } from '../../shared/modelServices'
-import { ipcErrorMessage } from '../ipcErrorMessage'
+import { ipcErrorMessage, settle } from '../ipcErrorMessage'
 import type { MenuEntry } from '../ui/ContextMenu'
 import { Icon } from '../ui/Icon'
 import { useFlash } from '../ui/useFlash'
 import { AccountDialog, type AccountStep } from './AccountDialog'
 import { ServiceLogo } from './ModelLogo'
 import { type ModelList, modelMenu } from './modelMenu'
-import { COMING_SOON, PickerButton } from './PickerButton'
-import { SettingsRow, SettingsSection } from './SettingsSection'
+import { PickerButton } from './PickerButton'
+import { SettingsPage, SettingsRow, SettingsSection } from './SettingsSection'
+import { usesOf } from './usesOf'
 import { strings } from '../../shared/strings'
 
 interface Props {
@@ -27,16 +28,14 @@ interface Props {
 
 const LOADING: ModelList = { kind: 'loading' }
 
-const USE_NAMES = { chat: strings().models.useNames.chat, search: strings().models.useNames.search }
+const CONNECT_DEEPSEEK: AccountStep = { kind: 'form', service: 'deepseek', account: null, isFromList: false }
 
 /** The 模型服务 page: the main model and what web search uses, then the accounts they can use. Every change applies at once. */
 export function ModelSettings({ bridge, services, onServicesChange }: Props) {
   const words = strings().models.page
   // with nothing connected there is nothing to pick from, so it opens on connecting DeepSeek
   const [editing, setEditing] = useState<{ start: AccountStep; use: AccountUse | null } | null>(
-    services.accounts.length === 0
-      ? { start: { kind: 'form', service: 'deepseek', account: null, isFromList: false }, use: 'chat' }
-      : null,
+    services.accounts.length === 0 ? { start: CONNECT_DEEPSEEK, use: 'chat' } : null,
   )
   const [said, say] = useFlash<{ use: AccountUse; text: string }>()
   const [failure, setFailure] = useState<{ use: AccountUse; message: string } | null>(null)
@@ -65,7 +64,7 @@ export function ModelSettings({ bridge, services, onServicesChange }: Props) {
   const readLists = () => {
     setLists({})
     for (const account of services.accounts)
-      modelListOf(bridge, account.id).then((list) => setLists((current) => ({ ...current, [account.id]: list })))
+      settle(bridge.listModels(account.id)).then((list) => setLists((current) => ({ ...current, [account.id]: list })))
   }
   const pickChat = (choice: ModelChoice) => change('chat', () => bridge.setChatModel(choice), words.saved)
   const chatItems: MenuEntry[] = [
@@ -78,16 +77,14 @@ export function ModelSettings({ bridge, services, onServicesChange }: Props) {
     { label: words.addProvider, icon: 'plus', onSelect: () => addFor('chat') },
   ]
   const searchItems = (): MenuEntry[] => {
-    if (!deepseek) {
-      const start: AccountStep = { kind: 'form', service: 'deepseek', account: null, isFromList: false }
+    if (!deepseek)
       return [
         {
           label: words.connectDeepSeek,
           icon: 'plus',
-          onSelect: () => setEditing({ start, use: 'search' }),
+          onSelect: () => setEditing({ start: CONNECT_DEEPSEEK, use: 'search' }),
         },
       ]
-    }
     if (!canSearch(deepseek))
       return [
         {
@@ -110,12 +107,7 @@ export function ModelSettings({ bridge, services, onServicesChange }: Props) {
   }
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col overflow-y-auto px-10 pt-9 pb-8">
-      <h2 id="settings-title" className="text-xl font-semibold tracking-tight">
-        {words.title}
-      </h2>
-      <p className="mt-1 text-sm text-muted">{words.intro}</p>
-
+    <SettingsPage title={words.title} intro={words.intro}>
       <SettingsSection title={words.inUse}>
         <SettingsRow label={words.mainModel} hint={hintOf('chat', chatHintOf(services))}>
           <PickerButton menuLabel={words.mainModel} items={chatItems} onOpen={readLists}>
@@ -127,16 +119,6 @@ export function ModelSettings({ bridge, services, onServicesChange }: Props) {
             ) : (
               <span className="px-1 text-soft">{words.notSet}</span>
             )}
-          </PickerButton>
-        </SettingsRow>
-        <SettingsRow label={words.image} hint={words.imageHint}>
-          <PickerButton menuLabel={words.image} items={COMING_SOON}>
-            <span className="px-1 text-soft">{words.off}</span>
-          </PickerButton>
-        </SettingsRow>
-        <SettingsRow label={words.video} hint={words.videoHint}>
-          <PickerButton menuLabel={words.video} items={COMING_SOON}>
-            <span className="px-1 text-soft">{words.off}</span>
           </PickerButton>
         </SettingsRow>
         <SettingsRow label={words.search} hint={hintOf('search', words.searchHint)}>
@@ -187,9 +169,6 @@ export function ModelSettings({ bridge, services, onServicesChange }: Props) {
           <AccountDialog
             start={editing.start}
             use={editing.use}
-            usedFor={
-              editing.start.kind === 'form' && editing.start.account ? usesOf(services, editing.start.account.id) : []
-            }
             services={services}
             bridge={bridge}
             onDone={(next) => {
@@ -201,7 +180,7 @@ export function ModelSettings({ bridge, services, onServicesChange }: Props) {
           />
         )}
       </AnimatePresence>
-    </div>
+    </SettingsPage>
   )
 }
 
@@ -220,9 +199,7 @@ function AccountRow({ account, usedFor, onOpen }: { account: AccountView; usedFo
       <ServiceLogo service={account.service} name={account.name} size={32} />
       <span className="min-w-0 flex-1">
         <span className="block truncate text-md">{account.name}</span>
-        <span className="block text-xs text-muted">
-          {usedFor.length ? strings().models.page.usedFor(usedFor) : strings().models.page.unused}
-        </span>
+        <span className="block text-xs text-muted">{strings().models.page.usedFor(usedFor)}</span>
       </span>
       <span className="font-mono text-xs text-muted">{account.keyHint}</span>
       <span className="text-muted">
@@ -239,18 +216,4 @@ function connectedText(use: AccountUse, before: ModelServicesView, after: ModelS
   const isSwitched = after.chat?.accountId !== before.chat?.accountId || after.chat?.model !== before.chat?.model
   if (after.chat && isSwitched) return words.switchedTo(after.chat.model)
   return words.pickModel
-}
-
-function usesOf(services: ModelServicesView, accountId: string): string[] {
-  return [
-    ...(services.chat?.accountId === accountId ? [USE_NAMES.chat] : []),
-    ...(services.searchAccountId === accountId ? [USE_NAMES.search] : []),
-  ]
-}
-
-function modelListOf(bridge: Pick<NengyongBotBridge, 'listModels'>, accountId: string): Promise<ModelList> {
-  return bridge.listModels(accountId).then(
-    (models) => ({ kind: 'listed', models }),
-    (error) => ({ kind: 'failed', message: ipcErrorMessage(error) }),
-  )
 }

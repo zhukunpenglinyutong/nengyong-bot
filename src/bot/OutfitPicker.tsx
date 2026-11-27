@@ -33,7 +33,7 @@ export function OutfitPicker({ bot, level, onPick }: Props) {
   const isMainBot = bot.id === MAIN_BOT_ID
   const [refused, refuse] = useFlash<OutfitId>()
   const isReducedMotion = useReducedMotion()
-  const shownLevel = refused ? OUTFITS[refused].from : nextUnlockOf(level, isMainBot)
+  const shownLevel = refused ? OUTFITS[refused].from : nextOutfitLevelOf(level, isMainBot)
 
   return (
     <div className="flex flex-col gap-2">
@@ -105,14 +105,14 @@ export function OutfitPicker({ bot, level, onPick }: Props) {
 
 const piecesOn = (slot: OutfitSlot) => OutfitId.options.filter((id) => OUTFITS[id].slot === slot)
 
-function nextUnlockOf(level: number, isMainBot: boolean) {
+function nextOutfitLevelOf(level: number, isMainBot: boolean) {
   const levels = OutfitId.options.filter((id) => !isUnlocked(id, level, isMainBot)).map((id) => OUTFITS[id].from)
   return levels.length ? Math.min(...levels) : undefined
 }
 
 function nextLine(level: number, isMainBot: boolean) {
   const words = strings().bot.outfit
-  const from = nextUnlockOf(level, isMainBot)
+  const from = nextOutfitLevelOf(level, isMainBot)
   if (from === undefined) return words.allUnlocked
   const names = OutfitId.options
     .filter((id) => OUTFITS[id].from === from && !isUnlocked(id, level, isMainBot))

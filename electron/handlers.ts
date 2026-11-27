@@ -9,7 +9,7 @@ import { deleteMiniApp, miniAppHtml, restoreMiniApp, saveMiniAppData } from '../
 import { createModelCatalog } from '../harness/modelCatalog'
 import { needsOnboarding, onboard } from '../harness/onboarding'
 import { createPrices } from '../harness/prices'
-import { routineViews, setRoutineEnabled } from '../harness/routines'
+import { patchRoutine, routineViews } from '../harness/routines'
 import type { Store } from '../harness/store'
 import { taskViews } from '../harness/tasks'
 import { createSkills } from '../harness/skills'
@@ -84,8 +84,8 @@ export function createHandlers({ home, dataDir, store, emit, window, onLanguageC
     store,
     workspace,
     getModel: modelServices.model,
-    models: { accounts: modelServices.accounts, list: modelServices.listModels, of: modelServices.modelOf },
-    getApiKey: modelServices.searchKey,
+    models: modelServices,
+    searchKey: modelServices.searchKey,
     windowTokensOf: catalog.windowTokensOf,
     mcp,
     skills,
@@ -166,7 +166,9 @@ export function createHandlers({ home, dataDir, store, emit, window, onLanguageC
       if (failure) throw new Error(strings().main.library.cannotOpen(name, failure))
     },
     setRoutineEnabled: (botId, routineId, isEnabled) =>
-      setRoutineEnabled(store, emit, BotId.parse(botId), RoutineId.parse(routineId), z.boolean().parse(isEnabled)),
+      patchRoutine(store, emit, BotId.parse(botId), RoutineId.parse(routineId), {
+        isEnabled: z.boolean().parse(isEnabled),
+      }),
     stopReply: (botId, runId) => harness.stopReply(BotId.parse(botId), RunId.parse(runId)),
     stopTask: (botId, taskId) => harness.stopTask(BotId.parse(botId), TaskId.parse(taskId)),
     answerSkillOffer: (botId, offer, names) =>

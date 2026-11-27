@@ -1,5 +1,6 @@
 import { ReleaseFigure } from './ReleaseFigure'
 import { type Release, RELEASES } from './releases'
+import { SettingsPage } from './SettingsSection'
 import { UpdateCheckRow, type UpdateProps } from './UpdateCheckRow'
 import { strings } from '../../shared/strings'
 
@@ -7,16 +8,12 @@ import { strings } from '../../shared/strings'
 export function ReleaseNotes(props: UpdateProps) {
   const words = strings().settings.releaseNotes
   return (
-    <div className="min-w-0 flex-1 overflow-y-auto px-10 pt-9 pb-8">
-      <h2 id="settings-title" className="text-xl font-semibold tracking-tight">
-        {words.title}
-      </h2>
-      <p className="mt-1 text-sm text-muted">{words.intro}</p>
+    <SettingsPage title={words.title} intro={words.intro}>
       <UpdateCheckRow {...props} />
       {RELEASES.map((release, index) => (
         <ReleaseArticle key={release.version} release={release} isCurrent={index === 0} />
       ))}
-    </div>
+    </SettingsPage>
   )
 }
 

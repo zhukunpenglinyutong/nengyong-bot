@@ -4,7 +4,7 @@ import { libraryFile } from '../harness/library'
 import { miniAppHtml } from '../harness/miniApps'
 import type { Store } from '../harness/store'
 import type { Workspace } from '../harness/workspace'
-import { imageType } from '../shared/attachment'
+import { imageType, mediaType } from '../shared/attachment'
 import { BotId } from '../shared/bot'
 import { strings } from '../shared/strings'
 
@@ -17,13 +17,6 @@ const MINI_APP_CSP =
   "sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; media-src data: blob:; form-action 'none'; base-uri 'none'"
 // a file a bot wrote, opened on a device: shown as it is, nothing in it runs
 const LIBRARY_FILE_CSP = "sandbox; default-src 'none'; img-src 'self'; media-src 'self'; style-src 'unsafe-inline'"
-const MEDIA_TYPE_BY_EXTENSION: Record<string, string> = {
-  mp4: 'video/mp4',
-  mov: 'video/quicktime',
-  mp3: 'audio/mpeg',
-  m4a: 'audio/mp4',
-  wav: 'audio/wav',
-}
 
 /** `<botId>/<miniAppId>/<version>`: that version's page with its data, for a sandboxed iframe only. */
 export function miniAppResponse(store: Store, workspace: Workspace, path: string): Response {
@@ -68,12 +61,8 @@ export async function libraryFileResponse(workspace: Workspace, path: string): P
   const wanted = decodeURIComponent(path)
   try {
     const { absolute, kind } = libraryFile(workspace, wanted)
-    const desktopOnly = () => text(403, strings().main.library.desktopOnly)
-    if (kind === 'file') return desktopOnly()
-    const extension = absolute.slice(absolute.lastIndexOf('.') + 1).toLowerCase()
-    const type =
-      kind === 'doc' ? 'text/plain; charset=utf-8' : (imageType(absolute) ?? MEDIA_TYPE_BY_EXTENSION[extension])
-    if (!type) return desktopOnly()
+    const type = kind === 'doc' ? 'text/plain; charset=utf-8' : mediaType(absolute)
+    if (!type) return text(403, strings().main.library.desktopOnly)
     return new Response(new Uint8Array(await fs.promises.readFile(absolute)), {
       headers: { 'content-type': type, 'content-security-policy': LIBRARY_FILE_CSP },
     })

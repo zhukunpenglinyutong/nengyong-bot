@@ -247,11 +247,11 @@ describe('App on a scripted bridge', () => {
     expect(bridge.send).toHaveBeenCalledWith('chief', '你好', [], null, null)
 
     await emit({ kind: 'entry', botId: 'chief', entry: { ...stamp(1), kind: 'user', text: '你好' } })
-    await emit({ kind: 'draft', botId: 'chief', text: '正在' })
+    await emit({ kind: 'streaming', botId: 'chief', text: '正在' })
     const list = screen.getByTestId('messages')
     expect(within(list).getByText('正在')).toBeInTheDocument()
 
-    await emit({ kind: 'draft', botId: 'chief', text: '' })
+    await emit({ kind: 'streaming', botId: 'chief', text: '' })
     await emit({
       kind: 'entry',
       botId: 'chief',
@@ -480,7 +480,8 @@ describe('App on a scripted bridge', () => {
     const user = userEvent.setup()
     renderApp()
     await user.click(screen.getByRole('button', { name: '设置' }))
-    await user.click(screen.getByRole('button', { name: '数据' }))
+    // the page suspends until the data dir is read; outside act, the test environment never lets it resume
+    await act(() => user.click(screen.getByRole('button', { name: '数据' })))
     expect(await screen.findByText('/Users/me/.nengyongbot/data')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '导出…' }))
     expect(await screen.findByText('已导出到 /Users/me/Desktop/Nengyong Bot 备份 2026-11-18 2305')).toBeInTheDocument()

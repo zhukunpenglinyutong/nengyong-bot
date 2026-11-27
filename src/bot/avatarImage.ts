@@ -22,8 +22,8 @@ export interface AvatarCandidate {
 const MAX_IMAGE_MB = 25
 const MAX_SOURCE_SIDE = 1024 // keeps a phone photo small enough to crop without holding the full size
 const OUTPUT_SIZE = 256 // twice the largest avatar drawn in the app
-const MIN_ZOOM = 1
-const MAX_ZOOM = 5
+export const MIN_ZOOM = 1
+export const MAX_ZOOM = 5
 
 /** The square the round frame shows, in the source's pixels. */
 export function cropRect(crop: AvatarCrop, width: number, height: number) {

@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { locale } from '../../shared/language'
 import { strings } from '../../shared/strings'
+import { locale } from '../../shared/language'
 import { calendarDay, TIMEZONE } from '../../shared/timezone'
 import type { Change } from './changes'
 
@@ -29,7 +29,7 @@ export function ChangesTab({ botId, changes }: Props) {
                 className="flex w-full items-start gap-2.5 rounded-md p-2 text-left"
               >
                 <span className="w-10 shrink-0 pt-0.5 font-mono text-xs text-white/40 tabular-nums">
-                  {whenLabel(change.at)}
+                  {compactWhen(change.at)}
                 </span>
                 <span className="min-w-14 shrink-0 rounded-sm bg-white/12 px-1.5 text-center text-xs leading-5 font-semibold">
                   {change.label}
@@ -61,7 +61,8 @@ export function ChangesTab({ botId, changes }: Props) {
   )
 }
 
-function whenLabel(at: number): string {
+/** 08:05 today, 11/1 before: short enough for the narrow column. */
+function compactWhen(at: number): string {
   const date = new Date(at)
   return calendarDay(at) === calendarDay(Date.now())
     ? date.toLocaleTimeString(locale(), { timeZone: TIMEZONE, hour: '2-digit', minute: '2-digit', hour12: false })

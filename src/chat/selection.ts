@@ -76,7 +76,7 @@ export function selectableMessages(messages: Message[]): SelectableMessage[] {
           ? []
           : [{ kind: 'bot', text: message.text, seq: message.seq, at: message.at }]
       case 'queued':
-      case 'time':
+      case 'note':
       case 'from-bot':
       case 'skill-offer':
         return []

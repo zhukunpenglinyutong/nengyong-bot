@@ -106,13 +106,9 @@ export const settings = {
     shrink: '缩小',
   },
   tools: {
-    cliTab: 'CLI 工具',
     title: '工具',
     intro: 'Bot 的后台任务能用的本机工具。',
-    toolType: '工具类型',
     connecting: '正在连接 MCP 服务…',
-    cliOff: '未开启',
-    cliHint: '打开后，Bot 能把写代码之类的活交给它，用的是它自己的登录和额度。',
     invalidJson: 'MCP 配置不是合法的 JSON',
     mcpConfig: 'MCP 配置',
     format: '格式化',
@@ -125,7 +121,6 @@ export const settings = {
     noDescription: '没有说明',
     connected: '已连接',
     connectFailed: '连接失败',
-    mcpTab: 'MCP',
   },
   limits: {
     title: '精细化配置',

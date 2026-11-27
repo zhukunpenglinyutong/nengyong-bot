@@ -68,6 +68,33 @@ it('opens a chat on a tap and goes back to the list', async () => {
   expect(screen.getByRole('heading', { name: 'Nengyong Bot' })).toBeInTheDocument()
 })
 
+it('keeps what was typed to a bot after going back to the list and opening it again', async () => {
+  renderPhone()
+  await userEvent.click(screen.getByRole('button', { name: /GitHub 数据日报/ }))
+  await userEvent.type(screen.getByRole('textbox'), '明天再发')
+  await userEvent.click(screen.getByRole('button', { name: '返回' }))
+  await userEvent.click(screen.getByRole('button', { name: /GitHub 数据日报/ }))
+  expect(screen.getByRole('textbox')).toHaveTextContent('明天再发')
+})
+
+it('puts the edit of a docked mini app into the message box of its bot when asked from the list', async () => {
+  renderPhone()
+  await userEvent.click(screen.getByRole('button', { name: /内容运营/ }))
+  const [card] = await screen.findAllByRole('button', { name: '打开小程序 收入汇总' })
+  if (!card) throw new Error('no card for 收入汇总')
+  await userEvent.click(card)
+  await userEvent.click(
+    within(screen.getByRole('region', { name: '收入汇总' })).getByRole('button', { name: '收起到浮窗' }),
+  )
+  await userEvent.click(screen.getByRole('button', { name: '返回' }))
+  await userEvent.click(
+    within(screen.getByRole('toolbar', { name: '浮窗' })).getByRole('button', { name: /收入汇总 v2，收起了/ }),
+  )
+  await userEvent.click(within(screen.getByRole('region', { name: '收入汇总' })).getByRole('button', { name: '更多' }))
+  await userEvent.click(screen.getByRole('button', { name: '在聊天里改' }))
+  expect(screen.getByRole('textbox')).toHaveTextContent('把「收入汇总」改一下：')
+})
+
 it('shows the panel as a sheet, with the name and the look not to be changed', async () => {
   renderPhone()
   await userEvent.click(screen.getByRole('button', { name: /GitHub 数据日报/ }))

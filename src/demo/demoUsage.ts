@@ -1,9 +1,10 @@
 import { MAIN_BOT_ID } from '../../shared/bot'
+import { DEEPSEEK_MODEL } from '../../shared/modelServices'
 import { calendarDay, clockHour } from '../../shared/timezone'
 import {
-  costOf,
   type ModelPrice,
   type Price,
+  priceRecords,
   USAGE_DAYS,
   type UsageRecord,
   type UsageSource,
@@ -16,7 +17,7 @@ const words = strings().demo.routines
 
 // as LiteLLM's catalog lists them; qwen-plus is left out, so the demo shows filling in a price
 const CATALOG_PRICES: Record<string, Price> = {
-  'deepseek-flash': { input: 0.3, cached: 0.006, output: 1.2 },
+  [DEEPSEEK_MODEL]: { input: 0.3, cached: 0.006, output: 1.2 },
   'gpt-5': { input: 1.25, cached: 0.125, output: 10 },
   'claude-sonnet-4-5': { input: 3, cached: 0.3, output: 15 },
 }
@@ -120,7 +121,7 @@ function modelOf({ botId, source }: Work): string {
   if (botId === 'ledger') return 'claude-sonnet-4-5'
   if (botId === 'repo' && source.kind === 'chat') return 'gpt-5'
   if (botId === 'fitness') return 'qwen-plus'
-  return 'deepseek-flash'
+  return DEEPSEEK_MODEL
 }
 
 /** A month of model calls from the demo's bots, the same on every load; priced with what the user filled in. */
@@ -132,17 +133,14 @@ export function demoUsage(filled: ReadonlyMap<string, Price>, now = Date.now()):
   const unpriced = days
     .flatMap((day) => WORK.flatMap((work) => recordsOf(day, work, random)))
     .filter((record) => record.day < today || record.hour <= hour)
-  const prices = [...new Set(unpriced.map((record) => record.model))].map(
+  const { records, prices } = priceRecords(
+    unpriced,
     (model): ModelPrice => ({
       model,
       price: filled.get(model) ?? CATALOG_PRICES[model] ?? null,
       isCustom: filled.has(model),
     }),
   )
-  const records = unpriced.map((record): UsageRecord => {
-    const price = prices.find((entry) => entry.model === record.model)?.price
-    return { ...record, cost: price ? costOf(record, price) : null }
-  })
   const botNames = Object.fromEntries(DEMO_SIDEBAR.bots.map((bot) => [bot.id, bot.name]))
   return { today, hour, since: days[0] ?? today, records, prices, botNames }
 }

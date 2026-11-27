@@ -90,11 +90,7 @@ function ScreenContent({ bot, state, height }: { bot: Bot; state: DeskState; hei
             {clip(state.task.title, 9)}
           </text>
           <text x={8} y={26} fontSize={6} fill="#9fb3d9">
-            {clip(
-              state.task.statusText ||
-                strings().common.taskStatus[state.task.status === 'waiting' ? 'waiting' : 'running'],
-              13,
-            )}
+            {clip(state.task.statusText || strings().common.taskStatus[state.task.status], 13)}
           </text>
           <circle
             className="desk-spin"

@@ -1,21 +1,17 @@
 import { useEffect, useEffectEvent, useReducer, useRef, useState } from 'react'
 import type { Bot } from '../shared/bot'
 import type { Trace } from '../shared/debug'
-import type { Entry, HarnessEvent, OnboardingChoices, NengyongBotBridge } from '../shared/bridge'
-import type { DevicesView, PairingRequest } from '../shared/devices'
+import type { Entry, HarnessEvent, NengyongBotBridge } from '../shared/bridge'
 import { BYTES_PER_MB, DEFAULT_LIMITS, type Limits, MESSAGE_MAX_CHARS } from '../shared/limits'
-import { type ModelServicesView, SERVICES } from '../shared/modelServices'
 import type { SidebarState } from '../shared/sidebar'
 import { EMPTY_THREAD, harnessState } from './harnessState'
 import { ipcErrorMessage } from './ipcErrorMessage'
-import type { SettingsPage } from './settings/SettingsDialog'
 import { strings } from '../shared/strings'
 
 interface Options {
   activeId: string
   sidebar: SidebarState
   canSave: boolean // false until the onboarding has hired: quitting before that brings it back
-  canAskForKey: boolean // false while the onboarding is due: it connects a model itself
   isDebug: boolean // the harness reports contexts and runs only while it is on
   onBotCreated: (bot: Bot) => void
   onBotRenamed: (botId: string, name: string) => void
@@ -25,14 +21,10 @@ interface Options {
   onOpenBot: (botId: string) => void
 }
 
-/** Everything behind the bridge: per-bot threads kept up to date by its events, saving the sidebar, and the model services. */
+/** The bots behind the bridge, on the computer and on a device: per-bot threads kept up to date by its events, and saving the sidebar. */
 export function useHarness(bridge: NengyongBotBridge, options: Options) {
   const [threads, dispatch] = useReducer(harnessState, {})
-  const [settingsPage, setSettingsPage] = useState<SettingsPage | null>(null)
-  const [modelServices, setModelServices] = useState<ModelServicesView | null>(null)
   const [limits, setLimits] = useState(DEFAULT_LIMITS)
-  const [devices, setDevices] = useState<DevicesView | null>(null)
-  const [pairing, setPairing] = useState<PairingRequest | null>(null)
   const loaded = useRef(new Set<string>())
 
   // failures with no bot of their own are shown in the conversation that is open
@@ -42,10 +34,6 @@ export function useHarness(bridge: NengyongBotBridge, options: Options) {
   const saveSidebar = useEffectEvent(async (sidebar: SidebarState) =>
     (await bridge.saveSidebar(sidebar)).forEach(options.onBotCreated),
   )
-  const onModelServices = useEffectEvent((services: ModelServicesView) => {
-    setModelServices(services)
-    if (services.chat === null && options.canAskForKey) setSettingsPage('model')
-  })
   const onEvent = useEffectEvent((event: HarnessEvent) => {
     switch (event.kind) {
       case 'busy':
@@ -65,19 +53,10 @@ export function useHarness(bridge: NengyongBotBridge, options: Options) {
         return options.onBotCreated(event.bot)
       case 'bot-renamed':
         return options.onBotRenamed(event.botId, event.name)
-      case 'open-settings':
-        return setSettingsPage('model')
       case 'open-bot':
         return options.onOpenBot(event.botId)
-      case 'devices':
-        return setDevices(event.devices)
-      case 'pairing':
-        return setPairing(event.request)
       case 'error':
-        dispatch(event)
-        if (event.code === 'no-key') setSettingsPage('model')
-        return
-      case 'draft':
+      case 'streaming':
       case 'queued':
       case 'activity':
       case 'routines':
@@ -90,6 +69,9 @@ export function useHarness(bridge: NengyongBotBridge, options: Options) {
       case 'models':
       case 'context':
         return dispatch(event)
+      case 'open-settings':
+      case 'devices':
+      case 'pairing':
       case 'update-progress':
       case 'update-error':
         return
@@ -131,10 +113,6 @@ export function useHarness(bridge: NengyongBotBridge, options: Options) {
   }, [bridge, options.activeId, options.isDebug])
 
   useEffect(() => {
-    bridge.getModelServices().then(
-      (services) => onModelServices(services),
-      (error) => report(strings().app.failures.readModelServices, error),
-    )
     bridge.previews().then(
       (previews) => dispatch({ kind: 'previews', previews }),
       (error) => report(strings().app.failures.readPreviews, error),
@@ -149,34 +127,9 @@ export function useHarness(bridge: NengyongBotBridge, options: Options) {
 
   return {
     thread: (botId: string) => threads[botId] ?? EMPTY_THREAD,
-    settingsPage, // null while the settings are closed
-    modelServices, // null until the first read from the bridge lands
-    setModelServices, // the 模型服务 page changes them through the bridge and hands back what it answered
-    devices, // the latest the harness reported; null until it reports one
-    pairing, // the device asking to be let in now
-    openSettings(page: SettingsPage) {
-      setSettingsPage(page)
-      // the first read failed and was reported: try again, or the settings could never be opened
-      if (!modelServices)
-        bridge
-          .getModelServices()
-          .then(setModelServices, (error) => reportFailure(strings().app.failures.readModelServices, error))
-    },
-    closeSettings: () => setSettingsPage(null),
-    async connectDeepSeek(apiKey: string) {
-      const saved = modelServices?.accounts.find((account) => account.service === 'deepseek')
-      const input = {
-        id: null,
-        service: 'deepseek' as const,
-        name: '',
-        baseURL: saved?.baseURL ?? SERVICES.deepseek.baseURL,
-        apiKey,
-      }
-      setModelServices(await bridge.saveAccount(input, 'chat'))
-    },
+    reportFailure,
     limits,
     saveLimits: async (next: Limits) => setLimits(await bridge.setLimits(next)),
-    onboard: (choices: OnboardingChoices) => bridge.onboard(choices),
     setRoutineEnabled(botId: string, routineId: string, isEnabled: boolean) {
       bridge.setRoutineEnabled(botId, routineId, isEnabled).catch((error) =>
         dispatch({

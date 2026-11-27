@@ -26,7 +26,6 @@ const HEIGHT_TRANSITION = `height ${PAGE_SECONDS}s var(--ease-sharp)`
 interface Props {
   start: AccountStep
   use: AccountUse | null // what the account is being connected for
-  usedFor: string[] // what the account it starts on is used for, named
   services: ModelServicesView
   bridge: ComponentProps<typeof AccountForm>['bridge']
   onDone: (services: ModelServicesView) => void
@@ -34,7 +33,7 @@ interface Props {
 }
 
 /** Adding an account (pick a service, then fill in its key) or changing one, over the settings. */
-export function AccountDialog({ start, use, usedFor, services, bridge, onDone, onClose }: Props) {
+export function AccountDialog({ start, use, services, bridge, onDone, onClose }: Props) {
   const [step, setStep] = useState(start)
   const pageRef = useRef<HTMLDivElement>(null)
   const size = useElementSize(pageRef)
@@ -59,7 +58,7 @@ export function AccountDialog({ start, use, usedFor, services, bridge, onDone, o
                   key={step.service}
                   service={SERVICES[step.service]}
                   account={step.account}
-                  usedFor={step.account ? usedFor : []}
+                  services={services}
                   use={use}
                   bridge={bridge}
                   onBack={step.isFromList ? () => setStep({ kind: 'list' }) : null}

@@ -8,7 +8,7 @@ export type Threads = Record<string, Thread>
 
 export interface Thread {
   entries: Entry[]
-  draft: string // the reply being streamed right now
+  streaming: string // the reply being streamed right now
   queued: string[] // sent while a turn runs; the next turn reads them
   error?: string
   progress?: Progress // set while a turn is running
@@ -33,7 +33,7 @@ interface Progress {
 }
 
 export type ThreadEvent =
-  // the rest change the sidebar, the settings, the update or the open bot, not a thread; useHarness or useUpdate takes them
+  // the rest change the sidebar, the settings, the update or the open bot, not a thread; useHarness, useSettings or useUpdate takes them
   | Exclude<
       HarnessEvent,
       {
@@ -59,7 +59,7 @@ export type ThreadEvent =
 
 export const EMPTY_THREAD: Thread = {
   entries: [],
-  draft: '',
+  streaming: '',
   queued: [],
   preview: '',
   panel: {
@@ -82,10 +82,10 @@ export function harnessState(state: Threads, event: ThreadEvent): Threads {
       const entries = merge(threadOf(state, event.botId).entries, [event.entry])
       if (event.entry.kind !== 'bot') return patch(state, event.botId, { entries })
       // the committed reply replaces the streamed draft in the same render, so the bubble does not blink
-      return patch(state, event.botId, { entries, draft: '', preview: event.entry.text })
+      return patch(state, event.botId, { entries, streaming: '', preview: event.entry.text })
     }
-    case 'draft':
-      return patch(state, event.botId, { draft: event.text })
+    case 'streaming':
+      return patch(state, event.botId, { streaming: event.text })
     case 'queued':
       return patch(state, event.botId, { queued: event.texts })
     case 'busy': {
@@ -108,12 +108,14 @@ export function harnessState(state: Threads, event: ThreadEvent): Threads {
       const lastReply = entries.findLast((entry) => entry.kind === 'bot')
       return patch(state, event.botId, { entries, preview: lastReply?.kind === 'bot' ? lastReply.text : '' })
     }
-    case 'loaded':
+    case 'loaded': {
       // events may have arrived while the history was loading: keep both
+      const { entries, panel } = threadOf(state, event.botId)
       return patch(state, event.botId, {
-        entries: merge(event.entries, threadOf(state, event.botId).entries),
-        panel: event.panel,
+        entries: merge(event.entries, entries),
+        panel: underEvents(panel, event.panel),
       })
+    }
     case 'routines':
       return patch(state, event.botId, { panel: { ...threadOf(state, event.botId).panel, routines: event.routines } })
     case 'flows':
@@ -146,23 +148,31 @@ export function harnessState(state: Threads, event: ThreadEvent): Threads {
         state,
       )
     case 'tasks-and-routines':
-      // what an event or a loaded panel already brought is newer than this snapshot from startup
-      return Object.entries(event.byBot).reduce((next, [botId, { tasks, routines }]) => {
-        const { panel } = threadOf(next, botId)
-        return patch(next, botId, {
-          panel: {
-            ...panel,
-            tasks: panel.tasks === EMPTY_THREAD.panel.tasks ? tasks : panel.tasks,
-            routines: panel.routines === EMPTY_THREAD.panel.routines ? routines : panel.routines,
-          },
-        })
-      }, state)
+      return Object.entries(event.byBot).reduce(
+        (next, [botId, snapshot]) => patch(next, botId, { panel: underEvents(threadOf(next, botId).panel, snapshot) }),
+        state,
+      )
     default:
       return event satisfies never
   }
 }
 
 const threadOf = (state: Threads, botId: string) => state[botId] ?? EMPTY_THREAD
+
+/** A snapshot read from the harness, under what events or an earlier snapshot already brought, which is newer. */
+function underEvents(panel: PanelData, snapshot: Partial<PanelData>): PanelData {
+  const newer = <K extends keyof PanelData>(key: K): PanelData[K] =>
+    panel[key] === EMPTY_THREAD.panel[key] ? (snapshot[key] ?? panel[key]) : panel[key]
+  return {
+    routines: newer('routines'),
+    flows: newer('flows'),
+    skills: newer('skills'),
+    miniApps: newer('miniApps'),
+    library: newer('library'),
+    tasks: newer('tasks'),
+    models: newer('models'),
+  }
+}
 
 function patch(state: Threads, botId: string, changes: Partial<Thread>): Threads {
   return { ...state, [botId]: { ...threadOf(state, botId), ...changes } }

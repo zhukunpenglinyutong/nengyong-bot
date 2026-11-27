@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isUnlocked, OUTFITS, OutfitId, toggleOutfit, unlockedAt } from './outfit'
+import { isUnlocked, OUTFITS, OutfitId, toggleOutfit, unlockedBetween } from './outfit'
 import { TIERS } from './trust'
 
 describe('toggleOutfit', () => {
@@ -27,10 +27,11 @@ describe('isUnlocked', () => {
 it('unlocks pieces only where a tier starts, so each new tier brings some', () => {
   const tierStarts: number[] = TIERS.map((tier) => tier.from)
   expect(OutfitId.options.filter((id) => !tierStarts.includes(OUTFITS[id].from))).toEqual([])
-  expect(tierStarts.filter((level) => unlockedAt(level).length === 0)).toEqual([])
+  expect(tierStarts.filter((level) => unlockedBetween(level - 1, level).length === 0)).toEqual([])
 })
 
-it('lists what a level unlocks', () => {
-  expect(unlockedAt(30)).toEqual(['silverCrown', 'tie'])
-  expect(unlockedAt(31)).toEqual([])
+it('lists what going up from one level to another unlocks', () => {
+  expect(unlockedBetween(29, 30)).toEqual(['silverCrown', 'tie'])
+  expect(unlockedBetween(30, 31)).toEqual([])
+  expect(unlockedBetween(9, 11)).toEqual(['bronzeCrown', 'sunglasses'])
 })

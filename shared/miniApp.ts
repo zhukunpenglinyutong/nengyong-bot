@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { PALETTE } from './bot'
+import { isUnfinished, type TaskView } from './bridge'
 import { MESSAGE_MAX_CHARS } from './limits'
 
 /** The icons a mini app's tile can carry: the bot picks one when it saves the app. Each is a name in src/ui/Icon. */
@@ -21,12 +22,12 @@ export const MINI_APP_HTML_MAX_CHARS = 300_000
 export const MINI_APP_DATA_MAX_CHARS = 500_000 // its data as JSON text: what the app itself saves, too
 
 /** One saved state of a mini app's page. The data is not part of it: new data never makes a new version. */
-export const MiniAppVersion = z.object({
+const MiniAppVersion = z.object({
   version: z.number().int().min(1),
   change: z.string(), // what this version changed, in one line
   at: z.number(),
 })
-export type MiniAppVersion = z.infer<typeof MiniAppVersion>
+type MiniAppVersion = z.infer<typeof MiniAppVersion>
 
 /** 小程序: a page a bot wrote, with the data it put in. Opens in a phone-sized window; every change to the page is a new version. */
 export const MiniApp = z.object({
@@ -40,6 +41,10 @@ export const MiniApp = z.object({
 export type MiniApp = z.infer<typeof MiniApp>
 
 export const latestVersion = (app: MiniApp): MiniAppVersion => app.versions.at(-1) ?? { version: 1, change: '', at: 0 }
+
+/** Whether an unfinished task of its bot is changing the mini app. */
+export const isBeingChanged = (miniAppId: string, tasks: TaskView[]) =>
+  tasks.some((task) => isUnfinished(task) && task.miniAppId === miniAppId)
 
 /** The version that was the latest at `at`: what a reply written then showed. */
 export const versionAt = (app: MiniApp, at: number): MiniAppVersion =>

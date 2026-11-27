@@ -1,4 +1,4 @@
-import { generateText, type LanguageModel } from 'ai'
+import { generateText } from 'ai'
 import type { AttachmentFile } from '../shared/attachment'
 import type { BotModels, Entry, HarnessEvent, Quote } from '../shared/bridge'
 import { type Compaction, type ContextView, joinSections } from '../shared/debug'
@@ -16,18 +16,18 @@ import { historyTools } from './historyTools'
 import type { Mcp } from './mcp'
 import { miniAppOf } from './miniApps'
 import { modelTools } from './modelTools'
-import { recordNote, speaker, systemSections, toMessages } from './prompt'
-import { type ModelChoices, type ModelObject, runModel } from './runModel'
+import { systemSections } from './prompt'
+import { type ModelChoices, type ModelObject, modelIdOf, runModel } from './runModel'
 import { sessionHeaders } from './sessionHeaders'
 import type { Skills } from './skills'
 import { skillChatTools } from './skillTools'
 import type { Store } from './store'
 import { createTaskRunner, RECENT_TASKS } from './tasks'
 import { clip } from './textWindow'
-import { usageOf } from './trace'
+import { entryText, speaker, toMessages } from './transcriptText'
 import { runTurn } from './turn'
 import type { EntryInput } from './types'
-import { modelIdOf } from './usage'
+import { usageOf } from './usage'
 import type { Workspace } from './workspace'
 
 const QUOTE_CHARS = 200 // of a quoted message: enough to tell which one it is; its ref opens the rest
@@ -37,7 +37,7 @@ interface HarnessOptions {
   workspace: Workspace
   getModel: () => ModelObject | null // the main model; null = none chosen yet
   models: ModelChoices
-  getApiKey: () => string | null
+  searchKey: () => string | null
   windowTokensOf: (model: string) => number
   mcp: Mcp
   skills: Skills
@@ -52,13 +52,13 @@ interface Batch {
   isShown: boolean // its user messages are on screen as queued; false when the turn starts right away
 }
 
-// a message of attachments only still shows up as a queued bubble
 // the model reads it whatever the app's language; the summary comes in the app's language
 const SUMMARY_INSTRUCTIONS: Record<Language, string> = {
   zh: '把对话压缩成中文要点摘要：保留决定、约定、待办、事实和数字，去掉寒暄。只输出摘要。',
   en: '把对话压缩成英文要点摘要：保留决定、约定、待办、事实和数字，去掉寒暄。只输出摘要。',
 }
 
+// a message of attachments only still shows up as a queued bubble
 const queuedTexts = (inputs: EntryInput[]) =>
   inputs.flatMap((input) => (input.kind === 'user' ? [input.text || strings().harness.chat.attachment] : []))
 
@@ -75,12 +75,11 @@ export function createHarness(options: HarnessOptions) {
   const track = (id: string, d: number) => inFlight.set(id, (inFlight.get(id) ?? 0) + d)
   const tasks = createTaskRunner({ ...options, emit, deliver })
   const tokensPerChar = new Map<string, number>() // per bot, from the API's count of its last turn
-  const lineOf = (entry: Entry, botName: string) =>
-    `${speaker(entry, store.get(), botName)}：${'text' in entry ? entry.text : recordNote(entry)}`
+  const lineOf = (entry: Entry, botName: string) => `${speaker(entry, store.get(), botName)}：${entryText(entry)}`
 
   async function compact(
     botId: string,
-    model: LanguageModel,
+    model: ModelObject,
     runId: string,
     abortSignal: AbortSignal,
   ): Promise<Compaction> {
@@ -114,7 +113,7 @@ export function createHarness(options: HarnessOptions) {
     const bot = state.bots[botId]
     const entries = store.range(botId, bot.summarizedUpTo + 1)
     const current = limits()
-    const tasksOfBot = store.tasksRequestedBy(botId, RECENT_TASKS)
+    const tasksOfBot = store.tasksRequestedBy(botId, RECENT_TASKS + current.endedTasksShown)
     const main = modelName(getModel())
     const model = bot.model?.model ?? main
     const sections = systemSections(
@@ -161,8 +160,6 @@ export function createHarness(options: HarnessOptions) {
       const maxSteps = limits().chatSteps
       const { finishReason } = await runTurn({
         store,
-        workspace,
-        emit,
         botId,
         transcriptId: botId,
         runId,
@@ -173,7 +170,7 @@ export function createHarness(options: HarnessOptions) {
         maxSteps,
         silenceSeconds: limits().modelSilenceSeconds,
         stopSignal: stop.signal,
-        onDraft: (text) => emit({ kind: 'draft', botId, text }),
+        onStreaming: (text) => emit({ kind: 'streaming', botId, text }),
         onEntry: (entry) => emit({ kind: 'entry', botId, entry }),
         onActivity: (activity) => emit({ kind: 'activity', botId, activity }),
         trace: {
@@ -222,15 +219,10 @@ export function createHarness(options: HarnessOptions) {
    */
   function deliver(botId: string, input: EntryInput): Promise<void> {
     const waiting = batches.get(botId)
-    if (waiting) {
-      const next = { ...waiting, inputs: [...waiting.inputs, input] }
-      batches.set(botId, next)
-      if (next.isShown && input.kind === 'user') emit({ kind: 'queued', botId, texts: queuedTexts(next.inputs) })
-      return next.turn
-    }
-    const { turn, isShown } = openBatch(botId, [input])
-    if (isShown && input.kind === 'user') emit({ kind: 'queued', botId, texts: [input.text] })
-    return turn
+    const batch = waiting ? { ...waiting, inputs: [...waiting.inputs, input] } : openBatch(botId, [input])
+    batches.set(botId, batch)
+    if (batch.isShown && input.kind === 'user') emit({ kind: 'queued', botId, texts: queuedTexts(batch.inputs) })
+    return batch.turn
   }
 
   /** A turn that reads what is already recorded (the answer to an install card): the waiting turn, or a new one. */
@@ -264,7 +256,7 @@ export function createHarness(options: HarnessOptions) {
     const main = getModel()
     const bot = store.get().bots[botId]
     const shown = (choice: ModelChoice | undefined) =>
-      choice ? { model: choice.model, isGone: options.models.of(choice) === null } : null
+      choice ? { model: choice.model, isGone: options.models.modelOf(choice) === null } : null
     return { main: main && modelIdOf(main), chat: shown(bot?.model), tasks: shown(bot?.taskModel) }
   }
 
@@ -343,4 +335,4 @@ export function createHarness(options: HarnessOptions) {
   }
 }
 
-const modelName = (model: LanguageModel | null) => (model === null ? strings().harness.chat.noModel : modelIdOf(model))
+const modelName = (model: ModelObject | null) => (model === null ? strings().harness.chat.noModel : modelIdOf(model))

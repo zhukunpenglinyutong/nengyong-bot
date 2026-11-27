@@ -15,7 +15,7 @@ import { miniAppPage } from '../../shared/miniAppPage'
 import { DEFAULT_LIMITS } from '../../shared/limits'
 import { DEEPSEEK_MODEL } from '../../shared/modelServices'
 import { newId } from '../../shared/newId'
-import { isScript, SKILL_FILE, Skill, type SkillOffer, type SkillRef, type SkillView } from '../../shared/skill'
+import { bySkillFileOrder, isScript, Skill, type SkillOffer, type SkillRef, type SkillView } from '../../shared/skill'
 import type { SidebarState } from '../../shared/sidebar'
 import type { Price } from '../../shared/usage'
 import { browserLanguage, saveBrowserLanguage } from '../browserLanguage'
@@ -270,7 +270,7 @@ export function createDemoBridge(): NengyongBotBridge {
     skillFiles: async (ref) =>
       Object.entries(filesOf(ref))
         .map(([path, text]) => ({ path, bytes: text.length, isScript: isScript(path) }))
-        .sort((a, b) => Number(b.path === SKILL_FILE) - Number(a.path === SKILL_FILE) || a.path.localeCompare(b.path)),
+        .sort(bySkillFileOrder),
     async skillFile(ref, path) {
       const text = filesOf(ref)[path]
       if (text === undefined) throw new Error(strings().harness.skills.fileGone(path))

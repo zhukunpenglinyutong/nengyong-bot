@@ -1,6 +1,6 @@
 import { motion } from 'motion/react'
 import { type Bot, MAIN_BOT_ID, PALETTE } from '../../shared/bot'
-import { isUnlocked, unlockedAt } from '../../shared/outfit'
+import { isUnlocked, unlockedBetween } from '../../shared/outfit'
 import { strings } from '../../shared/strings'
 import { BotAvatar } from '../bot/BotAvatar'
 import { EASE_SHARP } from '../ui/motion'
@@ -23,7 +23,7 @@ const SPARKS = Array.from({ length: SPARK_COUNT }, (_, index) => {
 })
 
 /** The bot reached a new level: confetti, the number rolling over, what the new level means and the outfits it unlocked. */
-export function LevelUpCard({ bot, level }: { bot: Bot; level: number }) {
+export function LevelUpCard({ bot, from, level }: { bot: Bot; from: number; level: number }) {
   return (
     <div className="relative flex w-[280px] flex-col items-center px-5 pt-[22px] pb-5 text-center">
       <span aria-hidden="true" className="absolute top-[54px] left-1/2">
@@ -45,7 +45,7 @@ export function LevelUpCard({ bot, level }: { bot: Bot; level: number }) {
       <div className="mt-1 flex items-center gap-2.5 text-xl leading-[1.25] font-extrabold tabular-nums">
         <span className="sr-only">{strings().island.levelUp.upTo(level)}</span>
         <span aria-hidden="true" className="font-semibold text-white/40">
-          Lv.{level - 1}
+          Lv.{from}
         </span>
         <span aria-hidden="true">→</span>
         <span aria-hidden="true" className="flex">
@@ -57,20 +57,20 @@ export function LevelUpCard({ bot, level }: { bot: Bot; level: number }) {
               animate={{ y: '-50%' }}
               transition={{ delay: ROLL_DELAY_S, type: 'spring', bounce: 0.4, visualDuration: 0.4 }}
             >
-              <span className="block">{level - 1}</span>
+              <span className="block">{from}</span>
               <span className="block">{level}</span>
             </motion.span>
           </span>
         </span>
       </div>
-      <div className="mt-3 rounded-md bg-white/10 px-3 py-1.5 text-xs text-white/60">{tierLine(level)}</div>
-      <NewOutfits bot={bot} level={level} />
+      <div className="mt-3 rounded-md bg-white/10 px-3 py-1.5 text-xs text-white/60">{tierLine(from, level)}</div>
+      <NewOutfits bot={bot} from={from} level={level} />
     </div>
   )
 }
 
-function NewOutfits({ bot, level }: { bot: Bot; level: number }) {
-  const outfits = unlockedAt(level).filter((id) => !isUnlocked(id, level - 1, bot.id === MAIN_BOT_ID))
+function NewOutfits({ bot, from, level }: { bot: Bot; from: number; level: number }) {
+  const outfits = unlockedBetween(from, level).filter((id) => !isUnlocked(id, from, bot.id === MAIN_BOT_ID))
   if (outfits.length === 0) return null
   return (
     <section className="mt-3 w-full rounded-lg bg-white/8 px-3 pt-2.5 pb-3">
@@ -89,10 +89,10 @@ function NewOutfits({ bot, level }: { bot: Bot; level: number }) {
   )
 }
 
-function tierLine(level: number) {
+function tierLine(from: number, level: number) {
   const words = strings().island.levelUp
   const tier = tierOf(level)
-  if (tier !== tierOf(level - 1)) return words.reachedRank(tier.name)
+  if (tier !== tierOf(from)) return words.reachedRank(tier.name)
   const next = TIERS.find((candidate) => candidate.from > level)
   if (!next) return strings().island.maxedOut
   return words.toRank(next.from - level, next.name)

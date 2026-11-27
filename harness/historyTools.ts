@@ -4,9 +4,9 @@ import { BOT_ID_PATTERN } from '../shared/bot'
 import type { Entry } from '../shared/bridge'
 import type { Limits } from '../shared/limits'
 import { TIMEZONE } from '../shared/timezone'
-import { recordNote, speaker } from './prompt'
 import type { Store } from './store'
 import { clip, Offset, textWindow } from './textWindow'
+import { entryText, speaker } from './transcriptText'
 import type { HarnessState } from './types'
 
 const REF = new RegExp(`^(${BOT_ID_PATTERN})#(\\d+)$`)
@@ -65,9 +65,9 @@ export function historyTools(store: Store, { searchPreviewChars, readWindowChars
         const entries = store.range(id, seq - around, seq + around)
         if (!entries.some((e) => e.seq === seq)) throw new Error(`没有这条记录：${ref}`)
         return entries.map((e) => {
-          if (!('text' in e)) return historyItem(state, id, name, e, recordNote(e))
-          const text = e.seq === seq ? textWindow(e.text, offset, readWindowChars) : preview(e.text)
-          return historyItem(state, id, name, e, text)
+          const text = entryText(e)
+          const shown = e.seq === seq ? textWindow(text, offset, readWindowChars) : preview(text)
+          return historyItem(state, id, name, e, shown)
         })
       },
     }),

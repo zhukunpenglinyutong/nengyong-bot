@@ -4,9 +4,9 @@ import type { Flow } from '../../shared/flow'
 import { TIMEZONE } from '../../shared/timezone'
 import { ELAPSED_REFRESH_MS } from '../elapsedLabel'
 import { taskProgressLabel } from '../taskProgressLabel'
-import { Icon } from '../ui/Icon'
+import { BackButton } from '../ui/BackButton'
 import { useNow } from '../ui/useNow'
-import { PanelCard, PanelSectionTitle } from './PanelCard'
+import { PanelAddRow, PanelCard, PanelSectionTitle } from './PanelCard'
 import { ModelTag } from './PanelModels'
 import { locale } from '../../shared/language'
 import { strings } from '../../shared/strings'
@@ -41,17 +41,7 @@ export function FlowsTab({ flows, tasks, openFlowId, onOpen, onFill }: Props) {
           </ul>
         </PanelCard>
       )}
-      <button
-        type="button"
-        onClick={() => onFill(TEACH_TEXT)}
-        className="mt-2.5 flex w-full items-center gap-3 rounded-lg p-3 text-left leading-[1.35] text-soft shadow-ring"
-      >
-        <Icon name="plus" size={20} />
-        <span className="flex flex-col">
-          <span className="text-md">{words.teach}</span>
-          <small className="text-sm text-muted">{words.teachHint}</small>
-        </span>
-      </button>
+      <PanelAddRow title={words.teach} hint={words.teachHint} onClick={() => onFill(TEACH_TEXT)} />
     </>
   )
 }
@@ -85,18 +75,10 @@ function FlowDetail({ flow, runs, onBack, onFill }: DetailProps) {
   const words = strings().bot.flows
   const now = useNow(ELAPSED_REFRESH_MS)
   return (
-    <div className="pt-3">
-      <button
-        type="button"
-        onClick={onBack}
-        aria-label={words.back}
-        className="-ml-1.5 flex items-center rounded-md py-0.5 pr-2 text-sm text-soft"
-      >
-        <span className="rotate-180">
-          <Icon name="chevron" size={16} />
-        </span>
+    <div className="pt-3 text-soft">
+      <BackButton label={words.back} onClick={onBack}>
         {words.title}
-      </button>
+      </BackButton>
       <h4 className="mt-2 text-xl leading-snug font-semibold text-ink">{flow.name}</h4>
       <p className="mt-1 text-sm text-muted">{words.stepsUpdated(flow.steps.length, timeOf(flow.updatedAt))}</p>
       {flow.model && <ModelTag model={flow.model.model} />}

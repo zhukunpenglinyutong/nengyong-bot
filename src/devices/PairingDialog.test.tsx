@@ -4,7 +4,7 @@ import { AnimatePresence } from 'motion/react'
 import { afterEach, expect, it, vi } from 'vitest'
 import { PairingDialog } from './PairingDialog'
 
-const REQUEST = { id: 'request-1', name: 'iPhone', kind: 'phone', code: '0427' } as const
+const REQUEST = { id: 'request-1', name: 'iPhone', kind: 'phone' } as const
 
 afterEach(cleanup)
 
@@ -17,10 +17,9 @@ function renderDialog(answerPairing = vi.fn(async () => {})) {
   return answerPairing
 }
 
-it('says which device asks, and does not show the code: the user types it from that device', () => {
+it('says which device asks', () => {
   renderDialog()
   expect(screen.getByRole('dialog', { name: '允许「iPhone」连接？' })).toBeInTheDocument()
-  expect(screen.queryByText('0427')).not.toBeInTheDocument()
 })
 
 it('lets the device in with the code typed from its screen', async () => {

@@ -55,7 +55,7 @@ const EMPTY: Saved = { accounts: [], chat: null, searchAccountId: null }
  */
 export function createModelServices(dir: string) {
   const file = path.join(dir, FILE_NAME)
-  let saved = read(file)
+  let { saved, isUnreadable } = read(file)
   let model = modelOf(saved.accounts, saved.chat)
   const modelsByAccount = new Map<string, string[]>()
 
@@ -63,6 +63,9 @@ export function createModelServices(dir: string) {
 
   function write(next: Saved): ModelServicesView {
     if (!safeStorage.isEncryptionAvailable()) throw new Error(strings().main.accounts.noKeychain)
+    // keep the unreadable file (e.g. sealed by another keychain) instead of writing over every account in it
+    if (isUnreadable) fs.renameSync(file, `${file}.unreadable-${Date.now()}`)
+    isUnreadable = false
     fs.writeFileSync(file, safeStorage.encryptString(JSON.stringify(next)), { mode: 0o600 })
     saved = next
     model = modelOf(next.accounts, next.chat)
@@ -209,15 +212,20 @@ function fromLegacy({ apiKey, baseURL, model }: z.output<typeof LegacyConfig>): 
 }
 
 // What the app saved wins, so fixing a bad key in the UI works; DEEPSEEK_API_KEY is only a fallback for dev.
-function read(file: string): Saved {
+function read(file: string): { saved: Saved; isUnreadable: boolean } {
   if (fs.existsSync(file)) {
     try {
       const json: unknown = JSON.parse(safeStorage.decryptString(fs.readFileSync(file)))
-      return z.union([Saved, LegacyConfig.transform(fromLegacy)]).parse(json)
+      return { saved: z.union([Saved, LegacyConfig.transform(fromLegacy)]).parse(json), isUnreadable: false }
     } catch (error) {
-      console.error('saved model services could not be read:', error)
+      console.error('saved model services could not be read; set aside on the next save:', error)
+      return { saved: fromEnv(), isUnreadable: true }
     }
   }
+  return { saved: fromEnv(), isUnreadable: false }
+}
+
+function fromEnv(): Saved {
   const envKey = process.env.DEEPSEEK_API_KEY
   if (!envKey) return EMPTY
   return fromLegacy({

@@ -1,109 +1,55 @@
 import { AnimatePresence } from 'motion/react'
 import { type FormEvent, Suspense, use, useState } from 'react'
 import type { McpConfigView, McpServerView, McpToolView, NengyongBotBridge } from '../../shared/bridge'
-import { ipcErrorMessage } from '../ipcErrorMessage'
+import { ipcErrorMessage, type Loaded, settle } from '../ipcErrorMessage'
+import { PrimaryButton } from '../ui/Button'
 import { Collapsible } from '../ui/Collapsible'
 import { Icon } from '../ui/Icon'
 import { IconButton } from '../ui/IconButton'
-import { Segmented } from '../ui/Segmented'
 import { useFlash } from '../ui/useFlash'
 import { McpGuideDialog } from './McpGuideDialog'
-import { type Brand, BrandLogo } from './ModelLogo'
-import { COMING_SOON, PickerButton } from './PickerButton'
-import { SettingsPrimaryButton, SettingsRow, SettingsSection } from './SettingsSection'
+import { SettingsPage, SettingsRow, SettingsSection } from './SettingsSection'
 import { strings } from '../../shared/strings'
 
 interface Props {
   bridge: Pick<NengyongBotBridge, 'getMcpConfig' | 'setMcpConfig'>
 }
 
-type Loaded = { kind: 'loaded'; config: McpConfigView } | { kind: 'failed'; message: string }
-
 type Status = { kind: 'idle' | 'connecting' } | { kind: 'error'; message: string }
 
-const TABS = [
-  { id: 'mcp', label: strings().settings.tools.mcpTab, icon: 'plug' },
-  { id: 'cli', label: strings().settings.tools.cliTab, icon: 'terminal' },
-] as const
+const PAGE = { title: strings().settings.tools.title, intro: strings().settings.tools.intro }
 
-type Tab = (typeof TABS)[number]['id']
-
-const CLIS: { name: string; brand: Brand }[] = [
-  { name: 'Claude Code', brand: 'anthropic' },
-  { name: 'DeepSeek Harness', brand: 'deepseek' },
-  { name: 'Codex CLI', brand: 'openai' },
-  { name: 'PI CLI', brand: 'pi' },
-  { name: 'OMP CLI', brand: 'omp' },
-  { name: 'OpenCode', brand: 'opencode' },
-  { name: 'CodeBuddy CLI', brand: 'codebuddy' },
-  { name: 'Grok CLI', brand: 'grok' },
-  { name: 'Kimi CLI', brand: 'kimi' },
-  { name: 'Antigravity CLI', brand: 'gemini' },
-  { name: 'Qoder CLI', brand: 'qoder' },
-  { name: 'Qoder CLI CN', brand: 'qoder' },
-  { name: 'MiniMax Code', brand: 'minimax' },
-]
-
-/** The 工具 page: the local MCP servers and the coding agents' CLIs on two tabs; the MCP config connects on save. */
+/** The 工具 page: the local MCP servers, in the config file's own format; it connects on save. */
 export function ToolsSettings({ bridge }: Props) {
-  const words = strings().settings.tools
-  const [tab, setTab] = useState<Tab>('mcp')
   // read once per visit; it resolves when every server has connected or failed
-  const [loading] = useState(() =>
-    bridge.getMcpConfig().then(
-      (config): Loaded => ({ kind: 'loaded', config }),
-      (error): Loaded => ({ kind: 'failed', message: ipcErrorMessage(error) }),
-    ),
-  )
+  const [loading] = useState(() => settle(bridge.getMcpConfig()))
   return (
-    <div className="flex min-w-0 flex-1 flex-col">
-      <header className="flex items-start justify-between gap-6 px-10 pt-9">
-        <div>
-          <h2 id="settings-title" className="text-xl font-semibold tracking-tight">
-            {words.title}
-          </h2>
-          <p className="mt-1 text-sm text-muted">{words.intro}</p>
-        </div>
-        <div className="mr-3 shrink-0">
-          <Segmented label={words.toolType} options={TABS} value={tab} onChange={setTab} />
-        </div>
-      </header>
-      <div hidden={tab !== 'cli'} className="min-h-0 flex-1 overflow-y-auto px-10 pb-8">
-        <CliList />
-      </div>
-      <div hidden={tab !== 'mcp'} className="flex min-h-0 flex-1">
-        <Suspense fallback={<Notice text={words.connecting} />}>
-          <McpForm loading={loading} onSave={bridge.setMcpConfig} />
-        </Suspense>
-      </div>
-    </div>
+    <Suspense
+      fallback={
+        <SettingsPage {...PAGE}>
+          <Notice text={strings().settings.tools.connecting} />
+        </SettingsPage>
+      }
+    >
+      <McpForm loading={loading} onSave={bridge.setMcpConfig} />
+    </Suspense>
   )
 }
 
-function CliList() {
-  const words = strings().settings.tools
-  return (
-    <>
-      <SettingsSection>
-        {CLIS.map((cli) => (
-          <div key={cli.name} className="flex items-center gap-3 px-5 py-3">
-            <BrandLogo brand={cli.brand} name={cli.name} size={32} />
-            <span className="flex-1 text-md">{cli.name}</span>
-            <PickerButton menuLabel={cli.name} items={COMING_SOON}>
-              <span className="px-1 text-soft">{words.cliOff}</span>
-            </PickerButton>
-          </div>
-        ))}
-      </SettingsSection>
-      <p className="mt-2 px-1 text-xs text-muted">{words.cliHint}</p>
-    </>
-  )
+interface FormProps {
+  loading: Promise<Loaded<McpConfigView>>
+  onSave: Props['bridge']['setMcpConfig']
 }
 
-function McpForm({ loading, onSave }: { loading: Promise<Loaded>; onSave: Props['bridge']['setMcpConfig'] }) {
+function McpForm({ loading, onSave }: FormProps) {
   const loaded = use(loading)
-  if (loaded.kind === 'failed') return <Notice text={loaded.message} />
-  return <Editor config={loaded.config} onSave={onSave} />
+  if (loaded.kind === 'failed')
+    return (
+      <SettingsPage {...PAGE}>
+        <Notice text={loaded.message} />
+      </SettingsPage>
+    )
+  return <Editor config={loaded.value} onSave={onSave} />
 }
 
 function Editor({ config, onSave }: { config: McpConfigView; onSave: Props['bridge']['setMcpConfig'] }) {
@@ -137,7 +83,7 @@ function Editor({ config, onSave }: { config: McpConfigView; onSave: Props['brid
 
   return (
     <form onSubmit={submit} className="flex min-w-0 flex-1 flex-col">
-      <div className="flex-1 overflow-y-auto px-10 pb-8">
+      <SettingsPage {...PAGE}>
         <SettingsSection>
           <div className="relative">
             <textarea
@@ -162,15 +108,15 @@ function Editor({ config, onSave }: { config: McpConfigView; onSave: Props['brid
             ))}
           </SettingsSection>
         )}
-      </div>
+      </SettingsPage>
 
       <footer className="flex items-center gap-2 border-t border-line px-10 py-3.5">
         <p role="alert" className="mr-auto truncate text-sm text-danger">
           {status.kind === 'error' ? status.message : ''}
         </p>
-        <SettingsPrimaryButton type="submit" disabled={status.kind === 'connecting'}>
+        <PrimaryButton type="submit" disabled={status.kind === 'connecting'}>
           {status.kind === 'connecting' ? words.connectingShort : isSaved ? words.saved : words.saveAndConnect}
-        </SettingsPrimaryButton>
+        </PrimaryButton>
       </footer>
     </form>
   )
@@ -249,5 +195,5 @@ function ServerStatus({ server }: { server: McpServerView }) {
 }
 
 function Notice({ text }: { text: string }) {
-  return <p className="mt-7 px-10 text-sm text-muted">{text}</p>
+  return <p className="mt-7 text-sm text-muted">{text}</p>
 }

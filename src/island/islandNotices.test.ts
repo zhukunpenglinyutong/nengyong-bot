@@ -80,7 +80,7 @@ describe('islandNotices', () => {
     const state = run(arrive('chief', savedFlow(1, { saved: 'f1', isNew: true, mention: '[发版说明](flow:f1)' })))
     expect(state.queue).toEqual([
       { kind: 'learned', id: 1, botId: 'chief', flowId: 'f1', name: '发版说明', isNew: true, points: 30 },
-      { kind: 'level-up', id: 2, botId: 'chief', level: 4 },
+      { kind: 'level-up', id: 2, botId: 'chief', from: 1, level: 4 },
     ])
     const updated = { saved: 'f1', isNew: false, mention: '[发版说明](flow:f1)' }
     expect(run(arrive('chief', savedFlow(1, updated))).queue).toMatchObject([{ isNew: false, points: 0 }])
@@ -94,7 +94,7 @@ describe('islandNotices', () => {
   it('announces a level-up when an entry pushes the open bot over the next level', () => {
     const before = Array.from({ length: 24 }, (_, index) => user(index + 1))
     expect(run(arrive('chief', user(25), before)).queue).toEqual([
-      { kind: 'level-up', id: 1, botId: 'chief', level: 2 },
+      { kind: 'level-up', id: 1, botId: 'chief', from: 1, level: 2 },
     ])
   })
 

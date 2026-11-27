@@ -15,17 +15,18 @@ interface Props {
   now: number
   nextRunAt: number | null // of its next routine, dotted on the clock
   flows: Flow[]
-  shelfSize: number // binders that fit; the rest is a count
+  shelved: Flow[] // the flows whose binders fit; the rest is a count
+  hasTrophy: boolean
 }
 
 /** The wall behind the desk: the window, what hangs above the desk, the clock and the shelf of flows. */
-export function DeskWall({ bot, level, days, now, nextRunAt, flows, shelfSize }: Props) {
+export function DeskWall({ bot, level, days, now, nextRunAt, flows, shelved, hasTrophy }: Props) {
   return (
     <>
       <Window timeOfDay={clockOf(now).timeOfDay} />
       <WallArt bot={bot} level={level} days={days} />
       <Clock now={now} nextRunAt={nextRunAt} color={bot.color} />
-      <Shelf flows={flows} shelfSize={shelfSize} color={bot.color} hasTrophy={furnitureOf(level).hasTrophy} />
+      <Shelf flows={flows} shelved={shelved} color={bot.color} hasTrophy={hasTrophy} />
     </>
   )
 }
@@ -40,6 +41,12 @@ export const binderBoxOf = (index: number): [x: number, y: number, width: number
   10,
   BINDER_HEIGHTS[index],
 ]
+
+/** Where the note of routine `index` sticks on the screen's corner, in scene units: its drawing and its button share it. */
+export const noteBoxOf = (
+  corner: { x: number; y: number },
+  index: number,
+): [x: number, y: number, width: number, height: number] => [corner.x - 8, corner.y - 3 + index * 15, 12, 12]
 
 const SKY: Record<TimeOfDay, [string, string]> = {
   day: ['#a9d8ff', '#e6f4ff'],
@@ -248,14 +255,13 @@ function Hand({ angle, length, width }: { angle: number; length: number; width: 
 
 interface ShelfProps {
   flows: Flow[]
-  shelfSize: number
+  shelved: Flow[]
   color: string
   hasTrophy: boolean
 }
 
 /** A binder per flow, with a count for the ones that do not fit; a dashed empty one before the first. */
-function Shelf({ flows, shelfSize, color, hasTrophy }: ShelfProps) {
-  const shelved = flows.slice(0, shelfSize)
+function Shelf({ flows, shelved, color, hasTrophy }: ShelfProps) {
   return (
     <>
       {shelved.map((flow, index) => {

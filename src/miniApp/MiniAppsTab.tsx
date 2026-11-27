@@ -1,7 +1,8 @@
-import { isUnfinished, type TaskView } from '../../shared/bridge'
-import { latestVersion, type MiniApp } from '../../shared/miniApp'
-import { dateLabel } from '../chat/chatMessages'
-import { Icon } from '../ui/Icon'
+import type { TaskView } from '../../shared/bridge'
+import { isBeingChanged, latestVersion, type MiniApp } from '../../shared/miniApp'
+import { dateLabel } from '../timeLabel'
+import { PanelAddRow } from '../bot/PanelCard'
+import { useNavigation } from '../NavigationContext'
 import { useNow } from '../ui/useNow'
 import type { Run } from './miniAppRuns'
 import { MiniAppThumb } from './MiniAppThumb'
@@ -17,13 +18,13 @@ interface Props {
   runs: Run[] // of this bot's mini apps that have been opened
   tasks: TaskView[] // its recent tasks: an unfinished one with a mini app is changing it
   thumbUrl: (app: MiniApp) => string
-  onOpen: (miniAppId: string, from: Element) => void
   onFill: (text: string) => void // puts a message in the box for the user to finish and send
 }
 
 /** The panel's 小程序 tab: the bot's mini apps as cards showing what each looks like now, its version and how it is doing. */
-export function MiniAppsTab({ miniApps, runs, tasks, thumbUrl, onOpen, onFill }: Props) {
+export function MiniAppsTab({ miniApps, runs, tasks, thumbUrl, onFill }: Props) {
   const words = strings().miniApp.tab
+  const { openMiniApp } = useNavigation()
   const now = useNow(STATUS_REFRESH_MS)
   return (
     <>
@@ -34,7 +35,7 @@ export function MiniAppsTab({ miniApps, runs, tasks, thumbUrl, onOpen, onFill }:
             const latest = latestVersion(app)
             const run = runs.find((candidate) => candidate.miniAppId === app.id)
             const status = run && runStatus(run, latest.version, now)
-            const isEditing = tasks.some((task) => isUnfinished(task) && task.miniAppId === app.id)
+            const isEditing = isBeingChanged(app.id, tasks)
             return (
               <li
                 key={app.id}
@@ -43,7 +44,7 @@ export function MiniAppsTab({ miniApps, runs, tasks, thumbUrl, onOpen, onFill }:
                 <MiniAppThumb src={thumbUrl(app)} height={100} />
                 <button
                   type="button"
-                  onClick={(event) => onOpen(app.id, event.currentTarget)}
+                  onClick={(event) => openMiniApp(app.id, event.currentTarget)}
                   className="flex w-full flex-col gap-0.5 border-t border-line px-2.5 pt-2 pb-2.5 text-left after:absolute after:inset-0 active:scale-none"
                 >
                   <span className="flex items-center gap-1.5">
@@ -67,17 +68,7 @@ export function MiniAppsTab({ miniApps, runs, tasks, thumbUrl, onOpen, onFill }:
           })}
         </ul>
       )}
-      <button
-        type="button"
-        onClick={() => onFill(MAKE_TEXT)}
-        className="mt-2.5 flex w-full items-center gap-3 rounded-lg p-3 text-left leading-[1.35] text-soft shadow-ring"
-      >
-        <Icon name="plus" size={20} />
-        <span className="flex flex-col">
-          <span className="text-md">{words.make}</span>
-          <small className="text-sm text-muted">{words.makeHint}</small>
-        </span>
-      </button>
+      <PanelAddRow title={words.make} hint={words.makeHint} onClick={() => onFill(MAKE_TEXT)} />
     </>
   )
 }

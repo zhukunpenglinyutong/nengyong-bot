@@ -1,10 +1,11 @@
 import { APICallError, type LanguageModel, wrapLanguageModel } from 'ai'
 import type { ModelChoice } from '../shared/modelServices'
 import { isUnreachable } from './describeError'
-import { modelIdOf } from './usage'
 
 /** A language model object; a bare id would go to the AI SDK's global provider, which the app never uses. */
 export type ModelObject = Exclude<LanguageModel, string>
+
+export const modelIdOf = (model: ModelObject) => model.modelId
 
 /** What a run calls: the model chosen for it, or the main model standing in for one that is gone or cannot be reached. */
 export interface RunModel {
@@ -16,8 +17,8 @@ export interface RunModel {
 /** The models of the user's accounts besides the main one, which a bot, routine, flow or task can be set to. */
 export interface ModelChoices {
   accounts: () => { id: string; name: string }[]
-  list: (accountId: string) => Promise<string[]> // what the account offers; throws a readable reason when it cannot be reached
-  of: (choice: ModelChoice) => ModelObject | null // null: its account was removed
+  listModels: (accountId: string) => Promise<string[]> // what the account offers; throws a readable reason when it cannot be reached
+  modelOf: (choice: ModelChoice) => ModelObject | null // null: its account was removed
 }
 
 /**
@@ -28,7 +29,7 @@ export interface ModelChoices {
 export function runModel(main: ModelObject, chosen: ModelChoice | undefined, choices: ModelChoices): RunModel {
   const onMain = { model: main, name: () => modelIdOf(main) }
   if (!chosen) return { ...onMain, fallbackFrom: () => undefined }
-  const model = choices.of(chosen)
+  const model = choices.modelOf(chosen)
   if (!model) return { ...onMain, fallbackFrom: () => chosen.model }
   const standIn = wrapLanguageModel({ model: main, middleware: [] })
   let hasFallenBack = false

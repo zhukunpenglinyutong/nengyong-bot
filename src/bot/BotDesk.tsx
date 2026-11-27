@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { type Bot, workNumberOf } from '../../shared/bot'
 import type { PanelData } from '../../shared/bridge'
 import type { Trust } from '../../shared/trust'
+import { useNavigation } from '../NavigationContext'
 import { POP } from '../ui/motion'
 import { useFlash } from '../ui/useFlash'
 import { bodyOf } from './BotAvatar'
@@ -10,7 +11,7 @@ import type { PanelTab } from './BotPanel'
 import { useBotActivity } from './botActivity'
 import { BOT_BOX } from './desk/DeskBot'
 import { DeskScene, type DeskTarget, SCENE_HEIGHT, SCENE_WIDTH } from './desk/DeskScene'
-import { clockOf, deskStateOf, isSlacking, nextUnlockOf, nowLineOf, pokeLineOf } from './deskState'
+import { clockOf, deskStateOf, isSlacking, isWorking, nextUnlockOf, nowLineOf, pokeLineOf } from './deskState'
 import { strings } from '../../shared/strings'
 
 const DIZZY_POKES = 5
@@ -29,13 +30,13 @@ interface Props {
   panel: PanelData
   now: number
   onOpenTab: (tab: PanelTab) => void
-  onOpenFlow: (flowId: string | null) => void // null: the list
   onLeave: () => void // turns the badge back to its front
 }
 
 /** The back of the staff badge: the bot at its desk, what it is up to in a line below, and the next piece of furniture. */
-export function BotDesk({ bot, trust, days, panel, now, onOpenTab, onOpenFlow, onLeave }: Props) {
+export function BotDesk({ bot, trust, days, panel, now, onOpenTab, onLeave }: Props) {
   const words = strings().desk.card
+  const { openFlow } = useNavigation()
   const activity = useBotActivity(bot.id)
   const [reaction, react] = useFlash<Reaction>()
   const [pokes, setPokes] = useState<{ count: number; recent: number[] }>({ count: 0, recent: [] })
@@ -63,7 +64,7 @@ export function BotDesk({ bot, trust, days, panel, now, onOpenTab, onOpenFlow, o
       case 'bot':
         return poke()
       case 'flow':
-        return onOpenFlow(target.flowId)
+        return openFlow(target.flowId)
       case 'routines':
         return onOpenTab('feed')
       case 'library':
@@ -116,7 +117,7 @@ export function BotDesk({ bot, trust, days, panel, now, onOpenTab, onOpenFlow, o
             data-state={state.kind}
             className="size-2 shrink-0 rounded-full bg-muted data-[state=failed]:bg-danger data-[state=replying]:bg-accent data-[state=task]:bg-accent"
           />
-          {line.isWorking ? (
+          {isWorking(state) ? (
             <span className="shimmer-text min-w-0 flex-1 truncate">{line.text}</span>
           ) : (
             <span className="min-w-0 flex-1 truncate">{line.text}</span>

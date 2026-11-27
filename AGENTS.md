@@ -126,7 +126,7 @@ src/        渲染进程（React）。只 import shared。
   | measure | 统计口径：用量页按什么算：花费（人民币或美元）、token 还是运行次数，在用量页右上角的下拉框选、记在 localStorage（`src/settings/measure.ts`），概览、图表和明细都跟着它。人民币按固定汇率 `CNY_PER_USD` 从美元折算；price 始终是美元 |
   | settings | 设置窗口及其数据。不用 key 代指 |
   | home | 应用目录，默认 `~/.nengyongbot`（`NENGYONGBOT_HOME` 可改）：加密的账号与它们的用处（`model.bin`）、界面语言（`language.json`）、MCP 配置、精细化配置、用户填的 price、局域网访问的开关与配对过的设备（`devices.json`，只存令牌的哈希）与数据目录 |
-  | device | 设备：用户放进来的手机、平板或别的电脑（`shared/devices.ts`）。它在浏览器里打开这台电脑的局域网地址，用的是这台电脑上的 Bot：聊天（也能停下回复）、看面板、开关例行任务、停任务、开小程序；设置、侧边栏编排和数据只在电脑上（`electron/lanAccess.ts` 的 `DEVICE_METHODS`）。界面是 `PhoneApp`：Bot 列表、点开的聊天、抽屉里的面板，没有 island（手机自己的灵动岛就在上面）。设置「设备」页列出它们，随时能移除 |
+  | device | 设备：用户放进来的手机、平板或别的电脑（`shared/devices.ts`）。它在浏览器里打开这台电脑的局域网地址，用的是这台电脑上的 Bot：聊天（也能停下回复）、看面板、开关例行任务、停任务、开小程序；设置、侧边栏编排和数据只在电脑上（`shared/devices.ts` 的 `DEVICE_METHODS`）。界面是 `PhoneApp`：Bot 列表、点开的聊天、抽屉里的面板，没有 island（手机自己的灵动岛就在上面）。设置「设备」页列出它们，随时能移除 |
   | LAN access | 局域网访问：设置「设备」页的开关，默认关。开着时主进程在 4317 端口开 HTTP 服务（`electron/lanServer.ts`）：给设备页面，转发它的 bridge 调用，用 server-sent events 推 `DEVICE_EVENTS` 里的事件。关掉时所有设备立刻断开，配对保留，再开时自己连回来 |
   | pairing | 配对：没连过的浏览器打开局域网地址时请求进来，它的屏幕上显示 4 位配对码，用户在电脑弹出的确认框（`PairingDialog`）里输入这组码，对上了它才拿到设备 Cookie。码只在发请求的那台设备上，别人同时发来的请求放不进来。同一时间只留最新的一个请求，2 分钟没答复就作废 |
   | dataDir | 数据目录，默认 `home/data`，可在设置里移到别处（新位置记在 `home/data-dir.txt`）：`nengyongbot.db` 与 `library/` |
@@ -170,7 +170,7 @@ src/        渲染进程（React）。只 import shared。
 - **按概念拆。** 一个文件一个概念。需要 `// ---- 分隔线 ----` 的文件是两个文件。函数过 50 行，先怀疑里面混了两个概念。
 - **一个源码文件最多 500 行，测试文件不限。** 超了必须拆，沿概念的边界拆，不是在第 500 行切一刀。`conventions.test.ts` 会拦。
 - **主角在最上面。** 文件以它命名的那个导出放第一个，辅助函数按调用顺序排在下面。
-- **只导出别的文件真正在用的。** 只用具名导出（Biome 会拦），不建 `index.ts`。
+- **只导出别的文件真正在用的。** 没人用的导出 `conventions.test.ts` 会拦；只用具名导出（Biome 会拦），不建 `index.ts`。
 - **不为"以后"留东西。** 没接线的按钮、没人用的 token、只有一个调用点的选项，都删。让代码变死的那次改动负责删掉它。
 - **只用一次的 helper 就地内联**，除非它本身是一个值得起名的概念。
 - 顶层具名函数用 `function`，回调和单表达式用箭头。
@@ -244,7 +244,7 @@ src/        渲染进程（React）。只 import shared。
 - **不传"回调包"。** 一个 prop 里塞了一堆回调，说明状态放错了层；跨三层以上再用 context。
 - **hook 返回数据和函数，不返回 JSX。**
 - 几份 `Record<id, …>` 被同一串事件更新时，合成一个 reducer：`(state, event) => state`。
-- **组件和领域 hook 里不写 `useEffect`、`useLayoutEffect`，也不用 `setTimeout`、`requestAnimationFrame` 等渲染或排先后。** 它们需要判断才能用对，Agent 最常用错。按情况换成：
+- **组件和领域 hook 里不写 `useEffect`、`useLayoutEffect`，也不用 `setTimeout`、`requestAnimationFrame` 等渲染或排先后。** 它们需要判断才能用对，Agent 最常用错。`conventions.test.ts` 会拦。按情况换成：
   - 能从 props、state 算出来的：渲染时直接算。
   - 用户操作引起的：写在事件处理函数里。
   - prop 变了要重置状态：给组件换 `key`。

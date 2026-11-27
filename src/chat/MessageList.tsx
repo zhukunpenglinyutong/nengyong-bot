@@ -4,6 +4,7 @@ import { imageType } from '../../shared/attachment'
 import { plainText } from '../../shared/plainText'
 import { Icon } from '../ui/Icon'
 import { MiniAppCard } from '../miniApp/MiniAppCard'
+import { useNavigation } from '../NavigationContext'
 import { ENTER } from '../ui/motion'
 import { miniAppIdsIn } from '../../shared/miniApp'
 import type { Message } from './chatMessages'
@@ -14,13 +15,13 @@ import { MentionText } from './MentionText'
 import { MessageActions } from './MessageActions'
 import { SelectableRow } from './SelectableRow'
 import { SkillOfferCard } from '../skills/SkillOfferCard'
+import { useSkills } from '../skills/SkillsContext'
 import type { Selection, SelectionEvent } from './selection'
 import { strings } from '../../shared/strings'
 
 interface Props {
   messages: Message[]
   bubbleColor?: string // fills the user's bubbles; without one they are ink
-  attachmentUrl: (path: string) => string
   selection: Selection | null // null: not in selection mode
   onQuote: (seq: number, text: string) => void
   onSelection: (event: SelectionEvent) => void
@@ -57,14 +58,15 @@ function MessageItem({
   message,
   previous,
   bubbleColor,
-  attachmentUrl,
   selection,
   onQuote,
   onSelection,
   onDelete,
   animateIn,
 }: ItemProps) {
-  const { bots, chatBotId, answerSkillOffer, openSkillFiles } = useMentions()
+  const { bots, chatBotId } = useMentions()
+  const { openSkillFiles } = useNavigation()
+  const { manager } = useSkills()
   const enter = animateIn ? ENTER : { initial: false as const }
   const row = (seq: number | undefined) => ({
     seq,
@@ -80,7 +82,7 @@ function MessageItem({
     onDelete: () => onDelete(seq),
   })
   switch (message.kind) {
-    case 'time':
+    case 'note':
       return (
         <motion.div {...enter} className="my-4 max-w-[min(600px,62%)] self-center text-xs text-muted first:mt-0">
           {message.text}
@@ -102,7 +104,7 @@ function MessageItem({
           {...row(message.kind === 'user' ? message.seq : undefined)}
           side="end"
           // the first bubble after a time divider sits flush under it
-          isFlush={!previous || previous.kind === 'time'}
+          isFlush={!previous || previous.kind === 'note'}
           className="my-5 data-flush:mt-0 data-flush:mb-4"
         >
           <div
@@ -119,15 +121,13 @@ function MessageItem({
               </span>
             )}
             {message.kind === 'user' && message.quote && <QuotedLine text={message.quote.text} />}
-            {message.kind === 'user' && message.attachments && (
-              <SentAttachments paths={message.attachments} attachmentUrl={attachmentUrl} />
-            )}
+            {message.kind === 'user' && message.attachments && <SentAttachments paths={message.attachments} />}
             {message.text && (
               <div
                 style={{ background: bubbleColor }}
                 data-tinted={bubbleColor !== undefined || undefined}
                 data-user-bubble=""
-                className="rounded-2xl bg-ink px-3.5 py-2.5 break-words whitespace-pre-wrap text-canvas data-tinted:text-white [&_[data-mention]]:font-semibold [&_[data-mention]]:text-inherit!"
+                className="rounded-2xl bg-ink px-3.5 py-2.5 wrap-anywhere whitespace-pre-wrap text-canvas data-tinted:text-white [&_[data-mention]]:font-semibold [&_[data-mention]]:text-inherit!"
               >
                 <MentionText text={message.text} bots={bots} />
               </div>
@@ -172,7 +172,7 @@ function MessageItem({
             offer={offer}
             installed={message.installed}
             forBot={forBot}
-            onAnswer={answerSkillOffer && ((names) => answerSkillOffer(offer.offer, names))}
+            onAnswer={manager && ((names) => manager.answerSkillOffer(chatBotId, offer.offer, names))}
             onViewFiles={(name) => openSkillFiles({ ref: { kind: 'offer', offer: offer.offer, name }, name, botName })}
           />
         </motion.div>
@@ -187,7 +187,8 @@ const CARDS_PER_REPLY = 2
 
 /** The mini apps a reply links, each as a card under it. */
 function LinkedMiniApps({ text, at }: { text: string; at: number }) {
-  const { miniApps, openMiniApp, thumbUrl } = useMentions()
+  const { miniApps, thumbUrl } = useMentions()
+  const { openMiniApp } = useNavigation()
   const linked = miniAppIdsIn(text).flatMap((id) => miniApps.filter((app) => app.id === id))
   return linked
     .slice(0, CARDS_PER_REPLY)
@@ -213,7 +214,8 @@ function QuotedLine({ text }: { text: string }) {
   )
 }
 
-function SentAttachments({ paths, attachmentUrl }: { paths: string[]; attachmentUrl: (path: string) => string }) {
+function SentAttachments({ paths }: { paths: string[] }) {
+  const { attachmentUrl } = useMentions()
   const [previewing, setPreviewing] = useState<string | null>(null)
   return (
     <ul aria-label={strings().chat.messages.attachments} className="flex flex-wrap justify-end gap-1.5">

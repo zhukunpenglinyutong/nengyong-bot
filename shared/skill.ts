@@ -107,3 +107,7 @@ const SCRIPT_EXTENSIONS = [
 
 /** A file a task may run with run_command: by its extension, wherever it sits. */
 export const isScript = (path: string) => SCRIPT_EXTENSIONS.some((extension) => path.toLowerCase().endsWith(extension))
+
+/** SKILL.md first, then by path: the order a skill's files are listed in. */
+export const bySkillFileOrder = (a: { path: string }, b: { path: string }) =>
+  Number(b.path === SKILL_FILE) - Number(a.path === SKILL_FILE) || a.path.localeCompare(b.path)

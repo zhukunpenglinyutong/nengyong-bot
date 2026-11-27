@@ -31,7 +31,7 @@ const pathsOf = (files: Map<string, Buffer>) => [...files.keys()].sort()
 async function fetchOne(input: string) {
   const [skill, ...others] = await fetchSkills(input)
   if (!skill || others.length) throw new Error(`expected one skill at ${input}`)
-  return skill.read()
+  return { folderName: skill.folderName, ...skill.read() }
 }
 
 describe('a folder on this computer', () => {

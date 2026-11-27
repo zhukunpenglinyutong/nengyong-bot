@@ -5,6 +5,7 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { MAIN_BOT } from '../../shared/bot'
 import type { Entry } from '../../shared/bridge'
 import type { ContextView, Trace } from '../../shared/debug'
+import { type Navigation, NavigationContext } from '../NavigationContext'
 import { BotIsland } from './BotIsland'
 
 afterEach(cleanup)
@@ -72,7 +73,15 @@ const remembered: Entry = {
   output: { saved: 'm1' },
 }
 
-function island(props: Partial<ComponentProps<typeof BotIsland>> = {}) {
+function island(props: Partial<ComponentProps<typeof BotIsland>> = {}, navigation: Partial<Navigation> = {}) {
+  const value = {
+    openBot: vi.fn(),
+    openFlow: vi.fn(),
+    openSkill: vi.fn(),
+    openSkillFiles: vi.fn(),
+    openMiniApp: vi.fn(),
+    ...navigation,
+  }
   return render(
     <BotIsland
       bot={MAIN_BOT}
@@ -86,12 +95,10 @@ function island(props: Partial<ComponentProps<typeof BotIsland>> = {}) {
       traces={[]}
       notice={undefined}
       onDismissNotice={vi.fn()}
-      onOpenBot={vi.fn()}
-      onOpenFlow={vi.fn()}
-      onOpenSkill={vi.fn()}
       onDebugChange={vi.fn()}
       {...props}
     />,
+    { wrapper: ({ children }) => <NavigationContext value={value}>{children}</NavigationContext> },
   )
 }
 
@@ -111,9 +118,6 @@ it('shows how much context the chat sends, in debug mode only', () => {
       traces={[]}
       notice={undefined}
       onDismissNotice={vi.fn()}
-      onOpenBot={vi.fn()}
-      onOpenFlow={vi.fn()}
-      onOpenSkill={vi.fn()}
       onDebugChange={vi.fn()}
     />,
   )
@@ -199,8 +203,8 @@ it('keeps the context in sight while background tasks run', () => {
 })
 
 it('opens a learned flow in the chat of the bot that learned it, whichever chat is open', async () => {
-  const onOpenBot = vi.fn()
-  const onOpenFlow = vi.fn()
+  const openBot = vi.fn()
+  const openFlow = vi.fn()
   const notice = {
     kind: 'learned' as const,
     id: 1,
@@ -210,8 +214,8 @@ it('opens a learned flow in the chat of the bot that learned it, whichever chat 
     isNew: true,
     points: 5,
   }
-  island({ isDebug: false, notice, onOpenBot, onOpenFlow })
+  island({ isDebug: false, notice }, { openBot, openFlow })
   await userEvent.click(screen.getByRole('button', { name: /学会了新流程\s*周报汇总\s*\+5 经验/ }))
-  expect(onOpenBot).toHaveBeenCalledWith('secretary')
-  expect(onOpenFlow).toHaveBeenCalledWith('f1')
+  expect(openBot).toHaveBeenCalledWith('secretary')
+  expect(openFlow).toHaveBeenCalledWith('f1')
 })

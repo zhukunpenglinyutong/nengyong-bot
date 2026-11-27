@@ -15,13 +15,14 @@ import {
   tierOf,
   trustOf,
 } from '../shared/trust'
-import { checkFlow, NewFlow, OptionalId, updateFlows } from './flows'
+import { checkFlow, NewFlow, patchFlow, updateFlows } from './flows'
 import { miniAppOf } from './miniApps'
 import { checkModel } from './modelTools'
-import { MODEL_INPUT, NewRoutine, setRoutineEnabled, updateRoutines } from './routines'
+import { NewRoutine, patchRoutine, updateRoutines } from './routines'
 import type { ModelChoices } from './runModel'
 import type { Store } from './store'
 import type { TaskRunner } from './tasks'
+import { MODEL_INPUT, OptionalId } from './toolInputs'
 import type { Fact } from './types'
 import { strings } from '../shared/strings'
 
@@ -154,7 +155,7 @@ export function chatTools({ botId, store, emit, tasks, limits, models }: ChatCon
       description: '暂停（false）或恢复（true）你的一个例行任务。',
       inputSchema: z.object({ id: z.string(), isEnabled: z.boolean() }),
       execute: async ({ id, isEnabled }) => {
-        setRoutineEnabled(store, emit, botId, id, isEnabled)
+        patchRoutine(store, emit, botId, id, { isEnabled })
         return { ok: true }
       },
     }),
@@ -163,10 +164,7 @@ export function chatTools({ botId, store, emit, tasks, limits, models }: ChatCon
       inputSchema: z.object({ id: z.string(), flowId: OptionalId }),
       execute: async ({ id, flowId }) => {
         if (flowId) checkFlow(store, botId, flowId)
-        updateRoutines(store, emit, botId, (routines) => {
-          if (!routines.some((routine) => routine.id === id)) throw new Error(`没有 id 为 ${id} 的例行任务`)
-          return routines.map((routine) => (routine.id === id ? { ...routine, flowId } : routine))
-        })
+        patchRoutine(store, emit, botId, id, { flowId })
         return { ok: true }
       },
     }),
@@ -174,10 +172,7 @@ export function chatTools({ botId, store, emit, tasks, limits, models }: ChatCon
       description: '删除你的一个例行任务。',
       inputSchema: z.object({ id: z.string() }),
       execute: async ({ id }) => {
-        updateRoutines(store, emit, botId, (routines) => {
-          if (!routines.some((routine) => routine.id === id)) throw new Error(`没有 id 为 ${id} 的例行任务`)
-          return routines.filter((routine) => routine.id !== id)
-        })
+        patchRoutine(store, emit, botId, id, null)
         return { deleted: id }
       },
     }),
@@ -186,17 +181,18 @@ export function chatTools({ botId, store, emit, tasks, limits, models }: ChatCon
         '存一个流程：一套以后照着做的做法，显示在用户面板的「流程」里。带 id 就整条替换那个流程。返回的 mention 原样写进回复。',
       inputSchema: NewFlow,
       execute: async ({ id, ...fields }) => {
-        const now = Date.now()
+        const updatedAt = Date.now()
         const savedId = id ?? newId('f')
+        const saved = { saved: savedId, isNew: !id, mention: `[${fields.name}](flow:${savedId})` } satisfies FlowSaved
+        if (id) {
+          patchFlow(store, emit, botId, id, { ...fields, updatedAt })
+          return saved
+        }
         updateFlows(store, emit, botId, (flows) => {
-          if (id) {
-            if (!flows.some((flow) => flow.id === id)) throw new Error(`没有 id 为 ${id} 的流程`)
-            return flows.map((flow) => (flow.id === id ? { ...flow, ...fields, updatedAt: now } : flow))
-          }
           if (flows.length >= maxFlows) throw new Error(`最多 ${maxFlows} 个流程，先删掉不用的`)
-          return [...flows, { ...fields, id: savedId, updatedAt: now }]
+          return [...flows, { ...fields, id: savedId, updatedAt }]
         })
-        return { saved: savedId, isNew: !id, mention: `[${fields.name}](flow:${savedId})` } satisfies FlowSaved
+        return saved
       },
     }),
     delete_flow: tool({
@@ -210,10 +206,7 @@ export function chatTools({ botId, store, emit, tasks, limits, models }: ChatCon
             `${names}按这个流程做：先用 set_routine_flow 把它们换到别的流程或去掉流程，或者用 save_flow 改这个流程`,
           )
         }
-        updateFlows(store, emit, botId, (flows) => {
-          if (!flows.some((flow) => flow.id === id)) throw new Error(`没有 id 为 ${id} 的流程`)
-          return flows.filter((flow) => flow.id !== id)
-        })
+        patchFlow(store, emit, botId, id, null)
         return { deleted: id }
       },
     }),

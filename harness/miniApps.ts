@@ -14,8 +14,8 @@ import {
 } from '../shared/miniApp'
 import { miniAppPage } from '../shared/miniAppPage'
 import { newId } from '../shared/newId'
-import { OptionalId } from './flows'
 import type { Store } from './store'
+import { line, OptionalId } from './toolInputs'
 import type { Workspace } from './workspace'
 
 const MAX_MINI_APPS = 30 // per bot: each one is listed in every system prompt of its chat
@@ -23,8 +23,6 @@ const MAX_MINI_APPS = 30 // per bot: each one is listed in every system prompt o
 /** A mini app's files in the library: one page per version, and one data file for all of them. */
 export const miniAppPath = (id: string, version: number) => `apps/${id}/v${version}.html`
 export const miniAppDataPath = (id: string) => `apps/${id}/data.json`
-
-const line = (max: number) => z.string().trim().min(1).max(max)
 
 const NewMiniApp = z.object({
   id: OptionalId.describe('改已有的小程序时填它的 id，存成新版本；新做的不填'),

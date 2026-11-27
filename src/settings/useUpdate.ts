@@ -2,13 +2,14 @@ import { useReducer } from 'react'
 import { z } from 'zod'
 import type { NengyongBotBridge } from '../../shared/bridge'
 import { ipcErrorMessage } from '../ipcErrorMessage'
+import { useAutoDismiss } from '../ui/useAutoDismiss'
 import { usePersistentState } from '../ui/usePersistentState'
 import { useSubscription } from '../ui/useSubscription'
-import { useTimeout } from '../ui/useTimeout'
 import { RELEASES } from './releases'
 import { initialUpdate, updateState } from './updateState'
 
 const QUIET_CHECK_DELAY_MS = 3000 // after launch, once the window has settled
+const QUIET_CHECK = 0
 const LastVersion = z.string().nullable().catch(null)
 
 /** 检查更新: a quiet check after launch, the user's own checks, and installing what they found once they ask. */
@@ -25,7 +26,7 @@ export function useUpdate(bridge: Pick<NengyongBotBridge, 'checkForUpdate' | 'in
       (error) => dispatch({ kind: 'check-failed', message: ipcErrorMessage(error), isQuiet }),
     )
   }
-  useTimeout(QUIET_CHECK_DELAY_MS, () => check(true))
+  useAutoDismiss(QUIET_CHECK, QUIET_CHECK_DELAY_MS, () => check(true))
   useSubscription(bridge.onEvent, (event) => {
     if (event.kind === 'update-progress') dispatch(event)
     if (event.kind === 'update-error') dispatch({ kind: 'restart-failed', message: event.message })

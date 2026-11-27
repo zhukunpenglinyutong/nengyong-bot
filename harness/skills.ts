@@ -5,6 +5,7 @@ import { MAIN_BOT_ID } from '../shared/bot'
 import type { HarnessEvent } from '../shared/bridge'
 import { newId } from '../shared/newId'
 import {
+  bySkillFileOrder,
   isScript,
   type OfferedSkill,
   SKILL_FILE,
@@ -15,8 +16,8 @@ import {
   type SkillView,
 } from '../shared/skill'
 import { strings } from '../shared/strings'
-import { checkPackage, isJunk, type SkillFiles, skillBody } from './skillPackage'
-import { type FoundSkill, fetchSkills, pickedSkills } from './skillSource'
+import { checkPackage, type SkillFiles, skillBody } from './skillPackage'
+import { type FoundSkill, fetchSkills, filesIn, pickedSkills } from './skillSource'
 import type { Store } from './store'
 
 const OFFER_TTL_MS = 30 * 60_000
@@ -50,6 +51,9 @@ export function createSkills({ dir, store, emit }: SkillsOptions) {
   const offers = new Map<string, Offer>()
   const folderOf = (botId: string, name: string) => path.join(dir, botId, name)
   const skillsOf = (botId: string) => store.get().bots[botId]?.skills ?? []
+  /** Whose skills `botId` can use: its own, or every bot's for the main bot, its own first. */
+  const ownersFor = (botId: string) =>
+    botId === MAIN_BOT_ID ? [...new Set([MAIN_BOT_ID, ...store.get().roster])] : [botId]
   if (fs.existsSync(dir))
     for (const entry of fs.readdirSync(dir))
       if (entry.startsWith(STAGING_PREFIX)) fs.rmSync(path.join(dir, entry), { recursive: true, force: true })
@@ -77,7 +81,7 @@ export function createSkills({ dir, store, emit }: SkillsOptions) {
     for (const each of found) {
       try {
         const fetched = each.read()
-        const { isInternal, ...checked } = checkPackage(fetched.files, fetched.folderName)
+        const { isInternal, ...checked } = checkPackage(fetched.files, each.folderName)
         if ((isInternal && found.length > 1) || packages.some(({ skill }) => skill.name === checked.name)) continue
         const known = skillsOf(botId).find((skill) => skill.name === checked.name)
         const skill = { ...checked, source: fetched.source, replaces: known ? (known.version ?? '') : null }
@@ -145,8 +149,7 @@ export function createSkills({ dir, store, emit }: SkillsOptions) {
 
   /** What `botId`'s panel lists: its own skills, or every bot's for the main bot, who can use them all. */
   function views(botId: string): SkillView[] {
-    const owners =
-      botId === MAIN_BOT_ID ? [MAIN_BOT_ID, ...store.get().roster.filter((id) => id !== MAIN_BOT_ID)] : [botId]
+    const owners = ownersFor(botId)
     const usedAt = useTimes([...new Set([...owners, MAIN_BOT_ID])])
     return owners.flatMap((owner) =>
       skillsOf(owner).map((skill) => {
@@ -179,10 +182,9 @@ export function createSkills({ dir, store, emit }: SkillsOptions) {
 
   /** The files of an installed skill or of one a card offers, SKILL.md first. */
   function files(ref: SkillRef): SkillFileView[] {
-    const rank = (file: string) => (file === SKILL_FILE ? 0 : 1)
     return [...contentsOf(ref)]
       .map(([file, read]) => ({ path: file, bytes: read().length, isScript: isScript(file) }))
-      .sort((a, b) => rank(a.path) - rank(b.path) || a.path.localeCompare(b.path))
+      .sort(bySkillFileOrder)
   }
 
   /** One file's text for the files dialog; null when it is not text or too big to show. */
@@ -204,7 +206,7 @@ export function createSkills({ dir, store, emit }: SkillsOptions) {
     if (!skillsOf(ref.botId).some((skill) => skill.name === ref.name))
       throw new Error(strings().harness.skills.notFound(ref.name))
     const root = folderOf(ref.botId, ref.name)
-    return new Map(listFolder(root).map((file) => [file, () => fs.readFileSync(path.join(root, file))]))
+    return new Map(filesIn(root).map((file) => [file, () => fs.readFileSync(path.join(root, file))]))
   }
 
   /**
@@ -218,7 +220,7 @@ export function createSkills({ dir, store, emit }: SkillsOptions) {
     if (!fs.existsSync(skillFile)) throw new Error(`技能 ${skill.name} 的文件不见了：请用户重新装一次`)
     const body = skillBody(fs.readFileSync(skillFile, 'utf8'))
     const isLong = body.length > MAX_INSTRUCTIONS_CHARS
-    const listed = listFolder(folder)
+    const listed = filesIn(folder)
     return {
       used: `${owner}/${skill.name}`,
       folder,
@@ -231,7 +233,7 @@ export function createSkills({ dir, store, emit }: SkillsOptions) {
   }
 
   function resolve(taskBotId: string, wanted: string): { owner: string; skill: Skill } {
-    const usable = taskBotId === MAIN_BOT_ID ? [...new Set([MAIN_BOT_ID, ...store.get().roster])] : [taskBotId]
+    const usable = ownersFor(taskBotId)
     const slash = wanted.indexOf('/')
     const owners = slash === -1 ? usable : usable.filter((id) => id === wanted.slice(0, slash))
     const name = wanted.slice(slash + 1)
@@ -275,20 +277,4 @@ function placeFiles(staging: string, target: string, files: SkillFiles) {
     throw error
   }
   fs.rmSync(replaced, { recursive: true, force: true })
-}
-
-/** Every file in a skill's folder, relative to it with forward slashes; links and junk are left out. */
-function listFolder(root: string): string[] {
-  if (!fs.existsSync(root)) return []
-  const found: string[] = []
-  const walk = (folder: string) => {
-    for (const entry of fs.readdirSync(folder, { withFileTypes: true })) {
-      if (isJunk(entry.name) || entry.isSymbolicLink()) continue
-      const full = path.join(folder, entry.name)
-      if (entry.isDirectory()) walk(full)
-      else if (entry.isFile()) found.push(path.relative(root, full).split(path.sep).join('/'))
-    }
-  }
-  walk(root)
-  return found.sort()
 }

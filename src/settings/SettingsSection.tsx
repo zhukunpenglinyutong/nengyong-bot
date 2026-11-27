@@ -1,5 +1,30 @@
-import type { ComponentProps, ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { Icon } from '../ui/Icon'
+
+interface PageProps {
+  title: string // names the settings window too
+  intro?: string
+  actions?: ReactNode // at the right of the title
+  children?: ReactNode
+}
+
+/** A settings page: its title, what it is for, then its sections, all scrolling together. */
+export function SettingsPage({ title, intro, actions, children }: PageProps) {
+  return (
+    <div className="min-w-0 flex-1 overflow-y-auto px-10 pt-9 pb-8">
+      <header className="flex items-start justify-between gap-6">
+        <div>
+          <h2 id="settings-title" className="text-xl font-semibold tracking-tight">
+            {title}
+          </h2>
+          {intro && <p className="mt-1 text-sm text-balance text-muted">{intro}</p>}
+        </div>
+        {actions && <div className="mr-3 flex shrink-0 items-center gap-2">{actions}</div>}
+      </header>
+      {children}
+    </div>
+  )
+}
 
 /** A card of rows, titled unless the page's tab already names it; the building block of every settings page. */
 export function SettingsSection({ title, children }: { title?: string; children: ReactNode }) {
@@ -29,28 +54,6 @@ export function SettingsRow({ id, label, hint, children }: RowProps) {
       </div>
       {children}
     </div>
-  )
-}
-
-/** The secondary button at the right end of a row. */
-export function SettingsButton(props: ComponentProps<'button'>) {
-  return (
-    <button
-      type="button"
-      {...props}
-      className="h-8 shrink-0 rounded-md border border-line bg-surface px-3 text-sm disabled:opacity-40"
-    />
-  )
-}
-
-/** The one button of a row or card that goes ahead. */
-export function SettingsPrimaryButton(props: ComponentProps<'button'>) {
-  return (
-    <button
-      type="button"
-      {...props}
-      className="h-8 shrink-0 rounded-md bg-ink px-3.5 text-sm text-canvas disabled:opacity-40"
-    />
   )
 }
 

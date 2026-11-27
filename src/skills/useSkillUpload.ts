@@ -4,7 +4,7 @@ import type { SkillOffer, SkillUploadKind } from '../../shared/skill'
 import { strings } from '../../shared/strings'
 import { ipcErrorMessage } from '../ipcErrorMessage'
 
-export type SkillUploads = Pick<NengyongBotBridge, 'uploadSkill' | 'answerSkillUpload'>
+type SkillUploads = Pick<NengyongBotBridge, 'uploadSkill' | 'answerSkillUpload'>
 
 export interface SkillUpload {
   offer: SkillOffer | null

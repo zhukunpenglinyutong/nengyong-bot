@@ -157,7 +157,7 @@ export type Activity = { kind: 'thinking' } | { kind: 'typing' } | { kind: 'tool
 
 export type HarnessEvent =
   | { kind: 'entry'; botId: string; entry: Entry }
-  | { kind: 'draft'; botId: string; text: string } // the message being streamed right now ('' clears it)
+  | { kind: 'streaming'; botId: string; text: string } // the message being streamed right now ('' clears it)
   | { kind: 'busy'; botId: string; busy: boolean; runId: string } // runId: the turn starting or ending, which stopReply names
   | { kind: 'queued'; botId: string; texts: string[] } // user messages waiting for the running turn to end; [] once read
   | { kind: 'activity'; botId: string; activity: Activity } // what the bot is doing right now, for the progress row

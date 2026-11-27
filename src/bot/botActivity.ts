@@ -1,4 +1,5 @@
-import { createContext, useContext, useEffect, useRef, useState } from 'react'
+import { createContext, useContext, useState } from 'react'
+import { useTimerPerKey } from '../ui/useTimerPerKey'
 
 /** Transient per-bot activity driving avatar motion; absent means idle. */
 export type BotActivity = 'thinking' | 'happy'
@@ -12,8 +13,7 @@ const HAPPY_MS = 1100 // spin + bounce reaction length
 /** Owns every bot's activity: 'thinking' while a turn runs, then 'happy' for a moment, then idle. */
 export function useBotActivities() {
   const [activities, setActivities] = useState<Record<string, BotActivity>>({})
-  const timers = useRef<number[]>([])
-  useEffect(() => () => timers.current.forEach(clearTimeout), [])
+  const startTimer = useTimerPerKey()
 
   const set = (botId: string, next: BotActivity | null, onlyIf?: BotActivity) =>
     setActivities((previous) => {
@@ -27,7 +27,7 @@ export function useBotActivities() {
     onBusy(botId: string, busy: boolean) {
       if (busy) return set(botId, 'thinking')
       set(botId, 'happy')
-      timers.current.push(window.setTimeout(() => set(botId, null, 'happy'), HAPPY_MS))
+      startTimer(botId, HAPPY_MS, () => set(botId, null, 'happy'))
     },
   }
 }

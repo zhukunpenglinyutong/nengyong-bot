@@ -51,5 +51,6 @@ export function toggleOutfit(outfit: OutfitId[], id: OutfitId): OutfitId[] {
 export const isUnlocked = (id: OutfitId, level: number, isMainBot: boolean) =>
   level >= OUTFITS[id].from || (isMainBot && MAIN_BOT_OUTFIT.includes(id))
 
-/** The pieces a bot gets on reaching this level. */
-export const unlockedAt = (level: number) => OutfitId.options.filter((id) => OUTFITS[id].from === level)
+/** The pieces a bot gets going up from one level to another. */
+export const unlockedBetween = (from: number, to: number) =>
+  OutfitId.options.filter((id) => OUTFITS[id].from > from && OUTFITS[id].from <= to)

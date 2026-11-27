@@ -1,5 +1,6 @@
 import type { Entry } from '../../shared/bridge'
 import type { ContextMessage, ContextView, Trace } from '../../shared/debug'
+import { DEEPSEEK_MODEL } from '../../shared/modelServices'
 import { strings } from '../../shared/strings'
 
 const words = strings().demo
@@ -39,7 +40,7 @@ const DEMO_TOOLS = [
 export function demoContext(entries: Entry[]): ContextView {
   const kinds = (kind: Entry['kind']) => entries.filter((entry) => entry.kind === kind).length
   return {
-    model: 'deepseek-chat',
+    model: DEEPSEEK_MODEL,
     windowTokens: 131_072,
     sections: [
       {

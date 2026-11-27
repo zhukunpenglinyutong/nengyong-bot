@@ -3,7 +3,6 @@ export const EASE_PANEL = [0.23, 1, 0.32, 1] as const
 export const EASE_SHARP = [0.165, 0.84, 0.44, 1] as const
 export const EASE_SWIFT = [0.2, 0, 0, 1] as const // menus popping in, the avatar's happy spin
 export const PANEL_TRANSITION = { duration: 0.3, ease: EASE_PANEL } as const // the sidebar and the right panel changing width
-export const TAP = { scale: 0.96 }
 // a message or a row joining a list: slides up a little as it fades in
 export const ENTER = {
   initial: { opacity: 0, y: 8 },

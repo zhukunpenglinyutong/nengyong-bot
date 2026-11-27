@@ -1,10 +1,10 @@
 import { tool } from 'ai'
 import { z } from 'zod'
-import { MAIN_BOT_ID } from '../shared/bot'
 import { SkillName } from '../shared/skill'
-import { OptionalId } from './flows'
+import { checkOwner } from './checkOwner'
 import type { Skills } from './skills'
 import type { Store } from './store'
+import { OptionalId } from './toolInputs'
 
 interface SkillToolsContext {
   botId: string
@@ -25,7 +25,7 @@ export function skillChatTools({ botId, store, skills }: SkillToolsContext) {
         botId: OWNER_INPUT,
       }),
       execute: async ({ source, botId: owner = botId }) => {
-        checkOwner(store, botId, owner)
+        checkOwner(store, botId, owner, '给别的 Bot 装、卸技能')
         const offer = await skills.offer(botId, owner, source)
         return {
           ...offer,
@@ -37,7 +37,7 @@ export function skillChatTools({ botId, store, skills }: SkillToolsContext) {
       description: '卸载技能，可以一次卸好几个（比如一整个技能合集），它们的文件夹会删掉。用户明确要求时才用。',
       inputSchema: z.object({ names: z.array(SkillName).min(1), botId: OWNER_INPUT }),
       execute: async ({ names, botId: owner = botId }) => {
-        checkOwner(store, botId, owner)
+        checkOwner(store, botId, owner, '给别的 Bot 装、卸技能')
         skills.remove(owner, names)
         return { removed: names }
       },
@@ -57,13 +57,4 @@ export function skillTaskTools({ botId, skills }: Omit<SkillToolsContext, 'store
       execute: async ({ skill }) => skills.use(botId, skill),
     }),
   }
-}
-
-/** Throws, saying who can, unless `botId` may install or remove the skills of `owner`: its own, or anyone's for the main bot. */
-function checkOwner(store: Store, botId: string, owner: string) {
-  const { bots } = store.get()
-  if (!bots[owner]) throw new Error(`没有 id 为 ${owner} 的 Bot`)
-  if (owner === botId || botId === MAIN_BOT_ID) return
-  const main = `[${bots[MAIN_BOT_ID]?.name ?? '主 Bot'}](bot:${MAIN_BOT_ID})`
-  throw new Error(`只有 ${main} 能给别的 Bot 装、卸技能：请用户跟它说，或者在那个 Bot 自己的聊天里说`)
 }

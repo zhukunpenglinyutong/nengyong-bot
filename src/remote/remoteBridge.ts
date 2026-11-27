@@ -46,6 +46,7 @@ export function createRemoteBridge(): { bridge: NengyongBotBridge; connection: C
       throw new Error(strings().remote.unreachable)
     }
     if (response.status === 401) setConnection('removed')
+    if (source?.readyState === EventSource.OPEN) setConnection('online')
     if (!response.ok) throw new Error(await reasonOf(response))
     return response.json()
   }
@@ -134,7 +135,7 @@ export function createRemoteBridge(): { bridge: NengyongBotBridge; connection: C
     moveDataDir: desktopOnly,
     exportData: desktopOnly,
     importData: desktopOnly,
-    getModelServices: () => call('getModelServices', []),
+    getModelServices: desktopOnly,
     listModels: desktopOnly,
     saveAccount: desktopOnly,
     removeAccount: desktopOnly,

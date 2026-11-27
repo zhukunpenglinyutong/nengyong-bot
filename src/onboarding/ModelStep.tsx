@@ -1,7 +1,8 @@
-import { type ComponentProps, useState } from 'react'
+import { useState } from 'react'
 import { type ModelServicesView, SERVICES } from '../../shared/modelServices'
 import { ipcErrorMessage } from '../ipcErrorMessage'
 import { Icon } from '../ui/Icon'
+import { TextInput } from '../ui/TextInput'
 import { StepFooter } from './StepFooter'
 import { StepHeading } from './StepHeading'
 import { strings } from '../../shared/strings'
@@ -51,7 +52,7 @@ export function ModelStep({ services, onConnect, onBack, onNext }: Props) {
         <label htmlFor="onboarding-key" className="mb-1.5 text-sm font-semibold">
           API Key
         </label>
-        <Field
+        <TextInput
           id="onboarding-key"
           type="password"
           autoComplete="off"
@@ -64,7 +65,7 @@ export function ModelStep({ services, onConnect, onBack, onNext }: Props) {
             setApiKey(event.target.value)
             if (check.kind === 'failed') setCheck({ kind: 'idle' })
           }}
-          className="h-11 rounded-lg px-3.5"
+          className="h-11 rounded-lg px-3.5 font-mono"
         />
         <p className="mt-2 text-xs text-muted">
           {words.keyNote}
@@ -112,15 +113,4 @@ function statusLine(check: Check) {
     default:
       return check satisfies never
   }
-}
-
-/** A text field of this step; `className` sets its size. */
-function Field({ className, ...input }: ComponentProps<'input'>) {
-  return (
-    <input
-      spellCheck={false}
-      {...input}
-      className={`border border-line bg-surface font-mono text-sm outline-none transition-[border-color,box-shadow] duration-150 placeholder:font-sans placeholder:text-muted/70 focus:border-ink/20 focus:ring-3 focus:ring-ink/5 aria-invalid:border-danger ${className}`}
-    />
-  )
 }

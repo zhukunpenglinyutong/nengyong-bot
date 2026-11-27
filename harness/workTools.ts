@@ -8,13 +8,13 @@ import type { Workspace } from './workspace'
 
 interface WorkContext {
   workspace: Workspace
-  apiKey: () => string | null // the key of the DeepSeek account web_search goes through; null: web search is off
+  searchKey: () => string | null // the key of the DeepSeek account web_search goes through; null: web search is off
   limits: Limits
   onStatus: (text: string) => void // set_status: what the task is doing now, shown to the user
 }
 
 /** Files, the web and progress: the tools that do the work itself. */
-export function workTools({ workspace, apiKey, limits, onStatus }: WorkContext) {
+export function workTools({ workspace, searchKey, limits, onStatus }: WorkContext) {
   return {
     set_status: tool({
       description:
@@ -30,7 +30,7 @@ export function workTools({ workspace, apiKey, limits, onStatus }: WorkContext) 
         '搜索网页，返回标题、链接、来源、日期和摘要。支持 site:、"精确词"、-排除词、after:2026-01-01 等写法。要看全文再用 fetch_url 打开链接。',
       inputSchema: z.object({ query: z.string().min(1).max(128) }),
       execute: async ({ query }) => {
-        const key = apiKey()
+        const key = searchKey()
         if (!key) throw new Error('网络搜索没有打开：请用户在设置「模型服务」里打开，它要用 DeepSeek 账号')
         return webSearch(query, key)
       },

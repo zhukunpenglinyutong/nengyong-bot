@@ -16,11 +16,10 @@ const DOWNLOAD_TIMEOUT_MS = 60_000
 const GITHUB_URL =
   /^https?:\/\/(?:www\.)?github\.com\/([\w.-]+)\/([\w.-]+?)(?:\.git)?(?:\/(?:tree|blob)\/([^?#]+?))?\/?(?:[?#].*)?$/
 
-/** A skill folder read from where the user pointed: its files, where they came from, and the folder's own name. */
+/** A skill folder read from where the user pointed: its files, and where they came from. */
 interface FetchedSkill {
   files: SkillFiles
   source: SkillSource
-  folderName: string
 }
 
 interface Candidates {
@@ -76,7 +75,6 @@ function readSkillAt(candidates: Candidates, folder: string): FetchedSkill {
   return {
     files: new Map([...read].map(([file, data]) => [file.slice(prefix.length), data])),
     source: candidates.sourceAt(folder),
-    folderName: path.posix.basename(folder) || candidates.rootName,
   }
 }
 
@@ -150,25 +148,34 @@ function fromFolder(input: string): Candidates {
   const root = path.resolve(input.replace(/^~(?=$|[/\\])/, os.homedir()))
   if (!fs.existsSync(root) || !fs.statSync(root).isDirectory())
     throw new Error(strings().harness.skills.folderMissing(root))
-  const sizes = new Map<string, number>()
-  let visited = 0
-  const walk = (dir: string) => {
-    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-      if (++visited > MAX_FOLDER_ENTRIES) throw new Error(strings().harness.skills.folderTooBig(root))
-      // links are not followed: a skill is what is in its folder
-      if (isJunk(entry.name) || entry.isSymbolicLink()) continue
-      const full = path.join(dir, entry.name)
-      if (entry.isDirectory()) walk(full)
-      else if (entry.isFile()) sizes.set(path.relative(root, full).split(path.sep).join('/'), fs.statSync(full).size)
-    }
-  }
-  walk(root)
+  const files = filesIn(root, MAX_FOLDER_ENTRIES)
   return {
-    sizes,
+    sizes: new Map(files.map((file) => [file, fs.statSync(path.join(root, file)).size])),
     read: (chosen) => new Map(chosen.map((file) => [file, fs.readFileSync(path.join(root, file))])),
     sourceAt: (folder) => ({ kind: 'local', root, path: folder ? path.join(root, folder) : root }),
     rootName: path.basename(root),
   }
+}
+
+/**
+ * Every file in a folder by its path relative to it, with forward slashes, sorted. Links are not followed, as a skill is
+ * what is in its folder, and junk is left out; past `maxEntries` looked at it throws, so a path like ~ is not read whole.
+ */
+export function filesIn(root: string, maxEntries = Number.POSITIVE_INFINITY): string[] {
+  if (!fs.existsSync(root)) return []
+  const found: string[] = []
+  let visited = 0
+  const walk = (folder: string) => {
+    for (const entry of fs.readdirSync(folder, { withFileTypes: true })) {
+      if (++visited > maxEntries) throw new Error(strings().harness.skills.folderTooBig(root))
+      if (isJunk(entry.name) || entry.isSymbolicLink()) continue
+      const full = path.join(folder, entry.name)
+      if (entry.isDirectory()) walk(full)
+      else if (entry.isFile()) found.push(path.relative(root, full).split(path.sep).join('/'))
+    }
+  }
+  walk(root)
+  return found.sort()
 }
 
 /** A .zip or .skill file on this computer, unpacked in memory. */

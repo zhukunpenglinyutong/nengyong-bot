@@ -106,6 +106,47 @@ it('leaves the Enter and Escape of an input method to the input method', () => {
   ).toEqual([])
 })
 
+// AGENTS.md「React」: effects and timers need judgment to get right; they live only in the named hooks of src/ui and in useHarness
+it('keeps effects and timers out of components and domain hooks', () => {
+  const violations = sourceFiles('src')
+    .filter((file) => !/\.test\.tsx?$/.test(file) && !file.startsWith(path.join('src', 'ui', '')))
+    .filter((file) => file !== path.join('src', 'useHarness.ts'))
+    .filter(
+      (file) =>
+        file.endsWith('.tsx') ||
+        /^use[A-Z]/.test(path.basename(file)) ||
+        /\bfrom 'react'/.test(fs.readFileSync(file, 'utf8')),
+    )
+    .flatMap((file) =>
+      [
+        ...fs
+          .readFileSync(file, 'utf8')
+          .matchAll(/\b(?:useEffect|useLayoutEffect|setTimeout|setInterval|requestAnimationFrame)\b/g),
+      ].map((match) => `${file}: ${match[0]}`),
+    )
+  expect(
+    violations,
+    'derive it while rendering, do it in the event handler, reset state with a key, or sync through a named hook in src/ui',
+  ).toEqual([])
+})
+
+// AGENTS.md「文件与函数」: only export what another file uses; an export nobody reads is dead code that looks alive
+it('exports only what another file uses', () => {
+  const files = Object.keys(ALLOWED_IMPORTS).flatMap((dir) => sourceFiles(dir))
+  const texts = new Map(files.map((file) => [file, fs.readFileSync(file, 'utf8')]))
+  const violations = files
+    .filter((file) => !/\.test\.tsx?$/.test(file))
+    .flatMap((file) =>
+      [...(texts.get(file) ?? '').matchAll(/^export (?:async )?(?:function\*?|const|let|interface|type) (\w+)/gm)]
+        .map((match) => match[1])
+        .filter(
+          (name) => !files.some((other) => other !== file && new RegExp(`\\b${name}\\b`).test(texts.get(other) ?? '')),
+        )
+        .map((name) => `${file}: ${name}`),
+    )
+  expect(violations, 'drop the export, or delete it when the file does not use it either').toEqual([])
+})
+
 // AGENTS.md「文件与函数」: a file over the limit holds two concepts and has to be split
 const MAX_FILE_LINES = 500
 

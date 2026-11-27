@@ -49,7 +49,12 @@ function linesOf(
       ))
     case 'model':
       return groupBy(group.records, (record) => record.botId).map((part) => (
-        <Line key={part.key} group={part} label={botName(part.key)} meta={`${tokenLabel(part.tokens)} token`} />
+        <Line
+          key={part.key}
+          group={part}
+          label={botName(part.key)}
+          meta={strings().usage.format.tokens(tokenLabel(part.tokens))}
+        />
       ))
     default:
       return dimension satisfies never
@@ -123,7 +128,7 @@ function ModelLines({ group, colors }: { group: Group; colors: Map<string, strin
               <span className="font-mono">{model.key}</span>
             </span>
           }
-          meta={`${tokenLabel(model.tokens)} token`}
+          meta={strings().usage.format.tokens(tokenLabel(model.tokens))}
         />
       ))}
     </>

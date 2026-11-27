@@ -1,7 +1,7 @@
 import { motion, useIsPresent } from 'motion/react'
 import type { ReactNode } from 'react'
 import { latestVersion, type MiniApp } from '../../shared/miniApp'
-import { dateLabel } from '../chat/chatMessages'
+import { dateLabel } from '../timeLabel'
 import { Icon, type IconName } from '../ui/Icon'
 import { EASE_SHARP } from '../ui/motion'
 import { MiniAppTile } from './MiniAppTile'

@@ -1,6 +1,6 @@
 import type { UsageRecord, UsageView } from '../../shared/usage'
 import { dayLabel, weekdayLabel } from './usageFormat'
-import type { Range } from './usageStats'
+import { type Measured, type Range, type Totals, totalsOf } from './usageStats'
 import { strings } from '../../shared/strings'
 
 const WEEK_DAYS = 7
@@ -28,6 +28,17 @@ export interface Period {
 
 export function periodsOf(view: UsageView, range: Range): Periods {
   return range === 1 ? hoursOf(view) : daysOf(view, range)
+}
+
+/** The records of each period, and what they add up to. */
+export function byPeriod(
+  periods: Periods,
+  records: Measured[],
+): { period: Period; records: Measured[]; totals: Totals }[] {
+  return periods.list.map((period) => {
+    const ofPeriod = records.filter((record) => periods.idOf(record) === period.id)
+    return { period, records: ofPeriod, totals: totalsOf(ofPeriod) }
+  })
 }
 
 function hoursOf(view: UsageView): Periods {

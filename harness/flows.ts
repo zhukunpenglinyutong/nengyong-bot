@@ -1,14 +1,11 @@
 import { z } from 'zod'
 import type { HarnessEvent } from '../shared/bridge'
 import type { Flow } from '../shared/flow'
+import { strings } from '../shared/strings'
 import type { Store } from './store'
+import { line, OptionalId } from './toolInputs'
 
 const MAX_FLOW_CHARS = 20_000 // all of a bot's flows together: they go into every system prompt of its chat
-
-// models often fill an optional id with "": that means none, never a flow whose id is empty
-export const OptionalId = z.preprocess((value) => (value === '' ? undefined : value), z.string().optional())
-
-const line = (max: number) => z.string().trim().min(1).max(max)
 
 export const NewFlow = z.object({
   id: OptionalId.describe('改已有的流程时填它的 id，整条替换；新建不填'),
@@ -28,7 +25,7 @@ export function updateFlows(
   change: (flows: Flow[]) => Flow[],
 ) {
   const bot = store.get().bots[botId]
-  if (!bot) throw new Error(`未知的 Bot：${botId}`)
+  if (!bot) throw new Error(strings().harness.unknownBot(botId))
   const flows = change(bot.flows)
   const chars = charsOf(flows)
   // a change that shrinks them is always let through, so going over never locks the flows in
@@ -41,7 +38,24 @@ export function updateFlows(
 const charsOf = (flows: Flow[]) =>
   flows.flatMap((flow) => [flow.name, flow.when, ...flow.steps, ...flow.notes]).join('').length
 
+/** Changes or (with null) deletes the flow with this id, saying so when the bot has none. */
+export function patchFlow(
+  store: Store,
+  emit: (event: HarnessEvent) => void,
+  botId: string,
+  flowId: string,
+  patch: Partial<Omit<Flow, 'id'>> | null,
+) {
+  updateFlows(store, emit, botId, (flows) => {
+    if (!flows.some((flow) => flow.id === flowId)) throw new Error(flowNotFound(flowId))
+    if (!patch) return flows.filter((flow) => flow.id !== flowId)
+    return flows.map((flow) => (flow.id === flowId ? { ...flow, ...patch } : flow))
+  })
+}
+
 /** Throws a readable reason unless the bot has this flow. */
 export function checkFlow(store: Store, botId: string, flowId: string) {
-  if (!store.get().bots[botId]?.flows.some((flow) => flow.id === flowId)) throw new Error(`没有 id 为 ${flowId} 的流程`)
+  if (!store.get().bots[botId]?.flows.some((flow) => flow.id === flowId)) throw new Error(flowNotFound(flowId))
 }
+
+const flowNotFound = (id: string) => `没有 id 为 ${id} 的流程`

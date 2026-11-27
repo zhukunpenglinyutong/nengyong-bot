@@ -6,13 +6,14 @@ import { isUnfinished } from '../../shared/bridge'
 import { plainText } from '../../shared/plainText'
 import { activityLabel } from '../activityLabel'
 import { BotAvatar } from '../bot/BotAvatar'
-import { ELAPSED_REFRESH_MS, elapsedLabel } from '../elapsedLabel'
+import { ELAPSED_REFRESH_MS } from '../elapsedLabel'
 import type { Thread } from '../harnessState'
 import { taskProgressLabel } from '../taskProgressLabel'
 import { Icon } from '../ui/Icon'
 import { POP } from '../ui/motion'
 import { useNow } from '../ui/useNow'
-import { type BotStatus, DOT_LABELS, dotKindOf, whenLabel } from './botStatus'
+import { whenLabel } from '../timeLabel'
+import { type BotStatus, DOT_LABELS, dotKindOf, statusLineOf } from './botStatus'
 import { StatusDot } from './StatusDot'
 import { strings } from '../../shared/strings'
 
@@ -74,7 +75,10 @@ export function BotStatusCard({ bot, thread, status, anchor }: Props) {
             <Item
               mark={<StatusDot kind="busy" size={14} />}
               title={words.replying}
-              detail={`${activityLabel(progress.activity, progress.draw)} ${elapsedLabel(now - progress.since)}`.trim()}
+              detail={statusLineOf(
+                { kind: 'replying', label: activityLabel(progress.activity, progress.draw), since: progress.since },
+                now,
+              )}
             />
           )}
           {unfinished.map((task) => (
@@ -123,7 +127,7 @@ interface ItemProps {
   mark: ReactNode
   title: string
   meta?: string
-  detail?: string
+  detail?: string | null
   isDanger?: boolean
 }
 

@@ -31,10 +31,9 @@ SOFTWARE.
 
 ## LobeHub Icons
 
-The colour model maker marks and the pi, OpenCode, Qoder and CodeBuddy CLI marks in `src/settings/ModelLogo.tsx`
-are taken from LobeHub Icons (https://github.com/lobehub/lobe-icons, package `@lobehub/icons-static-svg`), used
-under the MIT License. Each mark is a trademark of its maker and is shown only to say which maker's model or which
-CLI a row is about.
+The colour model maker marks in `src/settings/ModelLogo.tsx` are taken from LobeHub Icons
+(https://github.com/lobehub/lobe-icons, package `@lobehub/icons-static-svg`), used under the MIT License. Each mark
+is a trademark of its maker and is shown only to say which maker's model a row is about.
 
 ```
 MIT License

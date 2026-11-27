@@ -67,9 +67,7 @@ export function createMcp(dir: string, limits: () => Limits) {
 
   function connectAll(text: string, servers: Record<string, Server>): Loaded {
     const connections = Promise.all(
-      Object.entries(servers).map(([name, server]) =>
-        connect(name, server, { home: dir, env: loginShellPath, timeoutMs: limits().mcpConnectSeconds * 1000 }),
-      ),
+      Object.entries(servers).map(([name, server]) => connect(name, server, dir, limits().mcpConnectSeconds * 1000)),
     )
     return { text, servers: Object.keys(servers), connections }
   }
@@ -122,26 +120,21 @@ function parseJson(text: string): unknown {
   }
 }
 
-interface Launch {
-  home: string // where a local server starts unless its config says otherwise: the packaged app's own cwd is /, not writable
-  env: () => Promise<string | undefined>
-  timeoutMs: number
-}
-
-async function connect(name: string, server: Server, launch: Launch): Promise<Connection> {
+// home: where a local server starts unless its config says otherwise, as the packaged app's own cwd is /, not writable
+async function connect(name: string, server: Server, home: string, timeoutMs: number): Promise<Connection> {
   try {
     const transport =
       'command' in server
         ? new StdioMCPTransport({
             ...server,
-            cwd: server.cwd ?? launch.home,
-            env: { ...withPath(await launch.env()), ...server.env },
+            cwd: server.cwd ?? home,
+            env: { ...withPath(await loginShellPath()), ...server.env },
           })
         : server
     const client = await createMCPClient({
       transport,
       clientName: 'nengyongbot',
-      initializationOptions: { timeout: launch.timeoutMs },
+      initializationOptions: { timeout: timeoutMs },
     })
     const tools = await client.tools().catch(async (error: unknown) => {
       await client.close()

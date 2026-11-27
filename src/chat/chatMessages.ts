@@ -1,8 +1,7 @@
 import type { Bot } from '../../shared/bot'
 import type { Entry, Quote } from '../../shared/bridge'
-import { locale } from '../../shared/language'
 import { SkillOffer } from '../../shared/skill'
-import { calendarDay, clockLabel, TIMEZONE } from '../../shared/timezone'
+import { timeLabel } from '../timeLabel'
 import type { Thread } from '../harnessState'
 import { strings } from '../../shared/strings'
 
@@ -21,13 +20,13 @@ export type Message =
     }
   | { kind: 'user'; text: string; seq: number; at: number; quote?: Quote; attachments?: string[]; sentBy?: string } // attachments: library paths; sentBy: the mini app that sent it for the user
   | { kind: 'queued'; text: string } // sent while the bot is busy; its next turn reads it
-  | { kind: 'time'; text: string }
+  | { kind: 'note'; text: string } // grey line across the chat: the time, a task's end, a routine's start, an error, the queued line
   | { kind: 'from-bot'; from: string; text: string } // a request delegated by another bot
   | { kind: 'skill-offer'; offer: SkillOffer; installed: string[] | null } // an install card: the skills installed from it, null before it is answered
 
 /** What the chat view renders for one bot: its transcript (or a greeting), the reply being streamed, queued messages, the last error. */
 export function chatMessages(
-  thread: Pick<Thread, 'entries' | 'draft' | 'queued' | 'error'>,
+  thread: Pick<Thread, 'entries' | 'streaming' | 'queued' | 'error'>,
   bot: Bot,
   bots: Bot[],
   now = Date.now(),
@@ -37,18 +36,18 @@ export function chatMessages(
     kind: 'bot',
     text: strings().chat.messages.greeting(bot.name),
   }
-  const draft: Message[] = thread.draft ? [{ kind: 'bot', text: thread.draft }] : []
+  const streaming: Message[] = thread.streaming ? [{ kind: 'bot', text: thread.streaming }] : []
   const queued: Message[] = thread.queued.length
     ? [
         ...thread.queued.map((text): Message => ({ kind: 'queued', text })),
         {
-          kind: 'time',
+          kind: 'note',
           text: strings().chat.messages.queued(bot.name),
         },
       ]
     : []
-  const error: Message[] = thread.error ? [{ kind: 'time', text: strings().chat.messages.error(thread.error) }] : []
-  return [...(transcript.length ? transcript : [greeting]), ...draft, ...queued, ...error]
+  const error: Message[] = thread.error ? [{ kind: 'note', text: strings().chat.messages.error(thread.error) }] : []
+  return [...(transcript.length ? transcript : [greeting]), ...streaming, ...queued, ...error]
 }
 
 export const GAP_MS = 20 * 60_000 // a time divider appears after this much silence
@@ -62,18 +61,18 @@ function transcriptMessages(entries: Entry[], bots: Bot[], now: number): Message
     // of the tool records only install cards show, and the answer to one shows on its card
     const offer = e.kind === 'tool' && e.name === 'install_skill' ? SkillOffer.safeParse(e.output).data : undefined
     if (e.kind === 'skill-answer' || (e.kind === 'tool' && !offer)) return []
-    const divider: Message[] = e.at - last > GAP_MS ? [{ kind: 'time', text: timeLabel(e.at, now) }] : []
+    const divider: Message[] = e.at - last > GAP_MS ? [{ kind: 'note', text: timeLabel(e.at, now) }] : []
     last = e.at
     switch (e.kind) {
       case 'from-bot':
         return [...divider, { kind: 'from-bot', from: bots.find((b) => b.id === e.from)?.name ?? e.from, text: e.text }]
       case 'routine':
-        return [...divider, { kind: 'time', text: strings().chat.messages.routineStarted(e.name) }]
+        return [...divider, { kind: 'note', text: strings().chat.messages.routineStarted(e.name) }]
       case 'task-result':
         return [
           ...divider,
           {
-            kind: 'time',
+            kind: 'note',
             text:
               e.status === 'done'
                 ? strings().chat.messages.taskDone(e.title, ranOn(e))
@@ -122,16 +121,3 @@ function ranOn({ model, fallbackFrom }: { model?: string; fallbackFrom?: string 
   if (fallbackFrom) return strings().chat.messages.ranOnFallback(fallbackFrom)
   return model ? ` · ${model}` : ''
 }
-
-export function timeLabel(at: number, now = Date.now()): string {
-  const diff = calendarDay(now) - calendarDay(at)
-  if (diff === 0) return strings().app.time.today(clockLabel(at))
-  if (diff === 1) return strings().app.time.yesterday(clockLabel(at))
-  return dateTimeLabel(at)
-}
-
-/** 11月1日 9:05, never 昨天: for an image that is looked at days later. */
-export const dateTimeLabel = (at: number) => `${dateLabel(at)} ${clockLabel(at)}`
-
-export const dateLabel = (at: number) =>
-  new Date(at).toLocaleDateString(locale(), { timeZone: TIMEZONE, month: 'long', day: 'numeric' })

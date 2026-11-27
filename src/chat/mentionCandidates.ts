@@ -1,6 +1,6 @@
 import type { Bot } from '../../shared/bot'
 import type { SidebarState } from '../../shared/sidebar'
-import { sidebarView } from '../sidebarView'
+import { inSidebarOrder } from '../sidebarView'
 
 export interface MentionCandidate {
   bot: Bot
@@ -9,11 +9,10 @@ export interface MentionCandidate {
 
 /** The bots an @ in the message box offers: the sidebar's order; once the user types, hidden ones too, names starting with the query first. */
 export function mentionCandidates(sidebar: SidebarState, selfId: string, query: string): MentionCandidate[] {
-  const view = sidebarView(sidebar)
-  const shown = [...view.pinned, ...view.sections.flatMap((section) => section.bots), ...view.ungrouped]
   const needle = query.toLowerCase()
   const startsWithQuery = (bot: Bot) => bot.name.toLowerCase().startsWith(needle)
-  return (needle === '' ? shown : [...shown, ...view.hidden])
+  return inSidebarOrder(sidebar)
+    .filter((bot) => needle !== '' || !sidebar.hidden.includes(bot.id))
     .filter((bot) => bot.id !== selfId && bot.name.toLowerCase().includes(needle))
     .sort((a, b) => Number(startsWithQuery(b)) - Number(startsWithQuery(a)))
     .map((bot) => ({ bot, group: sidebar.sections.find((section) => section.id === sidebar.placement[bot.id])?.name }))

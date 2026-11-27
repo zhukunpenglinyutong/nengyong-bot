@@ -1,6 +1,6 @@
 import { MAIN_BOT, PALETTE, secretary } from '../../shared/bot'
 import type { BotModels, Entry, PanelData } from '../../shared/bridge'
-import type { ModelServicesView } from '../../shared/modelServices'
+import { DEEPSEEK_MODEL, type ModelServicesView } from '../../shared/modelServices'
 import type { Flow } from '../../shared/flow'
 import type { SidebarState } from '../../shared/sidebar'
 import { DEMO_MINI_APP_BOT, DEMO_MINI_APP_TRANSCRIPT, DEMO_MINI_APPS } from './demoMiniApps'
@@ -145,10 +145,8 @@ export const DEMO_LEARNED_FLOW: Omit<Flow, 'id' | 'updatedAt'> = {
   notes: [words.learnedFlow.note],
 }
 
-const DEMO_MAIN_MODEL = 'deepseek-flash'
-
 /** What a bot's panel shows of its models while it chats on the main one. */
-export const DEMO_BOT_MODELS: BotModels = { main: DEMO_MAIN_MODEL, chat: null, tasks: null }
+export const DEMO_BOT_MODELS: BotModels = { main: DEEPSEEK_MODEL, chat: null, tasks: null }
 
 export const DEMO_PANELS: Record<string, PanelData> = {
   release: {
@@ -190,7 +188,7 @@ export const DEMO_PANELS: Record<string, PanelData> = {
         flowId: PRE_MERGE_FLOW.id,
       },
     ],
-    models: { main: DEMO_MAIN_MODEL, chat: { model: 'deepseek-pro', isGone: false }, tasks: null },
+    models: { main: DEEPSEEK_MODEL, chat: { model: 'deepseek-pro', isGone: false }, tasks: null },
   },
   repo: {
     skills: [],
@@ -316,8 +314,8 @@ export const DEMO_MODEL_SERVICES: ModelServicesView = {
   accounts: [
     { id: 'deepseek', service: 'deepseek', name: 'DeepSeek', baseURL: 'https://api.deepseek.com', keyHint: '••••demo' },
   ],
-  chat: { accountId: 'deepseek', model: DEMO_MAIN_MODEL },
+  chat: { accountId: 'deepseek', model: DEEPSEEK_MODEL },
   searchAccountId: 'deepseek',
 }
 
-export const DEMO_MODELS = ['deepseek-flash', 'deepseek-pro']
+export const DEMO_MODELS = [DEEPSEEK_MODEL, 'deepseek-pro']

@@ -1,5 +1,5 @@
 import { strings } from '../../shared/strings'
-import { Icon } from '../ui/Icon'
+import { BackButton } from '../ui/BackButton'
 import {
   MAX_LEVEL,
   MESSAGES_PER_POINT,
@@ -31,21 +31,15 @@ export function LevelGuide({ trust, onBack, className }: Props) {
   const tier = tierOf(trust.level)
 
   return (
-    <div className={`max-h-[440px] overflow-y-auto ${className}`}>
-      <button
-        type="button"
-        onClick={onBack}
-        className="-ml-1.5 flex items-center rounded-md py-0.5 pr-2 text-sm text-white/60"
-      >
-        <span className="rotate-180">
-          <Icon name="chevron" size={16} />
-        </span>
-        {strings().island.levelGuide.back}
-      </button>
+    <div className={`max-h-[440px] overflow-y-auto text-white/60 ${className}`}>
+      <BackButton onClick={onBack}>{strings().island.levelGuide.back}</BackButton>
       <Heading>{strings().island.levelGuide.howToEarn}</Heading>
       <ul className="flex flex-col gap-1">
         {EARNINGS.map(([label, points]) => (
-          <li key={label} className="flex h-9 items-center justify-between rounded-lg bg-white/8 px-3 text-md">
+          <li
+            key={label}
+            className="flex h-9 items-center justify-between rounded-lg bg-white/8 px-3 text-md text-white"
+          >
             {label}
             <span className="font-bold tabular-nums">+{points}</span>
           </li>

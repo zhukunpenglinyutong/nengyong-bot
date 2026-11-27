@@ -133,10 +133,6 @@ export const bot: Strings['bot'] = {
     tasksFollowMain: 'Follows the main model unless tagged',
     tasksAskedInChat: 'You asked for it in the chat; any set on their own are tagged',
   },
-  share: {
-    label: 'Share',
-    soon: 'Not available yet, coming soon',
-  },
   flows: {
     teachStarter: 'I’ll walk you through it once; save it as a flow when we’re done: ',
     intro: 'A way of doing things you approved, saved by the bot as a flow to follow next time.',

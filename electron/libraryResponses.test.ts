@@ -47,6 +47,13 @@ it('shows a document as plain text, with nothing in it running', async () => {
   expect(await response.text()).toBe('# 周报')
 })
 
+it('shows a HEIC photo, which the panel lists as media, on a device as an image', async () => {
+  fs.writeFileSync(path.join(workspace.root, 'photo.HEIC'), 'x')
+  const response = await libraryFileResponse(workspace, 'photo.HEIC')
+  expect(response.status).toBe(200)
+  expect(response.headers.get('content-type')).toBe('image/heic')
+})
+
 it('serves no image from outside the library', async () => {
   expect((await imageResponse(workspace, '..%2F..%2Fsecret.png')).status).toBe(404)
 })

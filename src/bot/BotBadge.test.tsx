@@ -4,6 +4,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import type { Bot } from '../../shared/bot'
 import type { Entry, PanelData, TaskView } from '../../shared/bridge'
 import type { Flow } from '../../shared/flow'
+import { NavigationContext } from '../NavigationContext'
 import { BotBadge } from './BotBadge'
 
 const JOINED_AT = new Date('2026-11-02T09:24:00+08:00').getTime()
@@ -30,19 +31,22 @@ afterEach(() => {
 })
 
 const renderBadge = (bot: Bot, { entries = [], panel = PANEL }: { entries?: Entry[]; panel?: PanelData } = {}) => {
-  const onOpenFlow = vi.fn()
+  const openFlow = vi.fn()
   render(
-    <BotBadge
-      bot={bot}
-      entries={entries}
-      panel={panel}
-      onRename={() => {}}
-      onPickLook={() => {}}
-      onOpenTab={() => {}}
-      onOpenFlow={onOpenFlow}
-    />,
+    <NavigationContext
+      value={{ openBot: vi.fn(), openFlow, openSkill: vi.fn(), openSkillFiles: vi.fn(), openMiniApp: vi.fn() }}
+    >
+      <BotBadge
+        bot={bot}
+        entries={entries}
+        panel={panel}
+        onRename={() => {}}
+        onPickLook={() => {}}
+        onOpenTab={() => {}}
+      />
+    </NavigationContext>,
   )
-  return { onOpenFlow }
+  return { openFlow }
 }
 
 // turning over follows the press itself, never the end of an animation: a hot reload can leave those unfinished
@@ -106,10 +110,10 @@ it('says on the desk which task the bot is running', async () => {
 })
 
 it('opens a flow from its binder on the shelf', async () => {
-  const { onOpenFlow } = renderBadge(createdBot)
+  const { openFlow } = renderBadge(createdBot)
   await swipe()
   await userEvent.click(screen.getByRole('button', { name: '流程「周报」' }))
-  expect(onOpenFlow).toHaveBeenCalledWith('f2')
+  expect(openFlow).toHaveBeenCalledWith('f2')
 })
 
 it('pretends to work when poked while slacking off', async () => {

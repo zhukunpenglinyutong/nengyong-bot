@@ -1,8 +1,9 @@
-import type { LanguageModel } from 'ai'
+import type { LanguageModelUsage } from 'ai'
 import { calendarDay, clockHour } from '../shared/timezone'
 import {
-  costOf,
   type ModelPrice,
+  priceRecords,
+  type TokenCounts,
   USAGE_DAYS,
   type UsageRecord,
   type UsageSource,
@@ -15,7 +16,14 @@ const DAY_MS = 86_400_000
 
 type Unpriced = Omit<UsageRecord, 'cost'>
 
-export const modelIdOf = (model: LanguageModel) => (typeof model === 'string' ? model : model.modelId)
+export function usageOf(usage: LanguageModelUsage): TokenCounts | null {
+  if (usage.inputTokens === undefined) return null
+  return {
+    input: usage.inputTokens,
+    cached: usage.inputTokenDetails.cacheReadTokens ?? 0,
+    output: usage.outputTokens ?? 0,
+  }
+}
 
 /** The model calls of the last USAGE_DAYS days, summed per hour, bot, source and model, and priced as they are read. */
 export function usageView(store: Store, priceOf: (model: string) => ModelPrice, now = Date.now()): UsageView {
@@ -23,13 +31,7 @@ export function usageView(store: Store, priceOf: (model: string) => ModelPrice, 
   const firstDay = today - USAGE_DAYS + 1
   // a day more than needed: the cut that counts is the calendar day in TIMEZONE, below
   const runs = store.usageRuns(now - (USAGE_DAYS + 1) * DAY_MS).filter((run) => calendarDay(run.at) >= firstDay)
-  const summed = sumPerHour(store, runs)
-  const prices = [...new Set(summed.map((record) => record.model))].map(priceOf)
-  const priceByModel = new Map(prices.map((entry) => [entry.model, entry.price]))
-  const records = summed.map((record): UsageRecord => {
-    const price = priceByModel.get(record.model)
-    return { ...record, cost: price ? costOf(record, price) : null }
-  })
+  const { records, prices } = priceRecords(sumPerHour(store, runs), priceOf)
   const firstAt = store.firstUsageAt()
   return {
     today,

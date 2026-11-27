@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react'
 import { strings } from '../../shared/strings'
-import { dateLabel } from '../chat/chatMessages'
+import { dateLabel } from '../timeLabel'
 import appIcon from './appIcon.webp'
 import { BusyWarning } from './BusyWarning'
 import { RELEASES } from './releases'
-import { SettingsButton, SettingsPrimaryButton } from './SettingsSection'
+import { Button, PrimaryButton } from '../ui/Button'
 import type { UpdateState } from './updateState'
 import { WhatsNewLink } from './WhatsNewLink'
 
@@ -27,15 +27,11 @@ export function UpdateCheckRow({ update, busyBots, onCheckUpdate, onInstallUpdat
           <div className="text-md">Nengyong Bot</div>
           <div className="text-xs text-muted">{words.current(RELEASES[0].version)}</div>
         </div>
-        <SettingsButton disabled={isWorking} onClick={onCheckUpdate}>
+        <Button disabled={isWorking} onClick={onCheckUpdate}>
           {words.check}
-        </SettingsButton>
-        {update.kind === 'available' && (
-          <SettingsPrimaryButton onClick={onInstallUpdate}>{words.install}</SettingsPrimaryButton>
-        )}
-        {update.kind === 'installFailed' && (
-          <SettingsPrimaryButton onClick={onInstallUpdate}>{words.retry}</SettingsPrimaryButton>
-        )}
+        </Button>
+        {update.kind === 'available' && <PrimaryButton onClick={onInstallUpdate}>{words.install}</PrimaryButton>}
+        {update.kind === 'installFailed' && <PrimaryButton onClick={onInstallUpdate}>{words.retry}</PrimaryButton>}
       </div>
       <Result update={update} />
       {(update.kind === 'available' || update.kind === 'installFailed') && <BusyWarning names={busyBots} />}

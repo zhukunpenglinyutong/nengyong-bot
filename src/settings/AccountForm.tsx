@@ -1,3 +1,4 @@
+import { AnimatePresence } from 'motion/react'
 import { type ComponentProps, type FormEvent, useState } from 'react'
 import type { NengyongBotBridge } from '../../shared/bridge'
 import {
@@ -8,15 +9,19 @@ import {
   type Service,
 } from '../../shared/modelServices'
 import { ipcErrorMessage } from '../ipcErrorMessage'
+import { Button, PrimaryButton } from '../ui/Button'
+import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { Icon } from '../ui/Icon'
 import { IconButton } from '../ui/IconButton'
+import { TextInput } from '../ui/TextInput'
 import { ServiceLogo } from './ModelLogo'
+import { usesOf } from './usesOf'
 import { strings } from '../../shared/strings'
 
 interface Props {
   service: Service
   account: AccountView | null // null: connecting a new one
-  usedFor: string[] // the uses set to this account, named, to say what disconnecting turns off
+  services: ModelServicesView
   use: AccountUse | null // what it is being connected for
   bridge: Pick<NengyongBotBridge, 'saveAccount' | 'removeAccount'>
   onBack: (() => void) | null // back to the list it was picked from
@@ -25,7 +30,7 @@ interface Props {
 }
 
 /** Connecting or changing one account. Saving checks the address and key first and keeps nothing that does not work. */
-export function AccountForm({ service, account, usedFor, use, bridge, onBack, onDone, onClose }: Props) {
+export function AccountForm({ service, account, services, use, bridge, onBack, onDone, onClose }: Props) {
   const words = strings().models.account
   const [apiKey, setApiKey] = useState('')
   const [baseURL, setBaseURL] = useState(account?.baseURL ?? service.baseURL)
@@ -36,6 +41,7 @@ export function AccountForm({ service, account, usedFor, use, bridge, onBack, on
   const [isPending, setIsPending] = useState(false)
   const [error, setError] = useState('')
 
+  const usedFor = account ? usesOf(services, account.id) : []
   const isChanged = !account || apiKey.trim() !== '' || baseURL !== account.baseURL || name !== account.name
   const keepsKey = account !== null && baseURL === account.baseURL
   const isComplete =
@@ -100,11 +106,7 @@ export function AccountForm({ service, account, usedFor, use, bridge, onBack, on
         <IconButton icon="close" label={words.close} onClick={onClose} />
       </header>
       <div className="flex flex-col gap-3.5 px-5 pt-3">
-        {account && (
-          <p className="text-sm text-muted">
-            {usedFor.length ? strings().models.page.usedFor(usedFor) : strings().models.page.unused}
-          </p>
-        )}
+        {account && <p className="text-sm text-muted">{strings().models.page.usedFor(usedFor)}</p>}
         {service.kind === 'custom' && (
           <Field
             id="account-name"
@@ -135,55 +137,35 @@ export function AccountForm({ service, account, usedFor, use, bridge, onBack, on
           </div>
         )}
       </div>
-      <footer className="flex flex-wrap items-center gap-2 px-5 py-4">
-        {isConfirmingRemove && account ? (
-          <>
-            <p className="basis-full text-sm text-danger">
-              {usedFor.length ? words.disconnectWarning(usedFor) : words.disconnectTitle(account.name)}
-            </p>
-            <button
-              type="button"
-              onClick={() => setIsConfirmingRemove(false)}
-              className="ml-auto h-8 rounded-md px-3 text-sm"
-            >
-              {words.neverMind}
-            </button>
-            <button
-              type="button"
-              disabled={isPending}
-              onClick={() => void run(() => bridge.removeAccount(account.id))}
-              className="h-8 rounded-md bg-danger px-3.5 text-sm text-white disabled:opacity-30"
-            >
-              {words.disconnect}
-            </button>
-          </>
-        ) : (
-          <>
-            <p role="alert" className="basis-full text-sm text-danger empty:hidden">
-              {error}
-            </p>
-            {account && (
-              <button
-                type="button"
-                onClick={() => setIsConfirmingRemove(true)}
-                className="-ml-2.5 h-8 rounded-md px-2.5 text-sm text-danger"
-              >
-                {words.disconnect}
-              </button>
-            )}
-            <button type="button" onClick={onClose} className="ml-auto h-8 rounded-md px-3 text-sm">
-              {words.cancel}
-            </button>
-            <button
-              type="submit"
-              disabled={!isChanged || !isComplete || isPending}
-              className="h-8 rounded-md bg-ink px-3.5 text-sm text-canvas transition-opacity disabled:opacity-30"
-            >
-              {isPending ? words.checking : verbOf(service, account)}
-            </button>
-          </>
+      <footer className="flex flex-wrap items-center justify-end gap-2 px-5 py-4">
+        <p role="alert" className="basis-full text-sm text-danger empty:hidden">
+          {error}
+        </p>
+        {account && (
+          <button
+            type="button"
+            onClick={() => setIsConfirmingRemove(true)}
+            className="mr-auto -ml-2.5 h-8 rounded-md px-2.5 text-sm text-danger"
+          >
+            {words.disconnect}
+          </button>
         )}
+        <Button onClick={onClose}>{words.cancel}</Button>
+        <PrimaryButton type="submit" disabled={!isChanged || !isComplete || isPending}>
+          {isPending ? words.checking : verbOf(service, account)}
+        </PrimaryButton>
       </footer>
+      <AnimatePresence>
+        {isConfirmingRemove && account && (
+          <ConfirmDialog
+            title={words.disconnectTitle(account.name)}
+            body={words.disconnectWarning(usedFor)}
+            confirmLabel={words.disconnect}
+            onConfirm={() => void run(() => bridge.removeAccount(account.id))}
+            onClose={() => setIsConfirmingRemove(false)}
+          />
+        )}
+      </AnimatePresence>
     </form>
   )
 }
@@ -225,12 +207,7 @@ function Field({ id, label, children, ...input }: ComponentProps<'input'> & { id
         {label}
       </label>
       <div className="relative">
-        <input
-          id={id}
-          spellCheck={false}
-          {...input}
-          className="h-9 w-full rounded-md border border-line bg-surface pr-9 pl-3 font-mono text-sm outline-none transition-[border-color,box-shadow] duration-150 placeholder:font-sans placeholder:text-muted/70 focus:border-ink/20 focus:ring-3 focus:ring-ink/5"
-        />
+        <TextInput id={id} {...input} className="h-9 w-full rounded-md pr-9 pl-3 font-mono" />
         {children}
       </div>
     </div>

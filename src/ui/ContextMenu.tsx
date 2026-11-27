@@ -20,7 +20,7 @@ export interface MenuItem {
 }
 
 /** Lines of plain text between the items, such as when a message was written: never focused or pressed. */
-export interface MenuNote {
+interface MenuNote {
   note: string[]
 }
 

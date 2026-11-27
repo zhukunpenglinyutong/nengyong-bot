@@ -2,15 +2,15 @@ import { AnimatePresence, motion } from 'motion/react'
 import { type DragEvent, type ReactNode, useReducer, useRef, useState } from 'react'
 import type { Bot } from '../../shared/bot'
 import { isUnfinished, type TaskView } from '../../shared/bridge'
-import type { Flow } from '../../shared/flow'
 import type { MiniApp } from '../../shared/miniApp'
 import { plainText } from '../../shared/plainText'
 import type { SidebarState } from '../../shared/sidebar'
-import type { SkillView } from '../../shared/skill'
-import type { SkillFilesTarget } from '../skills/SkillFilesDialog'
 import type { SendKey } from '../preferences'
 import { BotAvatar } from '../bot/BotAvatar'
+import type { Thread } from '../harnessState'
 import { ViewingMiniApp } from '../miniApp/ViewingMiniApp'
+import { useNavigation } from '../NavigationContext'
+import { progressOf } from '../progressOf'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { Icon } from '../ui/Icon'
 import { IconButton } from '../ui/IconButton'
@@ -20,60 +20,34 @@ import { taskProgressLabel } from '../taskProgressLabel'
 import { useKeyDown } from '../ui/useKeyDown'
 import { useNow } from '../ui/useNow'
 import { useStickToBottom } from '../ui/useStickToBottom'
-import type { Message } from './chatMessages'
+import { chatMessages } from './chatMessages'
 import { Composer } from './Composer'
 import { MentionContext } from './MentionContext'
 import { MessageList } from './MessageList'
 import { SelectBar } from './SelectBar'
 import { selectableMessages, selectionOf } from './selection'
 import { ShareDialog } from './ShareDialog'
+import { type DraftChange, type Drafts, fillWith, useDraft } from './drafts'
 import { strings } from '../../shared/strings'
 
 interface Props {
   bot: Bot
   sidebar: SidebarState // its bots resolve [name](bot:id) mentions in replies; an @ in the message box offers them
-  messages: Message[]
+  thread: Thread
   bubbleColor?: string // fills the user's bubbles; without one they are ink
   sendKey: SendKey
-  progress?: { label: string; since: number } // set while the bot is working
-  tasks: TaskView[] // its background tasks; the unfinished ones show under the chat while it is not replying
   attachmentUrl: (path: string) => string
   onOpenFile: (path: string) => void // a file a reply links to, in the library
   onSend: (text: string, files: File[], quoteSeq: number | null) => boolean // false: refused (the thread says why), keep what was typed
   onStopReply: () => void
   onDelete: (seqs: number[]) => void
-  onOpenBot: (botId: string) => void
-  flows: Flow[] // for resolving [name](flow:id) mentions in replies
-  onOpenFlow: (flowId: string) => void
-  skills: SkillView[] // for resolving [name](skill:…) mentions in replies
-  onOpenSkill: (botId: string, name: string) => void
-  onAnswerSkillOffer?: (offer: string, names: string[]) => Promise<void> // an install card's buttons; absent on a device, which only looks
-  onOpenSkillFiles: (target: SkillFilesTarget) => void
-  miniApps: MiniApp[] // for resolving [name](app:id) links in replies
-  onOpenMiniApp: (miniAppId: string, from: Element) => void
   thumbUrl: (app: MiniApp) => string
   viewing: MiniApp | undefined // the mini app of this bot open now: what a message sent now is about
-  fill: ComposerFill // the latest text put in the message box from outside it
-  onFill: (text: string) => void
+  drafts: Drafts
   island: ReactNode
   isPanelOpen: boolean
   onTogglePanel: () => void
 }
-
-/** A text put in the message box for the user to finish and send; a new count replaces what was typed. */
-export interface ComposerFill {
-  text: string
-  count: number
-}
-
-/** What is written to one bot and not sent yet; each bot keeps its own while another is open. */
-interface Draft {
-  text: string
-  files: File[]
-  quote: { seq: number; text: string } | null
-}
-
-const EMPTY_DRAFT: Draft = { text: '', files: [], quote: null }
 
 /** A mention clicked in `from`'s chat, scrolled to `scrollTop`, that opened `to`. */
 interface Jump {
@@ -85,46 +59,25 @@ interface Jump {
 export function ChatView({
   bot,
   sidebar,
-  messages,
+  thread,
   bubbleColor,
   sendKey,
-  progress,
-  tasks,
   attachmentUrl,
   onOpenFile,
   onSend,
   onStopReply,
   onDelete,
-  onOpenBot,
-  flows,
-  onOpenFlow,
-  skills,
-  onOpenSkill,
-  onAnswerSkillOffer,
-  onOpenSkillFiles,
-  miniApps,
-  onOpenMiniApp,
   thumbUrl,
   viewing,
-  fill,
-  onFill,
+  drafts,
   island,
   isPanelOpen,
   onTogglePanel,
 }: Props) {
   const words = strings().chat.view
-  const [drafts, setDrafts] = useState<Record<string, Draft>>({})
-  const draft = drafts[bot.id] ?? EMPTY_DRAFT
-  const editDraft = (changes: (current: Draft) => Partial<Draft>) =>
-    setDrafts((all) => {
-      const current = all[bot.id] ?? EMPTY_DRAFT
-      return { ...all, [bot.id]: { ...current, ...changes(current) } }
-    })
-  const [fillCount, setFillCount] = useState(fill.count)
-  if (fillCount !== fill.count) {
-    setFillCount(fill.count)
-    editDraft(() => ({ text: fill.text }))
-  }
+  const draft = useDraft(drafts, bot.id)
+  const editDraft = (change: DraftChange) => drafts.edit(bot.id, change)
+  const { openBot } = useNavigation()
   const [isDraggingFiles, setIsDraggingFiles] = useState(false)
   const [jumps, setJumps] = useState<Jump[]>([]) // the mention clicks that led to this chat, latest last
   const [selection, dispatchSelection] = useReducer(selectionOf, null)
@@ -142,9 +95,11 @@ export function ChatView({
   const backBot = back && sidebar.bots.find((candidate) => candidate.id === back.from)
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLDivElement>(null)
+  const messages = chatMessages(thread, bot, sidebar.bots)
+  const progress = progressOf(thread)
   const last = messages.at(-1)
   const suggestions = last?.kind === 'bot' ? last.suggestions : undefined
-  const running = tasks.filter(isUnfinished)
+  const running = thread.panel.tasks.filter(isUnfinished)
   const selectable = selectableMessages(messages)
   const picked = selection ? selectable.filter((message) => selection.seqs.includes(message.seq)) : []
   const pickedSeqs = picked.map((message) => message.seq)
@@ -153,7 +108,7 @@ export function ChatView({
 
   const send = (text: string) => {
     if (!onSend(text, draft.files, draft.quote?.seq ?? null)) return false
-    editDraft(() => EMPTY_DRAFT)
+    editDraft(() => ({ text: '', files: [], quote: null }))
     scroll.stick()
     return true
   }
@@ -161,13 +116,13 @@ export function ChatView({
   const jumpTo = (botId: string) => {
     if (botId !== bot.id)
       setJumps([...jumps, { from: bot.id, to: botId, scrollTop: scrollRef.current?.scrollTop ?? 0 }])
-    onOpenBot(botId)
+    openBot(botId)
   }
 
   const goBack = (jump: Jump) => {
     setJumps(jumps.slice(0, -1))
     scroll.startNextAt(jump.scrollTop)
-    onOpenBot(jump.from)
+    openBot(jump.from)
   }
 
   const startQuote = (seq: number, text: string) => {
@@ -230,24 +185,18 @@ export function ChatView({
               chatBotId: bot.id,
               bots: sidebar.bots,
               open: jumpTo,
-              flows,
-              openFlow: onOpenFlow,
-              miniApps,
-              openMiniApp: onOpenMiniApp,
+              flows: thread.panel.flows,
+              miniApps: thread.panel.miniApps,
               thumbUrl,
-              fileUrl: attachmentUrl,
+              attachmentUrl,
               openFile: onOpenFile,
-              skills,
-              openSkill: onOpenSkill,
-              answerSkillOffer: onAnswerSkillOffer,
-              openSkillFiles: onOpenSkillFiles,
+              skills: thread.panel.skills,
             }}
           >
             <MessageList
               key={bot.id}
               messages={messages}
               bubbleColor={bubbleColor}
-              attachmentUrl={attachmentUrl}
               selection={selection}
               onQuote={startQuote}
               onSelection={dispatchSelection}
@@ -264,7 +213,7 @@ export function ChatView({
               )}
             </AnimatePresence>
           </MentionContext>
-          {suggestions && <Suggestions texts={suggestions} onPick={onFill} />}
+          {suggestions && <Suggestions texts={suggestions} onPick={(text) => editDraft(fillWith(text))} />}
           {progress ? (
             <ProgressRow bot={bot} label={progress.label} since={progress.since} />
           ) : (
@@ -289,7 +238,7 @@ export function ChatView({
         />
       ) : (
         <Composer
-          key={`${bot.id}:${fill.count}`}
+          key={`${bot.id}:${draft.fills}`}
           initialDraft={draft.text}
           placeholder={draft.quote ? words.replyPlaceholder : words.messagePlaceholder(bot.name)}
           quote={draft.quote ? plainText(draft.quote.text) : undefined}

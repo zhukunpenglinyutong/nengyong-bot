@@ -1,11 +1,9 @@
 import { type PointerEvent as ReactPointerEvent, useRef } from 'react'
 import { strings } from '../../shared/strings'
 import { Icon } from '../ui/Icon'
-import { type AvatarCrop, type AvatarSource, centeredCrop, clampCrop } from './avatarImage'
+import { type AvatarCrop, type AvatarSource, centeredCrop, clampCrop, MAX_ZOOM, MIN_ZOOM } from './avatarImage'
 
 const STAGE_SIZE = 96
-const MIN_ZOOM = 1
-const MAX_ZOOM = 5
 const ZOOM_BUTTON_STEP = 0.5
 const ZOOM_SLIDER_STEP = 0.01
 
