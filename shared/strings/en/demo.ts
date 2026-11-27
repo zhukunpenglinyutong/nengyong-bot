@@ -2,6 +2,12 @@ import { plural } from '../../language'
 import type { Strings } from '../../strings'
 
 export const demo: Strings['demo'] = {
+  disclaimer: {
+    banner: "Demo mode: the bots, chats and figures here are made-up samples, not anyone's real data",
+    title: 'This is a demo',
+    body: "You opened the Nengyong Bot demo in a browser. The bots in the sidebar, their chats, mini apps and figures are samples written into the code: not your data, and not anyone else's. To use it for real, download the desktop app, or run npm run app in the project.",
+    understood: 'Got it',
+  },
   bots: {
     chief: 'Max',
     repo: 'GitHub daily',

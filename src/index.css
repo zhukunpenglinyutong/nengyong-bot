@@ -9,7 +9,7 @@
   /* light-dark(light, dark): the theme is the `color-scheme` set on <html> below */
   --color-*: initial;
   --color-white: #fff; /* text and knobs on coloured fills, and the island, in both themes */
-  --color-black: #000; /* the island, in both themes */
+  --color-black: #000; /* the island, in both themes, and text on the demo's banner */
   --color-surface: light-dark(#fff, #262626); /* cards, fields, menus, dialogs */
   --color-canvas: light-dark(#fafafa, #1c1c1c); /* app background, text on ink */
   --color-side: light-dark(#f3f3f3, #171717); /* sidebar, weak fills */
@@ -21,7 +21,7 @@
   --color-muted: light-dark(#8a8a8a, #808080); /* auxiliary text */
   --color-accent: #2f6fed;
   --color-danger: #e5242a;
-  --color-warning: #ff9f0a; /* debug mode: a context filling up, a run cut short */
+  --color-warning: #ff9f0a; /* debug mode: a context filling up, a run cut short; the browser demo's banner */
   --color-working: light-dark(#1baf7a, #22c08a); /* a bot at work: the turning disc on its avatar in the sidebar */
   --color-online: light-dark(#1baf7a, #22c08a); /* a paired device connected right now: the dot on its row in 设备 */
   /* one colour per model on the 用量 chart, in this order: adjacent pairs checked apart for colour-blind eyes */
@@ -77,6 +77,10 @@
 
 body {
   @apply bg-canvas text-ink font-sans antialiased text-base leading-[1.6];
+}
+
+#root {
+  @apply flex h-dvh flex-col;
 }
 
 /* the browser's focus ring takes the macOS accent colour (orange here) and lands on the first button of

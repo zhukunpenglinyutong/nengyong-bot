@@ -17,12 +17,19 @@ export const locale = { zh: 'zh-CN', en: 'en-US' }[language]
 
 /** The demo's words the shots look for, from shared/strings/<language>/. */
 const WORDS = {
-  zh: { swipe: '刷卡，翻到背面看工位', failedBot: 'Bug 反馈整理', failure: '连不上 GitHub', miniApp: /收入汇总/ },
+  zh: {
+    swipe: '刷卡，翻到背面看工位',
+    failedBot: 'Bug 反馈整理',
+    failure: '连不上 GitHub',
+    miniApp: /收入汇总/,
+    demoBanner: '演示模式',
+  },
   en: {
     swipe: 'Swipe the badge to see the desk on the back',
     failedBot: 'Bug triage',
     failure: 'Could not reach GitHub',
     miniApp: /^Revenue/,
+    demoBanner: 'Demo mode',
   },
 }[language]
 
@@ -31,7 +38,13 @@ async function open(page, botId, panelTab) {
   await page.evaluate(
     ({ botId, panelTab }) => {
       const theme = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-      const state = { preferences: { theme, isDebug: false }, botId, panelOpen: true, panelTab }
+      const state = {
+        preferences: { theme, isDebug: false },
+        botId,
+        panelOpen: true,
+        panelTab,
+        demoDisclaimerSeen: true,
+      }
       for (const [key, value] of Object.entries(state))
         localStorage.setItem(`nengyongbot:${key}`, JSON.stringify(value))
     },
@@ -39,6 +52,10 @@ async function open(page, botId, panelTab) {
   )
   await page.reload()
   await page.getByRole('button', { name: WORDS.swipe }).waitFor()
+  // the illustrations show the app itself, not the banner that marks the browser demo
+  await page.getByText(WORDS.demoBanner).evaluate((label) => {
+    label.hidden = true
+  })
 }
 
 export const shots = [

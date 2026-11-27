@@ -1,4 +1,10 @@
 export const demo = {
+  disclaimer: {
+    banner: '演示模式：这里的 Bot、聊天和数字都是虚构的示例，不是任何人的真实数据',
+    title: '这是演示',
+    body: '你在浏览器里打开的是 Nengyong Bot 的演示。侧边栏里的 Bot、聊天记录、小程序和数字都是写在代码里的示例，不是你的数据，也不是任何人的数据。想真正用起来，请下载桌面应用，或在项目里运行 npm run app。',
+    understood: '知道了',
+  },
   bots: {
     chief: '小满',
     repo: 'GitHub 数据日报',

@@ -132,7 +132,7 @@ export function App({ bridge, initialSidebar = INITIAL_SIDEBAR, needsOnboarding 
   return (
     <MotionConfig reducedMotion="user">
       <BotActivityContext value={activity.activities}>
-        <div inert={onboarding !== null} className="flex h-screen overflow-hidden">
+        <div inert={onboarding !== null} className="flex min-h-0 flex-1 overflow-hidden">
           <Sidebar
             activeId={bot.id}
             sidebar={sidebar}
