@@ -1,6 +1,6 @@
 import { useRef } from 'react'
-import { isUnfinished, type NengyongBotBridge } from '../../shared/bridge'
-import type { MiniApp } from '../../shared/miniApp'
+import type { NengyongBotBridge } from '../../shared/bridge'
+import { isBeingChanged, type MiniApp } from '../../shared/miniApp'
 import type { Thread } from '../harnessState'
 import { useNow } from '../ui/useNow'
 import { type Rect, type Run, type RunEvent, type Runs, phaseOf, rectOf, runKey } from './miniAppRuns'
@@ -47,7 +47,7 @@ export function MiniAppHost({ runs, dispatch, bridge, threadOf, botName, onEditI
               phase={phase}
               botName={botName(run.botId)}
               bridge={bridge}
-              isEditing={thread.panel.tasks.some((task) => isUnfinished(task) && task.miniAppId === app.id)}
+              isEditing={isBeingChanged(app.id, thread.panel.tasks)}
               pushed={thread.miniAppData[app.id]}
               dragArea={areaRef}
               dockSlot={dockSlot}

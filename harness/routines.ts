@@ -4,8 +4,8 @@ import type { HarnessEvent, RoutineView } from '../shared/bridge'
 import { strings } from '../shared/strings'
 import { ModelChoice } from '../shared/modelServices'
 import { TIMEZONE } from '../shared/timezone'
-import { OptionalId } from './flows'
 import type { Store } from './store'
+import { MODEL_INPUT, OptionalId } from './toolInputs'
 import type { HarnessState } from './types'
 
 const TICK_MS = 30_000
@@ -41,11 +41,6 @@ export const Routine = z.object({
   model: ModelChoice.optional().catch(undefined), // what each run is set to; undefined: its flow's model, else its bot's task model, else the main one
 })
 export type Routine = z.infer<typeof Routine>
-
-/** The model a tool call names: only when the user asked for one in the chat. */
-export const MODEL_INPUT = ModelChoice.optional().describe(
-  '用户在聊天里点名要用的模型：账号 id（见「模型」）和 list_models 列出的模型名；用户没提就不填',
-)
 
 export const NewRoutine = z
   .object({
@@ -100,17 +95,19 @@ export function updateRoutines(
   emit({ kind: 'routines', botId, routines: routineViews(routines) })
 }
 
-export function setRoutineEnabled(
+/** Changes or (with null) deletes the routine with this id, saying so when the bot has none. */
+export function patchRoutine(
   store: Store,
   emit: (event: HarnessEvent) => void,
   botId: string,
   routineId: string,
-  isEnabled: boolean,
+  patch: Partial<Omit<Routine, 'id'>> | null,
 ) {
   updateRoutines(store, emit, botId, (routines) => {
     if (!routines.some((routine) => routine.id === routineId))
       throw new Error(strings().harness.routineNotFound(routineId))
-    return routines.map((routine) => (routine.id === routineId ? { ...routine, isEnabled } : routine))
+    if (!patch) return routines.filter((routine) => routine.id !== routineId)
+    return routines.map((routine) => (routine.id === routineId ? { ...routine, ...patch } : routine))
   })
 }
 

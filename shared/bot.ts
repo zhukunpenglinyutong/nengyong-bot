@@ -65,8 +65,12 @@ export const Bot = z.object({
 })
 export type Bot = z.infer<typeof Bot>
 
+/** Where the harness puts a bot in the sidebar: the section already called `name`, or else a new one with `id`. */
+const SectionByName = z.object({ id: z.string(), name: z.string() })
+export type SectionByName = z.infer<typeof SectionByName>
+
 /** A bot just created by the harness, and the sidebar section it goes into (absent = the ungrouped one). */
-export const NewBot = Bot.extend({ sectionId: z.string().optional() })
+export const NewBot = Bot.extend({ section: SectionByName.optional() })
 export type NewBot = z.infer<typeof NewBot>
 
 /** A saved bot keeps its place even when its look is no longer offered: it gets the closest colour and a shape of its own.

@@ -15,7 +15,7 @@ import { miniAppPage } from '../../shared/miniAppPage'
 import { DEFAULT_LIMITS } from '../../shared/limits'
 import { DEEPSEEK_MODEL } from '../../shared/modelServices'
 import { newId } from '../../shared/newId'
-import { isScript, SKILL_FILE, Skill, type SkillOffer, type SkillRef, type SkillView } from '../../shared/skill'
+import { bySkillFileOrder, isScript, Skill, type SkillOffer, type SkillRef, type SkillView } from '../../shared/skill'
 import type { SidebarState } from '../../shared/sidebar'
 import type { Price } from '../../shared/usage'
 import { browserLanguage, saveBrowserLanguage } from '../browserLanguage'
@@ -25,12 +25,17 @@ import {
   DEMO_MODEL_SERVICES,
   DEMO_MODELS,
   DEMO_PANELS,
+  DEMO_REVIEW_ROUTINE,
   DEMO_TRANSCRIPTS,
+  demoDutyPlan,
 } from './demoData'
 import { demoContext, demoTraces } from './demoDebug'
 import { DEMO_MINI_APP_FILES } from './demoMiniApps'
 import { DEMO_SKILL_FILES, demoOffer, demoSkills, demoUpload } from './demoSkills'
 import { demoUsage } from './demoUsage'
+import { pendingDecisions, quotedText } from '../../shared/decisions'
+import { type DutyOffer, dutyOf } from '../../shared/duty'
+import { TIMEZONE } from '../../shared/timezone'
 import { strings } from '../../shared/strings'
 
 const words = strings().demo.bridge
@@ -39,6 +44,7 @@ const REPLY_DELAY_MS = 1200 // long enough to see the avatar 'thinking'
 const DEMO_NEXT_RUN_MS = 60 * 60_000
 const AUTO_REPLY = words.autoReply
 const EMPTY_PANEL: PanelData = {
+  duty: dutyOf(''),
   routines: [],
   flows: [],
   skills: [],
@@ -54,6 +60,7 @@ type Said =
   | { kind: 'bot'; text: string; suggestions?: string[]; model?: string; requestId?: string }
   | { kind: 'tool'; name: string; input: unknown; output: unknown }
   | { kind: 'skill-answer'; offer: string; botId: string; names: string[] }
+  | { kind: 'duty-answer'; offer: string; botId: string; isAccepted: boolean }
 type SentFrom = { id: string; name: string; version: number; isSentByApp: boolean }
 const MINI_APP_REPLY = words.miniAppReply
 const webOnly = () => Promise.reject(new Error(words.webOnly))
@@ -76,6 +83,7 @@ export function createDemoBridge(): NengyongBotBridge {
   let devices: DevicesView = DEMO_DEVICES_OFF
   let skills = demoSkills(Date.now()) // by the bot that has them
   const offers = new Map<string, SkillOffer>()
+  const dutyOffers = new Map<string, DutyOffer>()
   const stopped = new Set<string>() // run ids of the replies the user stopped before they were written
   const emit = (event: HarnessEvent) => listeners.forEach((listener) => listener(event))
   const append = (botId: string, said: Said) => {
@@ -83,6 +91,7 @@ export function createDemoBridge(): NengyongBotBridge {
     const entry: Entry = { ...said, seq: (known.at(-1)?.seq ?? 0) + 1, at: Date.now() }
     transcripts.set(botId, [...known, entry])
     emit({ kind: 'entry', botId, entry })
+    emit({ kind: 'decisions', botId, count: pendingDecisions([...known, entry], Date.now()).length })
   }
   const miniAppOf = (botId: string, miniAppId: string): MiniApp => {
     const app = (panels.get(botId) ?? EMPTY_PANEL).miniApps.find((candidate) => candidate.id === miniAppId)
@@ -116,6 +125,41 @@ export function createDemoBridge(): NengyongBotBridge {
     offers.set(offer.offer, offer)
     append(botId, { kind: 'tool', name: 'install_skill', input: {}, output: offer })
     return words.skillOffer
+  }
+  const offerDuty = (botId: string): string => {
+    const { version } = (panels.get(botId) ?? EMPTY_PANEL).duty
+    const offer = {
+      offer: newId('d'),
+      botId,
+      baseVersion: version,
+      plan: demoDutyPlan(),
+      changes: [],
+      isReviewOn: true,
+    }
+    dutyOffers.set(offer.offer, offer)
+    append(botId, { kind: 'tool', name: 'propose_duty', input: {}, output: offer })
+    return words.dutyOffer
+  }
+  const agreeDuty = (offer: DutyOffer, isReviewOn: boolean) => {
+    const panel = panels.get(offer.botId) ?? EMPTY_PANEL
+    const review = {
+      id: DEMO_REVIEW_ROUTINE,
+      name: strings().harness.duty.reviewName,
+      timezone: TIMEZONE,
+      isEnabled: isReviewOn,
+      nextRunAt: isReviewOn ? Date.now() + DEMO_NEXT_RUN_MS : null,
+    }
+    const routines = [...panel.routines.filter((routine) => routine.id !== review.id), review]
+    const duty = { ...offer.plan, version: offer.baseVersion + 1, reviewRoutineId: review.id }
+    panels.set(offer.botId, { ...panel, duty, routines })
+    emit({ kind: 'duty', botId: offer.botId, duty })
+    emit({ kind: 'routines', botId: offer.botId, routines })
+  }
+  const replyTo = (botId: string, text: string) => {
+    if (text.toLowerCase().includes(LEARN_WORD)) return learnFlow(botId)
+    if (text.includes(SKILL_LINK)) return offerSkill(botId)
+    if (text.includes(strings().bot.duty.planStarter)) return offerDuty(botId)
+    return AUTO_REPLY
   }
   // the card's answer: installs the skills ticked; either way the card is spent
   const settleOffer = (offerId: string, names: string[]): SkillOffer => {
@@ -163,7 +207,8 @@ export function createDemoBridge(): NengyongBotBridge {
         return path
       })
       const quoted = transcripts.get(botId)?.find((entry) => entry.seq === quoteSeq)
-      const quote = quoted && 'text' in quoted ? { seq: quoted.seq, text: quoted.text } : undefined
+      const quoteText = quoted && quotedText(quoted)
+      const quote = quoted && quoteText !== undefined ? { seq: quoted.seq, text: quoteText } : undefined
       const miniApp = miniAppId === null ? undefined : sentFrom(botId, miniAppId, false)
       append(botId, {
         kind: 'user',
@@ -174,8 +219,7 @@ export function createDemoBridge(): NengyongBotBridge {
       })
       const runId = newId('demo-run-')
       emit({ kind: 'busy', botId, busy: true, runId })
-      const isLearning = text.toLowerCase().includes(LEARN_WORD)
-      const reply = isLearning ? learnFlow(botId) : text.includes(SKILL_LINK) ? offerSkill(botId) : AUTO_REPLY
+      const reply = replyTo(botId, text)
       emit({ kind: 'context', botId, context: demoContext(transcripts.get(botId) ?? []) })
       const traces = demoTraces(botId, text, Date.now())
       for (const trace of traces.slice(0, -1)) {
@@ -233,6 +277,10 @@ export function createDemoBridge(): NengyongBotBridge {
         }),
       ),
     panel: async (botId) => ({ ...(panels.get(botId) ?? EMPTY_PANEL), skills: skillsOf(botId) }),
+    decisionCounts: async () =>
+      Object.fromEntries(
+        [...transcripts].map(([botId, entries]) => [botId, pendingDecisions(entries, Date.now()).length]),
+      ),
     tasksAndRoutines: async () =>
       Object.fromEntries([...panels].map(([botId, { tasks, routines }]) => [botId, { tasks, routines }])),
     context: async (botId) => demoContext(transcripts.get(botId) ?? []),
@@ -242,6 +290,24 @@ export function createDemoBridge(): NengyongBotBridge {
       const routines = panel.routines.map((routine) =>
         routine.id === routineId
           ? { ...routine, isEnabled, nextRunAt: isEnabled ? Date.now() + DEMO_NEXT_RUN_MS : null }
+          : routine,
+      )
+      panels.set(botId, { ...panel, routines })
+      emit({ kind: 'routines', botId, routines })
+    },
+    async answerDutyOffer(botId, offerId, isAccepted, isReviewOn) {
+      const offer = dutyOffers.get(offerId)
+      if (!offer) throw new Error(strings().harness.duty.offerGone)
+      dutyOffers.delete(offerId)
+      append(botId, { kind: 'duty-answer', offer: offerId, botId: offer.botId, isAccepted })
+      if (isAccepted) agreeDuty(offer, isReviewOn)
+      append(botId, { kind: 'bot', text: isAccepted ? words.dutyAgreed : words.dutyDeclined })
+    },
+    async setDutyReview(botId, isOn) {
+      const panel = panels.get(botId) ?? EMPTY_PANEL
+      const routines = panel.routines.map((routine) =>
+        routine.id === panel.duty.reviewRoutineId
+          ? { ...routine, isEnabled: isOn, nextRunAt: isOn ? Date.now() + DEMO_NEXT_RUN_MS : null }
           : routine,
       )
       panels.set(botId, { ...panel, routines })
@@ -270,7 +336,7 @@ export function createDemoBridge(): NengyongBotBridge {
     skillFiles: async (ref) =>
       Object.entries(filesOf(ref))
         .map(([path, text]) => ({ path, bytes: text.length, isScript: isScript(path) }))
-        .sort((a, b) => Number(b.path === SKILL_FILE) - Number(a.path === SKILL_FILE) || a.path.localeCompare(b.path)),
+        .sort(bySkillFileOrder),
     async skillFile(ref, path) {
       const text = filesOf(ref)[path]
       if (text === undefined) throw new Error(strings().harness.skills.fileGone(path))
@@ -293,6 +359,11 @@ export function createDemoBridge(): NengyongBotBridge {
     async saveSidebar(next) {
       sidebar = next
       return []
+    },
+    async deleteBot(botId) {
+      transcripts.delete(botId)
+      panels.delete(botId)
+      skills = Object.fromEntries(Object.entries(skills).filter(([id]) => id !== botId))
     },
     getDataDir: async () => words.noDataDir,
     openDataDir: webOnly,

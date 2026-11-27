@@ -3,11 +3,14 @@ import type { Strings } from '../../strings'
 export const harness: Strings['harness'] = {
   unknownBot: (id) => `Unknown bot: ${id}`,
   noRunningTask: (id) => `No running task ${id}`,
+  botNotDismissed: 'Let the bot go from the sidebar before deleting it for good',
   chat: {
     attachment: '(attachment)',
     traceTitle: 'Chat',
     quoteMissing: 'The message you are replying to is not in this chat',
     noModel: 'Not set',
+    outOfSteps: (maxSteps) =>
+      `This turn used all ${maxSteps} steps before finishing, so the reply may be incomplete. Say “continue” to pick it up`,
   },
   modelErrors: {
     noKey: 'No API key is set yet',
@@ -38,6 +41,7 @@ export const harness: Strings['harness'] = {
   tasks: {
     noConclusion: 'The task ended without writing a conclusion',
     timedOut: 'Timed out: the task ran too long without finishing and was stopped',
+    interrupted: 'The app quit while the task was running, so it was cut off before finishing',
     outOfSteps: (lastStatus) => `Out of steps before finishing${lastStatus ? `, stopped at “${lastStatus}”` : ''}`,
     resultClipped: (length, ref) =>
       ` (the conclusion has ${length} characters; open ${ref} with read_history for all of it, reading on as it says)`,
@@ -62,6 +66,21 @@ export const harness: Strings['harness'] = {
     chatOnly: 'Only messages in the chat can be deleted',
     notDataFile: (name) => `Not a Nengyong Bot data file: ${name}`,
     newerVersion: 'The data comes from a newer version of Nengyong Bot; update the app first',
+  },
+  duty: {
+    offerGone: 'This duty card is gone',
+    answered: 'This duty card has already been answered',
+    replaced: 'A newer duty card replaced this one; see the latest',
+    outdated: 'The duty changed after this card: ask the bot for a new one based on the current duty',
+    reviewName: 'Weekly review',
+    greeting: (name, purpose) =>
+      [
+        `I'm ${name}, just joined. Before I start, let's settle my duty: I'll work by it, and you can check my work against it.`,
+        purpose ? `All I know so far: "${purpose}".` : '',
+        'First question: **what result do you most want from me?** Just the result, not how to get there.',
+      ]
+        .filter(Boolean)
+        .join('\n\n'),
   },
   miniApps: {
     notFound: (id) => `No mini app with the id ${id}`,

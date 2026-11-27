@@ -47,61 +47,48 @@ export function deskStateOf({ botId, activity, tasks, isCaught, now }: DeskInput
 
 export const isSlacking = (state: DeskState) => SLACKS.some((slack) => slack === state.kind)
 
+export const isWorking = (state: DeskState) => state.kind === 'replying' || state.kind === 'task'
+
 /** The line under the desk: what it is doing, and a short aside. */
-export function nowLineOf(state: DeskState, now: number): { text: string; aside: string; isWorking: boolean } {
+export function nowLineOf(state: DeskState, now: number): { text: string; aside: string } {
   const words = strings().desk.now
   switch (state.kind) {
     case 'replying':
-      return { text: words.replying, aside: '', isWorking: true }
+      return { text: words.replying, aside: '' }
     case 'replied':
-      return { text: words.replied, aside: '', isWorking: false }
+      return { text: words.replied, aside: '' }
     case 'task':
-      if (state.task.status === 'waiting')
-        return {
-          text: words.queued(state.task.title),
-          aside: '',
-          isWorking: true,
-        }
-      return {
-        text: words.running(state.task.title),
-        aside: elapsedLabel(now - state.task.createdAt),
-        isWorking: true,
-      }
+      if (state.task.status === 'waiting') return { text: words.queued(state.task.title), aside: '' }
+      return { text: words.running(state.task.title), aside: elapsedLabel(now - state.task.createdAt) }
     case 'failed':
       return {
         text: words.failed(state.task.title),
         aside: clockLabel(state.task.endedAt ?? now),
-        isWorking: false,
       }
     case 'caught':
       return {
         text: words.caught,
         aside: '',
-        isWorking: false,
       }
     case 'nap':
       return {
         text: words.napping,
         aside: words.napAside,
-        isWorking: false,
       }
     case 'video':
       return {
         text: words.slacking,
         aside: words.slackAsides.video,
-        isWorking: false,
       }
     case 'game':
       return {
         text: words.slacking,
         aside: words.slackAsides.game,
-        isWorking: false,
       }
     case 'window':
       return {
         text: words.slacking,
         aside: words.slackAsides.window,
-        isWorking: false,
       }
     default:
       return state satisfies never

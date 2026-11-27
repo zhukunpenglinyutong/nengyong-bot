@@ -20,7 +20,7 @@ mac:
       arch: [arm64, x64]
   artifactName: Nengyong-Bot-${version}-${arch}.${ext}
 win:
-  icon: build/icon-1024.png
+  icon: build/icon-win.png # Windows draws icons edge to edge, so the macOS grid margin in icon-1024.png would shrink it
   target:
     - target: nsis
       arch: [x64]

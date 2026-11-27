@@ -8,6 +8,7 @@ import { MAIN_BOT } from '../shared/bot'
 import { SidebarState } from '../shared/sidebar'
 import { checkDatabase, createStore } from './store'
 import type { Task } from './types'
+import { dutyOf } from '../shared/duty'
 
 let file: string
 beforeEach(() => {
@@ -72,7 +73,7 @@ it('finds the last reply of a bot, past later user and tool entries', () => {
 })
 
 it('refuses to change the brain of a bot it does not know', () => {
-  expect(() => createStore(file).updateBot('ghost', { instructions: 'x' })).toThrow('未知的 Bot')
+  expect(() => createStore(file).updateBot('ghost', { name: 'x' })).toThrow('未知的 Bot')
 })
 
 it('numbers each bot on its own', () => {
@@ -119,7 +120,7 @@ it('fills in what a stored state leaves out and ignores fields it does not know'
       chief: {
         id: 'chief',
         name: 'CEO',
-        instructions: '',
+        duty: dutyOf(''),
         memories: [],
         summary: '',
         summarizedUpTo: 0,
@@ -133,6 +134,15 @@ it('fills in what a stored state leaves out and ignores fields it does not know'
     pending: [],
     onboardedAt: null,
   })
+})
+
+it('turns the one paragraph a bot saved before duties into the purpose of a duty not agreed yet', () => {
+  createStore(file).close()
+  raw(
+    `insert into kv (key, value) values ('state', ?)`,
+    JSON.stringify({ bots: { lead: { id: 'lead', name: '开源负责人', instructions: '管开源治理' } } }),
+  )
+  expect(createStore(file).get().bots.lead?.duty).toEqual(dutyOf('管开源治理'))
 })
 
 it('keeps state changes across a reopen', () => {
@@ -352,4 +362,31 @@ it('keeps deletions across a reopen', () => {
   store.deleteMessages('chief', [1])
   store.close()
   expect(texts(createStore(file).history('chief'))).toEqual(['b'])
+})
+
+it('deletes a bot with its chat, task, usage and place in the recycle bin', () => {
+  const lead = { id: 'lead', name: '开源负责人', shape: 'blob' as const, color: '#1E1E22' }
+  const store = createStore(file)
+  store.addBot(lead, '管开源治理')
+  store.saveSidebar(SidebarState.parse({ bots: [MAIN_BOT], dismissed: [{ bot: lead, at: 1 }] }))
+  store.append('lead', { kind: 'user', text: 'a' })
+  store.saveTask(task({ id: 't1', botId: 'lead', requestedBy: 'lead' }))
+  store.append('t1', { kind: 'from-bot', from: 'lead', text: '查版本' })
+  store.addUsage({
+    at: 2,
+    runId: 't1',
+    transcriptId: 't1',
+    botId: 'lead',
+    model: 'deepseek-flash',
+    input: 1,
+    cached: 0,
+    output: 1,
+  })
+  store.deleteBot('lead')
+  expect(store.get().bots.lead).toBeUndefined()
+  expect(store.get().roster).not.toContain('lead')
+  expect(store.get().pending).toEqual([])
+  expect([store.history('lead'), store.range('t1', 1), store.tasksOf('lead', 10)]).toEqual([[], [], []])
+  expect(store.usageRuns(0)).toEqual([])
+  expect(store.sidebar()?.dismissed).toEqual([])
 })

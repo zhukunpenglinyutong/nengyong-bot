@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import type { RoutineView, TaskView } from '../../shared/bridge'
+import type { TaskView } from '../../shared/bridge'
 import { EMPTY_THREAD, type Thread } from '../harnessState'
-import { botStatusOf, dotKindOf, nextRoutineOf, statusLineOf, whenLabel } from './botStatus'
+import { botStatusOf, dotKindOf, statusLineOf } from './botStatus'
 
 const NOW = new Date('2026-11-23T08:10:00+08:00').getTime()
 const MINUTE = 60_000
@@ -71,6 +71,15 @@ describe('botStatusOf', () => {
     const queued = task('日报', 'waiting', 1)
     expect(botStatusOf(withTasks(queued), 0, false)).toEqual({ kind: 'waiting', task: queued })
   })
+
+  it('waits on the user once it is not at work, and is idle when nothing in its chat waits', () => {
+    const asking = { ...withTasks(), decisions: 2 }
+    expect(botStatusOf(asking, 0, false)).toEqual({ kind: 'deciding', count: 2 })
+    expect(botStatusOf({ ...asking, panel: withTasks(task('巡检', 'running', 1)).panel }, 0, false).kind).toBe(
+      'working',
+    )
+    expect(botStatusOf({ ...asking, decisions: 0 }, 0, false)).toEqual({ kind: 'idle' })
+  })
 })
 
 describe('dotKindOf', () => {
@@ -105,45 +114,11 @@ describe('statusLineOf', () => {
     expect(statusLineOf({ kind: 'working', task: task('巡检', 'running', 0), count: 1 }, NOW)).toBe('在跑「巡检」')
   })
 
+  it('says how many things wait on the user', () => {
+    expect(statusLineOf({ kind: 'deciding', count: 3 }, NOW)).toBe('等你决定 · 3 件')
+  })
+
   it('keeps the last reply while idle', () => {
     expect(statusLineOf({ kind: 'idle' }, NOW)).toBeNull()
-  })
-})
-
-describe('nextRoutineOf', () => {
-  const routine = (id: string, nextRunAt: number | null, isEnabled = true): RoutineView => ({
-    id,
-    name: id,
-    timezone: 'Asia/Shanghai',
-    isEnabled,
-    nextRunAt,
-  })
-
-  it('picks the enabled routine that runs soonest', () => {
-    const routines = [
-      routine('日报', NOW + 60 * MINUTE),
-      routine('巡检', NOW + 5 * MINUTE),
-      routine('停了', null, false),
-    ]
-    expect(nextRoutineOf(routines)?.id).toBe('巡检')
-  })
-
-  it('finds none when no routine will run again', () => {
-    expect(nextRoutineOf([routine('一次性', null)])).toBeUndefined()
-  })
-})
-
-describe('whenLabel', () => {
-  it('gives only the time today', () => {
-    expect(whenLabel(NOW + 50 * MINUTE, NOW)).toBe('9:00')
-  })
-
-  it('says 明天 and 昨天 a day off', () => {
-    expect(whenLabel(NOW + 24 * 60 * MINUTE, NOW)).toBe('明天 8:10')
-    expect(whenLabel(NOW - 24 * 60 * MINUTE, NOW)).toBe('昨天 8:10')
-  })
-
-  it('gives the date further away', () => {
-    expect(whenLabel(NOW + 3 * 24 * 60 * MINUTE, NOW)).toBe('11月26日')
   })
 })

@@ -3,7 +3,8 @@ import { type ModelPrice, Price } from '../../shared/usage'
 import { ipcErrorMessage } from '../ipcErrorMessage'
 import { CNY_PER_USD, MEASURES, MeasureContext } from './measure'
 import { ModelLogo } from './ModelLogo'
-import { SettingsButton, SettingsPrimaryButton, SettingsSection } from './SettingsSection'
+import { Button, PrimaryButton } from '../ui/Button'
+import { SettingsSection } from './SettingsSection'
 import { tokenLabel, unitPrice } from './usageFormat'
 import { strings } from '../../shared/strings'
 
@@ -80,9 +81,7 @@ function PriceRow({ entry: { model, price, isCustom }, tokens, isEditing, onEdit
               {field.label} <span className="font-medium text-ink">{unitPrice(price[field.name])}</span>
             </span>
           ))}
-        {(!price || isCustom) && !isEditing && (
-          <SettingsButton onClick={onEdit}>{price ? words.edit : words.fill}</SettingsButton>
-        )}
+        {(!price || isCustom) && !isEditing && <Button onClick={onEdit}>{price ? words.edit : words.fill}</Button>}
       </span>
     </div>
   )
@@ -135,8 +134,8 @@ function PriceForm({ model, price, onCancel, onSave }: FormProps) {
           </label>
         ))}
         <span className="ml-auto flex gap-1.5">
-          <SettingsButton onClick={onCancel}>{words.cancel}</SettingsButton>
-          <SettingsPrimaryButton type="submit">{words.save}</SettingsPrimaryButton>
+          <Button onClick={onCancel}>{words.cancel}</Button>
+          <PrimaryButton type="submit">{words.save}</PrimaryButton>
         </span>
       </div>
       <p className="text-xs text-muted">{words.formHint}</p>

@@ -51,5 +51,19 @@ export interface UsageView {
 }
 
 /** Uncached input at the input price, cached input at the cache price, output at the output price. */
-export const costOf = (tokens: TokenCounts, price: Price) =>
+const costOf = (tokens: TokenCounts, price: Price) =>
   ((tokens.input - tokens.cached) * price.input + tokens.cached * price.cached + tokens.output * price.output) / 1e6
+
+/** Each model priced once, and every record with its model's price; null cost where there is none. */
+export function priceRecords(
+  unpriced: Omit<UsageRecord, 'cost'>[],
+  priceOf: (model: string) => ModelPrice,
+): { records: UsageRecord[]; prices: ModelPrice[] } {
+  const prices = [...new Set(unpriced.map((record) => record.model))].map(priceOf)
+  const priceByModel = new Map(prices.map((entry) => [entry.model, entry.price]))
+  const records = unpriced.map((record): UsageRecord => {
+    const price = priceByModel.get(record.model)
+    return { ...record, cost: price ? costOf(record, price) : null }
+  })
+  return { records, prices }
+}

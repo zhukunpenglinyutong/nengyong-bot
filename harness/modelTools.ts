@@ -1,13 +1,15 @@
 import { tool } from 'ai'
 import { z } from 'zod'
-import { MAIN_BOT_ID } from '../shared/bot'
 import type { HarnessEvent } from '../shared/bridge'
 import { ModelChoice } from '../shared/modelServices'
-import { OptionalId, updateFlows } from './flows'
-import { updateRoutines } from './routines'
+import { checkOwner } from './checkOwner'
+import { patchFlow } from './flows'
+import { patchRoutine } from './routines'
 import type { ModelChoices } from './runModel'
 import type { Store } from './store'
+import { OptionalId } from './toolInputs'
 
+const NEEDS_ID = 'target 是 routine 或 flow 时要填它的 id'
 const MAX_NAMED = 30 // of the models an error lists: enough to spot the right name, short enough for an account with hundreds
 
 interface ModelContext {
@@ -29,7 +31,7 @@ export function modelTools({ botId, store, emit, choices, onBotModels }: ModelCo
       inputSchema: z.object({ accountId: z.string() }),
       execute: async ({ accountId }) => {
         checkAccount(choices, accountId)
-        return { models: await choices.list(accountId) }
+        return { models: await choices.listModels(accountId) }
       },
     }),
     list_bot_models: tool({
@@ -64,7 +66,7 @@ export function modelTools({ botId, store, emit, choices, onBotModels }: ModelCo
         model: ModelChoice.optional().describe('账号 id（见「模型」）和 list_models 列出的模型名；不填就改回主模型'),
       }),
       execute: async ({ botId: owner = botId, target, id, model }) => {
-        checkOwner(store, botId, owner)
+        checkOwner(store, botId, owner, '换别的 Bot 的模型')
         if (model) await checkModel(choices, model)
         switch (target) {
           case 'chat':
@@ -76,16 +78,12 @@ export function modelTools({ botId, store, emit, choices, onBotModels }: ModelCo
             onBotModels(owner)
             return { ok: true }
           case 'routine':
-            updateRoutines(store, emit, owner, (routines) => {
-              if (!routines.some((routine) => routine.id === id)) throw new Error(`没有 id 为 ${id} 的例行任务`)
-              return routines.map((routine) => (routine.id === id ? { ...routine, model } : routine))
-            })
+            if (!id) throw new Error(NEEDS_ID)
+            patchRoutine(store, emit, owner, id, { model })
             return { ok: true }
           case 'flow':
-            updateFlows(store, emit, owner, (flows) => {
-              if (!flows.some((flow) => flow.id === id)) throw new Error(`没有 id 为 ${id} 的流程`)
-              return flows.map((flow) => (flow.id === id ? { ...flow, model } : flow))
-            })
+            if (!id) throw new Error(NEEDS_ID)
+            patchFlow(store, emit, owner, id, { model })
             return { ok: true }
           default:
             return target satisfies never
@@ -95,19 +93,10 @@ export function modelTools({ botId, store, emit, choices, onBotModels }: ModelCo
   }
 }
 
-/** Throws, saying who can, unless `botId` may switch the models of `owner`: its own, or anyone's for the main bot. */
-function checkOwner(store: Store, botId: string, owner: string) {
-  const { bots } = store.get()
-  if (!bots[owner]) throw new Error(`没有 id 为 ${owner} 的 Bot`)
-  if (owner === botId || botId === MAIN_BOT_ID) return
-  const main = `[${bots[MAIN_BOT_ID]?.name ?? '主 Bot'}](bot:${MAIN_BOT_ID})`
-  throw new Error(`只有 ${main} 能换别的 Bot 的模型：请用户跟它说，或者在那个 Bot 自己的聊天里说`)
-}
-
 /** Throws, naming what there is, unless the account is connected and lists the model. */
 export async function checkModel(choices: ModelChoices, choice: ModelChoice) {
   checkAccount(choices, choice.accountId)
-  const models = await choices.list(choice.accountId)
+  const models = await choices.listModels(choice.accountId)
   if (models.includes(choice.model)) return
   const named = models.slice(0, MAX_NAMED).join('、')
   throw new Error(`账号 ${choice.accountId} 没有模型 ${choice.model}，它列出的有：${named}`)

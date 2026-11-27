@@ -16,6 +16,12 @@ export function sidebarView(state: SidebarState): SidebarView {
   }
 }
 
+/** Every bot in the order the sidebar shows them, the hidden ones last. */
+export function inSidebarOrder(state: SidebarState): Bot[] {
+  const view = sidebarView(state)
+  return [...view.pinned, ...view.sections.flatMap((section) => section.bots), ...view.ungrouped, ...view.hidden]
+}
+
 interface SidebarView {
   pinned: Bot[]
   sections: (Section & { bots: Bot[] })[]

@@ -2,10 +2,11 @@ import { useId } from 'react'
 import type { Bot } from '../../../shared/bot'
 import type { LibraryItem, PanelData, RoutineView } from '../../../shared/bridge'
 import { tierOf } from '../../../shared/trust'
-import { clockOf, type DeskState, furnitureOf, plantStageOf, type TimeOfDay } from '../deskState'
+import { nextRoutineOf } from '../../nextRoutineOf'
+import { clockOf, type DeskState, furnitureOf, isWorking, plantStageOf, type TimeOfDay } from '../deskState'
 import { BOT_BOX, DeskBot } from './DeskBot'
 import { DeskComputer, screenCornerOf } from './DeskComputer'
-import { binderBoxOf, DeskWall } from './DeskWall'
+import { binderBoxOf, DeskWall, noteBoxOf } from './DeskWall'
 import { DESK_COLORS } from './deskColors'
 import { strings } from '../../../shared/strings'
 
@@ -42,15 +43,9 @@ export function DeskScene({ bot, state, level, days, panel, now, isLampOn, water
   const { timeOfDay } = clockOf(now)
   const corner = screenCornerOf(furniture.hasMonitor)
   const routines = panel.routines.slice(0, 3)
-  const shelfSize = furniture.hasTrophy ? 4 : 6
-  const shelved = panel.flows.slice(0, shelfSize)
+  const shelved = panel.flows.slice(0, furniture.hasTrophy ? 4 : 6)
   const plantTop = PLANT_TOPS[plantStageOf(days)]
-  const isWorking = state.kind === 'replying' || state.kind === 'task'
-  const nextRunAt = Math.min(
-    ...panel.routines.flatMap((routine) =>
-      routine.isEnabled && routine.nextRunAt !== null ? [routine.nextRunAt] : [],
-    ),
-  )
+  const nextRunAt = nextRoutineOf(panel.routines)?.nextRunAt ?? null
 
   return (
     <div className="relative">
@@ -68,9 +63,10 @@ export function DeskScene({ bot, state, level, days, panel, now, isLampOn, water
           level={level}
           days={days}
           now={now}
-          nextRunAt={Number.isFinite(nextRunAt) ? nextRunAt : null}
+          nextRunAt={nextRunAt}
           flows={panel.flows}
-          shelfSize={shelfSize}
+          shelved={shelved}
+          hasTrophy={furniture.hasTrophy}
         />
         {furniture.hasTrophy && (
           <ellipse
@@ -90,7 +86,7 @@ export function DeskScene({ bot, state, level, days, panel, now, isLampOn, water
           <StickyNote key={routine.id} routine={routine} index={index} corner={corner} />
         ))}
         <Keyboard color={bot.color} />
-        <Mug color={bot.color} isWarm={isWorking} />
+        <Mug color={bot.color} isWarm={isWorking(state)} />
         <Papers count={panel.library.length} />
         {furniture.hasLamp && <Lamp color={bot.color} isOn={isLampOn} />}
         {state.kind === 'nap' && <Snores />}
@@ -122,7 +118,7 @@ export function DeskScene({ bot, state, level, days, panel, now, isLampOn, water
       {routines.map((routine, index) => (
         <Spot
           key={routine.id}
-          box={[corner.x - 8, corner.y - 3 + index * 15, 12, 12]}
+          box={noteBoxOf(corner, index)}
           label={routine.isEnabled ? words.routine(routine.name) : words.pausedRoutine(routine.name)}
           onPress={() => onPress({ kind: 'routines' })}
         />
@@ -317,11 +313,10 @@ function StickyNote({
   index: number
   corner: { x: number; y: number }
 }) {
-  const x = corner.x - 8
-  const y = corner.y - 3 + index * 15
+  const [x, y, width, height] = noteBoxOf(corner, index)
   return (
-    <g transform={`rotate(${index % 2 ? 7 : -6} ${x + 6} ${y + 6})`}>
-      <rect x={x} y={y} width={12} height={12} rx={1} fill={routine.isEnabled ? '#ffd65c' : '#d6d6d9'} />
+    <g transform={`rotate(${index % 2 ? 7 : -6} ${x + width / 2} ${y + height / 2})`}>
+      <rect x={x} y={y} width={width} height={height} rx={1} fill={routine.isEnabled ? '#ffd65c' : '#d6d6d9'} />
       <rect x={x + 2.5} y={y + 4} width={7} height={1.2} fill="#000" opacity={0.25} />
       <rect x={x + 2.5} y={y + 7} width={5} height={1.2} fill="#000" opacity={0.25} />
     </g>

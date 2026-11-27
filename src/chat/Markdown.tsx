@@ -8,6 +8,7 @@ import type { Flow } from '../../shared/flow'
 import type { MiniApp } from '../../shared/miniApp'
 import { BotAvatar } from '../bot/BotAvatar'
 import { MiniAppTile } from '../miniApp/MiniAppTile'
+import { useNavigation } from '../NavigationContext'
 import { Icon } from '../ui/Icon'
 import { ImagePreview } from './ImagePreview'
 import { useMentions } from './MentionContext'
@@ -41,7 +42,7 @@ const COMPONENTS: Components = {
 // remote images would load with no click, which could leak data a prompt injection put in the URL; a local one comes
 // through the attachment protocol, which serves only images inside the library and never touches the network
 function Image({ src, alt }: ComponentProps<'img'>) {
-  const { fileUrl } = useMentions()
+  const { attachmentUrl } = useMentions()
   const [isPreviewing, setIsPreviewing] = useState(false)
   const file = typeof src === 'string' ? localPath(src) : null
   if (!file) return <>{alt}</>
@@ -49,7 +50,7 @@ function Image({ src, alt }: ComponentProps<'img'>) {
   return (
     <>
       <AnimatePresence>
-        {isPreviewing && <ImagePreview src={fileUrl(file)} name={name} onClose={() => setIsPreviewing(false)} />}
+        {isPreviewing && <ImagePreview src={attachmentUrl(file)} name={name} onClose={() => setIsPreviewing(false)} />}
       </AnimatePresence>
       <button
         type="button"
@@ -57,7 +58,7 @@ function Image({ src, alt }: ComponentProps<'img'>) {
         onClick={() => setIsPreviewing(true)}
         className="block rounded-md"
       >
-        <img src={fileUrl(file)} alt={name} className="max-h-80 rounded-md shadow-ring" />
+        <img src={attachmentUrl(file)} alt={name} className="max-h-80 rounded-md shadow-ring" />
       </button>
     </>
   )
@@ -65,7 +66,8 @@ function Image({ src, alt }: ComponentProps<'img'>) {
 
 /** Reads the mentions itself, so a renamed bot updates its mentions without parsing the replies again. */
 function Link({ href, children }: ComponentProps<'a'>) {
-  const { bots, open, flows, openFlow, skills, openSkill, miniApps, openMiniApp, openFile } = useMentions()
+  const { bots, open, flows, skills, miniApps, openFile } = useMentions()
+  const { openFlow, openSkill, openMiniApp } = useNavigation()
   const file = href ? localPath(href) : null
   if (file)
     return (

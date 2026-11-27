@@ -1,6 +1,10 @@
 export const skills = {
   names: (names: string[]) =>
     names.length > 3 ? `${names.slice(0, 3).join('、')} 等 ${names.length} 个` : names.join('、'),
+  source: {
+    gitHub: (repo: string) => `来自 ${repo}`,
+    folder: '本地文件夹',
+  },
   list: {
     title: '技能',
     intro: '别人写好的做法：一份说明，加上脚本和资料。只装给它，后台任务遇到对应的事会先照着做。',
@@ -26,8 +30,6 @@ export const skills = {
   detail: {
     back: '返回技能列表',
     version: (version: string) => `v${version}`,
-    fromGitHub: (repo: string) => `来自 ${repo}`,
-    fromFolder: '本地文件夹',
     installedOn: (date: string) => `${date}装上`,
     owner: (name: string) => `${name}的技能，你也能用`,
     when: '什么时候用',
@@ -68,7 +70,6 @@ export const skills = {
     scripts: (count: number) => `${count} 个脚本`,
     moreScripts: (count: number) => `还有 ${count} 个，在「查看文件」里`,
     files: (count: number) => `${count} 个文件`,
-    fromFolder: '本地文件夹',
     replaces: (version: string) => (version ? `会替换已装的 v${version}` : '会替换已装的同名技能'),
     viewFiles: '查看文件',
     onComputer: '在电脑上确认',

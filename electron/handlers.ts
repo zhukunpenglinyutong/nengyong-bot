@@ -2,6 +2,7 @@ import path from 'node:path'
 import { app, type BrowserWindow, shell } from 'electron'
 import { z } from 'zod'
 import { createHarness } from '../harness/agent'
+import { welcome } from '../harness/duty'
 import { libraryFile, libraryItems } from '../harness/library'
 import { createLimits } from '../harness/limits'
 import { createMcp } from '../harness/mcp'
@@ -9,7 +10,7 @@ import { deleteMiniApp, miniAppHtml, restoreMiniApp, saveMiniAppData } from '../
 import { createModelCatalog } from '../harness/modelCatalog'
 import { needsOnboarding, onboard } from '../harness/onboarding'
 import { createPrices } from '../harness/prices'
-import { routineViews, setRoutineEnabled } from '../harness/routines'
+import { patchRoutine, routineViews } from '../harness/routines'
 import type { Store } from '../harness/store'
 import { taskViews } from '../harness/tasks'
 import { createSkills } from '../harness/skills'
@@ -23,11 +24,12 @@ import {
   type NengyongBotBridge,
   type TasksAndRoutines,
 } from '../shared/bridge'
+import { dutyOf } from '../shared/duty'
 import { BYTES_PER_MB, type Limits, MESSAGE_MAX_CHARS } from '../shared/limits'
 import { currentLanguage, setLanguage } from '../shared/language'
 import { strings } from '../shared/strings'
 import type { ModelServicesView } from '../shared/modelServices'
-import { SidebarState } from '../shared/sidebar'
+import { SidebarState, unreadTotal } from '../shared/sidebar'
 import { SKILL_FILE, SkillName, SkillRef, SkillUploadKind } from '../shared/skill'
 import { type ModelPrice, ModelName, Price } from '../shared/usage'
 import { LIBRARY_DIR, SKILLS_DIR } from './dataDir'
@@ -84,8 +86,8 @@ export function createHandlers({ home, dataDir, store, emit, window, onLanguageC
     store,
     workspace,
     getModel: modelServices.model,
-    models: { accounts: modelServices.accounts, list: modelServices.listModels, of: modelServices.modelOf },
-    getApiKey: modelServices.searchKey,
+    models: modelServices,
+    searchKey: modelServices.searchKey,
     windowTokensOf: catalog.windowTokensOf,
     mcp,
     skills,
@@ -137,6 +139,7 @@ export function createHandlers({ home, dataDir, store, emit, window, onLanguageC
     panel: (botId): PanelData => {
       const id = BotId.parse(botId)
       return {
+        duty: store.get().bots[id]?.duty ?? dutyOf(''),
         routines: routineViews(store.get().bots[id]?.routines ?? []),
         flows: store.get().bots[id]?.flows ?? [],
         skills: skills.views(id),
@@ -155,6 +158,7 @@ export function createHandlers({ home, dataDir, store, emit, window, onLanguageC
             { tasks: taskViews(store, id), routines: routineViews(store.get().bots[id]?.routines ?? []) },
           ]),
       ),
+    decisionCounts: () => Object.fromEntries(store.get().roster.map((id) => [id, store.decisionCount(id)])),
     context: (botId) => harness.context(BotId.parse(botId)),
     setDebug: (isOn) => harness.setDebug(z.boolean().parse(isOn)),
     openLibraryItem: async (file) => {
@@ -166,11 +170,21 @@ export function createHandlers({ home, dataDir, store, emit, window, onLanguageC
       if (failure) throw new Error(strings().main.library.cannotOpen(name, failure))
     },
     setRoutineEnabled: (botId, routineId, isEnabled) =>
-      setRoutineEnabled(store, emit, BotId.parse(botId), RoutineId.parse(routineId), z.boolean().parse(isEnabled)),
+      patchRoutine(store, emit, BotId.parse(botId), RoutineId.parse(routineId), {
+        isEnabled: z.boolean().parse(isEnabled),
+      }),
     stopReply: (botId, runId) => harness.stopReply(BotId.parse(botId), RunId.parse(runId)),
     stopTask: (botId, taskId) => harness.stopTask(BotId.parse(botId), TaskId.parse(taskId)),
     answerSkillOffer: (botId, offer, names) =>
       harness.answerSkillOffer(BotId.parse(botId), OfferId.parse(offer), SkillName.array().parse(names)),
+    answerDutyOffer: (botId, offer, isAccepted, isReviewOn) =>
+      harness.answerDutyOffer(
+        BotId.parse(botId),
+        OfferId.parse(offer),
+        z.boolean().parse(isAccepted),
+        z.boolean().parse(isReviewOn),
+      ),
+    setDutyReview: (botId, isOn) => harness.setDutyReview(BotId.parse(botId), z.boolean().parse(isOn)),
     uploadSkill: async (botId, kind) => {
       const id = BotId.parse(botId)
       const picked = await pickSkill(window(), SkillUploadKind.parse(kind))
@@ -185,7 +199,16 @@ export function createHandlers({ home, dataDir, store, emit, window, onLanguageC
       shell.showItemInFolder(path.join(skills.folder(BotId.parse(botId), SkillName.parse(name)), SKILL_FILE)),
     getSidebar: () => store.sidebar(),
     needsOnboarding: () => needsOnboarding(store),
-    saveSidebar: (sidebar) => store.saveSidebar(SidebarState.parse(sidebar)),
+    saveSidebar: (sidebar) => {
+      const parsed = SidebarState.parse(sidebar)
+      app.setBadgeCount(unreadTotal(parsed))
+      const known = new Set(Object.keys(store.get().bots))
+      const shown = store.saveSidebar(parsed)
+      for (const { id } of parsed.bots)
+        if (!known.has(id) && id !== MAIN_BOT_ID) emit({ kind: 'entry', botId: id, entry: welcome(store, id) })
+      return shown
+    },
+    deleteBot: (botId) => harness.deleteBot(BotId.parse(botId)),
     getModelServices: () => modelServices.view(),
     listModels: (accountId) => modelServices.listModels(accountId),
     saveAccount: async (input, use) => withModelsShown(await modelServices.saveAccount(input, use)),
@@ -207,7 +230,10 @@ export function createHandlers({ home, dataDir, store, emit, window, onLanguageC
     },
     onboard: (choices) => {
       const { bots, greeting } = onboard(store, OnboardingChoices.parse(choices), modelServices.model() !== null)
-      for (const bot of bots) emit({ kind: 'bot-created', bot })
+      for (const bot of bots) {
+        emit({ kind: 'bot-created', bot })
+        emit({ kind: 'entry', botId: bot.id, entry: welcome(store, bot.id) })
+      }
       emit({ kind: 'entry', botId: MAIN_BOT_ID, entry: greeting })
       return bots
     },

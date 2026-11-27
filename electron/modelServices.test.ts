@@ -223,3 +223,18 @@ it("shows a provider's account under the provider's name in the app's language, 
     setLanguage('zh')
   }
 })
+
+it('keeps a saved file it cannot read aside instead of writing over it', async () => {
+  fs.writeFileSync(path.join(dir, 'model.bin'), 'sealed:{not json')
+  vi.spyOn(console, 'error').mockImplementation(() => {})
+  await createModelServices(dir).saveAccount(DEEPSEEK, null)
+  const kept = fs.readdirSync(dir).filter((name) => name.startsWith('model.bin.unreadable-'))
+  expect(kept.map((name) => fs.readFileSync(path.join(dir, name), 'utf8'))).toEqual(['sealed:{not json'])
+})
+
+it('leaves a file it could not read in place until something is saved, so a keychain that says no once is not final', () => {
+  fs.writeFileSync(path.join(dir, 'model.bin'), 'sealed:{not json')
+  vi.spyOn(console, 'error').mockImplementation(() => {})
+  createModelServices(dir)
+  expect(fs.readdirSync(dir)).toEqual(['model.bin'])
+})

@@ -4,6 +4,7 @@ import { Dialog } from '../ui/Dialog'
 import { Icon, type IconName } from '../ui/Icon'
 import { IconButton } from '../ui/IconButton'
 import { DataSettings } from './DataSettings'
+import { DismissedSettings } from './DismissedSettings'
 import { GeneralSettings } from './GeneralSettings'
 import { LimitsSettings } from './LimitsSettings'
 import { ModelSettings } from './ModelSettings'
@@ -22,6 +23,7 @@ export type SettingsPage =
   | 'tools'
   | 'devices'
   | 'data'
+  | 'dismissed'
   | 'usage'
   | 'nengyongKey'
   | 'limits'
@@ -34,6 +36,7 @@ const PAGES: { page: Exclude<SettingsPage, 'releases'>; label: string; icon: Ico
   { page: 'tools', label: strings().settings.dialog.pages.tools, icon: 'plug' },
   { page: 'devices', label: strings().settings.dialog.pages.devices, icon: 'phone' },
   { page: 'data', label: strings().settings.dialog.pages.data, icon: 'folder' },
+  { page: 'dismissed', label: strings().settings.dialog.pages.dismissed, icon: 'trash' },
   { page: 'usage', label: strings().settings.dialog.pages.usage, icon: 'chart' },
   { page: 'limits', label: strings().settings.dialog.pages.limits, icon: 'sliders', isDebugOnly: true },
 ]
@@ -44,6 +47,7 @@ type Props = ComponentProps<typeof ModelSettings> &
   ComponentProps<typeof GeneralSettings> &
   ComponentProps<typeof LimitsSettings> &
   ComponentProps<typeof UsageSettings> &
+  ComponentProps<typeof DismissedSettings> &
   Pick<ComponentProps<typeof DevicesSettings>, 'bridge'> &
   UpdateProps & {
     initialPage: SettingsPage
@@ -64,6 +68,9 @@ export function SettingsDialog({
   services,
   onServicesChange,
   devices,
+  dismissed,
+  onRestore,
+  onDelete,
   ...updateProps
 }: Props) {
   const [page, setPage] = useState(initialPage)
@@ -126,6 +133,7 @@ export function SettingsDialog({
         {page === 'tools' && <ToolsSettings bridge={bridge} />}
         {page === 'devices' && <DevicesSettings bridge={bridge} live={devices} />}
         {page === 'data' && <DataSettings bridge={bridge} />}
+        {page === 'dismissed' && <DismissedSettings dismissed={dismissed} onRestore={onRestore} onDelete={onDelete} />}
         {page === 'usage' && <UsageSettings bridge={bridge} bots={bots} />}
         {page === 'nengyongKey' && <NengyongKeySettings />}
         {page === 'limits' && <LimitsSettings limits={limits} onLimitsChange={onLimitsChange} />}

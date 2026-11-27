@@ -1,12 +1,12 @@
 import { use } from 'react'
 import type { UsageRecord } from '../../shared/usage'
 import { BotAvatar } from '../bot/BotAvatar'
-import { Icon, type IconName } from '../ui/Icon'
+import { Icon } from '../ui/Icon'
 import { Segmented } from '../ui/Segmented'
 import { MeasureContext } from './measure'
 import { ModelLogo } from './ModelLogo'
 import { ModelSwatch } from './ModelSwatch'
-import type { Periods } from './periods'
+import { byPeriod, type Periods } from './periods'
 import { UsageDetail } from './UsageDetail'
 import { shareLabel, tokenLabel, valueLabel } from './usageFormat'
 import {
@@ -16,6 +16,7 @@ import {
   isUnpricedOnly,
   KEY_OF,
   type Measured,
+  SOURCES,
   type Totals,
   totalsOf,
   type UsageNames,
@@ -26,12 +27,6 @@ const DIMENSION_LABELS: Record<Dimension, string> = {
   bot: strings().usage.breakdown.bot,
   source: strings().usage.breakdown.source,
   model: strings().usage.breakdown.model,
-}
-const SOURCE_ICONS: Record<string, IconName> = { chat: 'chat', routine: 'clock', bot: 'team' }
-const RUNS_LABELS: Record<string, (runs: number) => string> = {
-  chat: strings().usage.counts.turns,
-  routine: strings().usage.counts.runs,
-  bot: strings().usage.counts.tasks,
 }
 
 interface Props {
@@ -134,7 +129,7 @@ function RowIcon({ dimension, rowKey, names }: { dimension: Dimension; rowKey: s
     case 'source':
       return (
         <span className="grid size-8 place-items-center rounded-full bg-bubble text-soft">
-          <Icon name={SOURCE_ICONS[rowKey] ?? 'chat'} size={16} />
+          <Icon name={SOURCES[rowKey].icon} size={16} />
         </span>
       )
     default:
@@ -156,7 +151,7 @@ function rowSub(group: Group, dimension: Dimension): string {
         .flatMap(([count, label]) => (count ? [label] : []))
         .join(' · ')
     case 'source':
-      return `${(RUNS_LABELS[group.key] ?? RUNS_LABELS.routine)(group.runs)} · ${strings().usage.breakdown.bots(bots)}`
+      return `${SOURCES[group.key].runs(group.runs)} · ${strings().usage.breakdown.bots(bots)}`
     case 'model':
       return strings().usage.breakdown.modelSub(tokenLabel(group.tokens), bots)
     default:
@@ -166,13 +161,10 @@ function rowSub(group: Group, dimension: Dimension): string {
 
 /** The row's own day-by-day (or hour-by-hour) rhythm, scaled to its own busiest one: its shape, not its size. */
 function Spark({ group, periods, color }: { group: Group; periods: Periods; color: string | undefined }) {
-  const bars = periods.list.map((period) => {
-    const ofPeriod = group.records.filter((record) => periods.idOf(record) === period.id)
-    const value = isUnpricedOnly(group)
-      ? ofPeriod.reduce((sum, record) => sum + record.input + record.output, 0)
-      : ofPeriod.reduce((sum, record) => sum + (record.amount ?? 0), 0)
-    return { period, value }
-  })
+  const bars = byPeriod(periods, group.records).map(({ period, totals }) => ({
+    period,
+    value: isUnpricedOnly(group) ? totals.tokens : totals.amount,
+  }))
   const max = Math.max(...bars.map((bar) => bar.value)) || 1
   const [barWidth, gap, height] = bars.length <= 7 ? [6, 4, 22] : [2, 1, 22]
   return (

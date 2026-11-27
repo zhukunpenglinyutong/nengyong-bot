@@ -7,6 +7,8 @@ export const sidebar: Strings['sidebar'] = {
     failed: 'Failed',
     idle: 'Idle',
     unread: 'Unread',
+    deciding: 'Waiting on you',
+    decidingCount: (count) => `Waiting on you · ${count}`,
     failedTask: (title, when) => `“${title}” failed · ${when}`,
     running: (title, elapsed) => `Running “${title}” ${elapsed}`,
     runningMany: (title, count, elapsed) => `Running “${title}” and ${count - 1} more ${elapsed}`,
@@ -52,7 +54,8 @@ export const sidebar: Strings['sidebar'] = {
     sectionMenu: 'Section menu',
     letGo: 'Let go…',
     letGoTitle: (name) => `Let “${name}” go`,
-    letGoBody: 'The bot and its chat history will be deleted for good. This cannot be undone.',
+    letGoBody: (days) =>
+      `It leaves the sidebar and sits in Settings › Bot recycle bin for ${plural(days, 'day')}, with its memories and chats, ready to be restored. After that it is gone for good.`,
     letGoConfirm: 'Let go',
     staffNumber: (number) => `Staff no. ${number}`,
     pin: 'Pin',

@@ -14,17 +14,16 @@ import {
 } from '../shared/miniApp'
 import { miniAppPage } from '../shared/miniAppPage'
 import { newId } from '../shared/newId'
-import { OptionalId } from './flows'
 import type { Store } from './store'
+import { line, OptionalId } from './toolInputs'
 import type { Workspace } from './workspace'
 
 const MAX_MINI_APPS = 30 // per bot: each one is listed in every system prompt of its chat
 
 /** A mini app's files in the library: one page per version, and one data file for all of them. */
-export const miniAppPath = (id: string, version: number) => `apps/${id}/v${version}.html`
-export const miniAppDataPath = (id: string) => `apps/${id}/data.json`
-
-const line = (max: number) => z.string().trim().min(1).max(max)
+export const miniAppFolder = (id: string) => `apps/${id}`
+export const miniAppPath = (id: string, version: number) => `${miniAppFolder(id)}/v${version}.html`
+export const miniAppDataPath = (id: string) => `${miniAppFolder(id)}/data.json`
 
 const NewMiniApp = z.object({
   id: OptionalId.describe('改已有的小程序时填它的 id，存成新版本；新做的不填'),
@@ -149,7 +148,7 @@ export function restoreMiniApp(context: MiniAppContext, id: string, version: num
 export function deleteMiniApp(context: MiniAppContext, id: string) {
   miniAppOf(context.store, context.botId, id)
   updateMiniApps(context, (apps) => apps.filter((each) => each.id !== id))
-  fs.rmSync(context.workspace.resolve(`apps/${id}`), { recursive: true, force: true })
+  fs.rmSync(context.workspace.resolve(miniAppFolder(id)), { recursive: true, force: true })
 }
 
 /** One version's page with its data and `window.nengyongbot` built in: what its window loads, or the user exports. */

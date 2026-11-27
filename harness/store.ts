@@ -4,12 +4,14 @@ import { DatabaseSync } from 'node:sqlite'
 import type { z } from 'zod'
 import { type Bot, MAIN_BOT_ID, type NewBot } from '../shared/bot'
 import { Entry } from '../shared/bridge'
+import { pendingDecisions } from '../shared/decisions'
+import { dutyOf } from '../shared/duty'
 import { strings } from '../shared/strings'
 import { SidebarState } from '../shared/sidebar'
 import { type BotBrain, type EntryInput, HarnessState, Task, type UsageCall, UsageRun } from './types'
 
 // The manager starts with a fixed duty as the main bot; every other bot is shaped by its name and the user.
-const defaultInstructions = (id: string) => (id === MAIN_BOT_ID ? strings().harness.store.mainBotDuty : '')
+const defaultPurpose = (id: string) => (id === MAIN_BOT_ID ? strings().harness.store.mainBotDuty : '')
 
 const EMPTY: HarnessState = { userFacts: [], bots: {}, roster: [], pending: [], onboardedAt: null }
 
@@ -30,6 +32,7 @@ const MIGRATIONS = [
   'create table deleted (transcript_id text not null, seq integer not null, primary key (transcript_id, seq)) strict;',
   'select 1; -- bot mini apps, and the mini app a task changes',
   'select 1; -- bot skills, and entries of kind skill-answer',
+  'select 1; -- bot duties, and entries of kind duty-answer',
 ]
 
 // entries stay as written; a message the user deleted is listed in `deleted` and every read of messages skips it
@@ -42,7 +45,7 @@ const UNFINISHED_FIRST =
 const newBrain = (id: string, name: string): BotBrain => ({
   id,
   name,
-  instructions: defaultInstructions(id),
+  duty: dutyOf(defaultPurpose(id)),
   memories: [],
   summary: '',
   summarizedUpTo: 0,
@@ -74,10 +77,17 @@ export function createStore(file: string) {
   )
   // case, not and: sqlite may evaluate json_extract first, and it throws on a hand-edited row that is not JSON
   const readHistory = db.prepare(
-    `select data from entries where transcript_id = ? and ${NOT_DELETED} and case when json_valid(data) then json_extract(data, '$.kind') <> 'tool' or json_extract(data, '$.name') in ('save_flow', 'install_skill') end order by seq`,
+    `select data from entries where transcript_id = ? and ${NOT_DELETED} and case when json_valid(data) then json_extract(data, '$.kind') <> 'tool' or json_extract(data, '$.name') in ('save_flow', 'install_skill', 'propose_duty', 'ask_user') end order by seq`,
   )
   const readLastReply = db.prepare(
     `select data from entries where transcript_id = ? and ${NOT_DELETED} and case when json_valid(data) then json_extract(data, '$.kind') = 'bot' end order by seq desc limit 1`,
+  )
+  // what tells which asks still wait on the user: the asks, the answers to cards, and the user's last message
+  const readDecisionEntries = db.prepare(
+    `select data from entries where transcript_id = ? and ${NOT_DELETED} and case when json_valid(data) then json_extract(data, '$.kind') in ('duty-answer', 'skill-answer') or (json_extract(data, '$.kind') = 'tool' and json_extract(data, '$.name') in ('install_skill', 'propose_duty', 'ask_user')) end order by seq`,
+  )
+  const readLastUserEntry = db.prepare(
+    `select data from entries where transcript_id = ? and ${NOT_DELETED} and case when json_valid(data) then json_extract(data, '$.kind') = 'user' end order by seq desc limit 1`,
   )
   const readToolEntries = db.prepare(
     "select data from entries where (transcript_id = ? or transcript_id in (select id from tasks where bot_id = ?)) and case when json_valid(data) then json_extract(data, '$.kind') = 'tool' and json_extract(data, '$.name') = ? end order by json_extract(data, '$.at'), seq",
@@ -107,6 +117,14 @@ export function createStore(file: string) {
     'select min(at) as at, run_id as runId, transcript_id as transcriptId, bot_id as botId, model, sum(input) as input, sum(cached) as cached, sum(output) as output from usage where at >= ? group by run_id, transcript_id, bot_id, model',
   )
   const readFirstUsage = db.prepare('select min(at) as at from usage')
+  const deleteEntries = db.prepare(
+    'delete from entries where transcript_id = ? or transcript_id in (select id from tasks where bot_id = ?)',
+  )
+  const deleteDeleted = db.prepare(
+    'delete from deleted where transcript_id = ? or transcript_id in (select id from tasks where bot_id = ?)',
+  )
+  const deleteTasks = db.prepare('delete from tasks where bot_id = ?')
+  const deleteUsage = db.prepare('delete from usage where bot_id = ?')
 
   const value = (key: string) => readValue.get(key)?.value
   let state: HarnessState = load()
@@ -139,6 +157,18 @@ export function createStore(file: string) {
     return pending
   }
 
+  /** null until the renderer saves one. */
+  function readSidebar(): SidebarState | null {
+    const stored = value('sidebar')
+    if (typeof stored !== 'string') return null
+    try {
+      const parsed = SidebarState.safeParse(JSON.parse(stored))
+      return parsed.success ? parsed.data : null
+    } catch {
+      return null // not JSON: the renderer starts from its initial sidebar and overwrites it on the next change
+    }
+  }
+
   return {
     get: () => state,
     update: (fn: (s: HarnessState) => HarnessState) => save(fn(state)),
@@ -157,6 +187,12 @@ export function createStore(file: string) {
       return entry?.kind === 'bot' ? entry.text : undefined
     },
     toolEntries: (botId: string, name: string) => parseRows(Entry, readToolEntries.all(botId, botId, name)),
+    /** How many asks in a chat still wait on the user, read from only the entries that tell. */
+    decisionCount: (botId: string) =>
+      pendingDecisions(
+        [...parseRows(Entry, readDecisionEntries.all(botId)), ...parseRows(Entry, readLastUserEntry.all(botId))],
+        Date.now(),
+      ).length,
     append(transcriptId: string, input: EntryInput): Entry {
       const entry: Entry = { ...input, seq: Number(nextSeq.get(transcriptId)?.seq), at: Date.now() }
       insertEntry.run(transcriptId, entry.seq, JSON.stringify(entry))
@@ -196,29 +232,48 @@ export function createStore(file: string) {
      * Returns bots created by the harness that the sidebar has not shown yet (its event was missed, e.g. during a reload).
      */
     syncRoster,
-    addBot(bot: NewBot, instructions: string) {
+    addBot(bot: NewBot, purpose: string) {
       save({
         ...state,
-        bots: { ...state.bots, [bot.id]: { ...newBrain(bot.id, bot.name), instructions } },
+        bots: { ...state.bots, [bot.id]: { ...newBrain(bot.id, bot.name), duty: dutyOf(purpose) } },
         roster: [...state.roster, bot.id],
         pending: [...state.pending, bot],
       })
     },
     /** null until the renderer saves one: it then starts from its initial sidebar. */
-    sidebar(): SidebarState | null {
-      const stored = value('sidebar')
-      if (typeof stored !== 'string') return null
-      try {
-        const parsed = SidebarState.safeParse(JSON.parse(stored))
-        return parsed.success ? parsed.data : null
-      } catch {
-        return null // not JSON: the renderer starts from its initial sidebar and overwrites it on the next change
-      }
-    },
+    sidebar: readSidebar,
     /** Saves the sidebar and syncs the roster with its bots; returns what `syncRoster` returns. */
     saveSidebar(sidebar: SidebarState): NewBot[] {
       writeValue.run('sidebar', JSON.stringify(sidebar))
       return syncRoster(sidebar.bots)
+    },
+    /** Deletes a bot's brain, its chats and tasks with what became of them, its usage, and its place in the recycle bin. */
+    deleteBot(botId: string) {
+      if (!state.bots[botId]) throw new Error(strings().harness.unknownBot(botId))
+      db.exec('begin')
+      try {
+        deleteDeleted.run(botId, botId)
+        deleteEntries.run(botId, botId)
+        deleteTasks.run(botId)
+        deleteUsage.run(botId)
+        db.exec('commit')
+      } catch (error) {
+        db.exec('rollback')
+        throw error
+      }
+      const bots = Object.fromEntries(Object.entries(state.bots).filter(([id]) => id !== botId))
+      save({
+        ...state,
+        bots,
+        roster: state.roster.filter((id) => id !== botId),
+        pending: state.pending.filter((bot) => bot.id !== botId),
+      })
+      const sidebar = readSidebar()
+      if (sidebar?.dismissed.some(({ bot }) => bot.id === botId))
+        writeValue.run(
+          'sidebar',
+          JSON.stringify({ ...sidebar, dismissed: sidebar.dismissed.filter(({ bot }) => bot.id !== botId) }),
+        )
     },
     /** A consistent copy into a new file, safe while the app keeps writing. */
     backupTo(target: string) {

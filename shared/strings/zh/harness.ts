@@ -1,11 +1,13 @@
 export const harness = {
   unknownBot: (id: string) => `未知的 Bot：${id}`,
   noRunningTask: (id: string) => `没有进行中的任务 ${id}`,
+  botNotDismissed: '先在侧边栏让它离职，才能彻底删除',
   chat: {
     attachment: '（附件）',
     traceTitle: '聊天',
     quoteMissing: '要回复的那条消息不在这段聊天里',
     noModel: '未设置',
+    outOfSteps: (maxSteps: number) => `这一轮用完了 ${maxSteps} 步还没做完，回复可能没写完。跟它说「继续」就能接着做`,
   },
   modelErrors: {
     noKey: '还没有设置 API Key',
@@ -33,6 +35,7 @@ export const harness = {
   tasks: {
     noConclusion: '任务结束了，但没有写出结论',
     timedOut: '超时：任务运行太久仍未完成，已中止',
+    interrupted: '应用在任务进行中退出了，任务被打断，没有做完',
     outOfSteps: (lastStatus: string | undefined) => `步数用完仍未完成${lastStatus ? `，停在「${lastStatus}」` : ''}`,
     resultClipped: (length: number, ref: string) =>
       `（结论共 ${length} 字，全文用 read_history 打开 ${ref}，按提示续读）`,
@@ -56,6 +59,21 @@ export const harness = {
     chatOnly: '只能删除聊天里的消息',
     notDataFile: (name: string) => `不是 Nengyong Bot 的数据文件：${name}`,
     newerVersion: '数据来自更新版本的 Nengyong Bot，请先升级应用',
+  },
+  duty: {
+    offerGone: '找不到这张职责卡了',
+    answered: '这张职责卡已经答复过了',
+    replaced: '这张职责卡已经被新的一张替代了，看最新的那张',
+    outdated: '职责在这之后已经改过了，这张卡作废了：请它按现在的职责重新出一张',
+    reviewName: '每周复盘',
+    greeting: (name: string, purpose: string) =>
+      [
+        `我是${name}，刚来。开工前先把职责定下来：以后我照着它做事，你也照着它验收我。`,
+        purpose ? `现在我只知道一句：「${purpose}」。` : '',
+        '第一个问题：**你最想要我做到什么结果？**说结果就行，不用说怎么做。',
+      ]
+        .filter(Boolean)
+        .join('\n\n'),
   },
   miniApps: {
     notFound: (id: string) => `没有 id 为 ${id} 的小程序`,

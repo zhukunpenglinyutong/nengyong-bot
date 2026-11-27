@@ -16,11 +16,13 @@ import { imageType } from '../../shared/attachment'
 import type { Bot } from '../../shared/bot'
 import type { SidebarState } from '../../shared/sidebar'
 import type { SendKey } from '../preferences'
+import type { MenuEntry } from '../ui/ContextMenu'
 import { Icon } from '../ui/Icon'
 import { IconButton } from '../ui/IconButton'
+import { MenuButton } from '../ui/MenuButton'
 import { useObjectUrl } from '../ui/useObjectUrl'
 import { draftText, MENTION_NAME_ATTRIBUTE } from './draftText'
-import { type MentionCandidate, mentionCandidates, mentionQuery } from './mentionCandidates'
+import { type MentionCandidate, mentionActions, mentionCandidates, mentionQuery } from './mentionCandidates'
 import { mentionSegments } from './mentionSegments'
 import { MentionChip } from './MentionChip'
 import { MentionMenu, mentionOptionId } from './MentionMenu'
@@ -35,6 +37,7 @@ interface Props {
   sidebar: SidebarState // the bots an @ offers, with their groups
   botId: string // whose chat this is; an @ does not offer it
   files: File[] // attached, not sent yet
+  menu: MenuEntry[] // what the plus offers after attaching files
   sendKey: SendKey
   isReplying: boolean // the bot is running a turn: an empty box offers to stop it, a written one still sends
   onStop: () => void
@@ -69,6 +72,7 @@ export function Composer({
   sidebar,
   botId,
   files,
+  menu,
   sendKey,
   isReplying,
   onStop,
@@ -88,7 +92,13 @@ export function Composer({
   const picker = useRef<HTMLInputElement>(null)
   const menuId = useId()
   const canSend = draft.trim() !== '' || files.length > 0
-  const candidates = mention ? mentionCandidates(sidebar, botId, mention.query) : []
+  const plusMenu: MenuEntry[] = [
+    { label: words.addAttachment, icon: 'file', onSelect: () => picker.current?.click() },
+    ...menu,
+  ]
+  const candidates = mention
+    ? [...mentionCandidates(sidebar, botId, mention.query), ...mentionActions(plusMenu, mention.query)]
+    : []
   const active = Math.min(activeIndex, candidates.length - 1)
 
   const attachEditor = useCallback(
@@ -120,12 +130,22 @@ export function Composer({
     setSelected([])
   }
 
-  const pick = ({ bot }: MentionCandidate) => {
+  const pick = (candidate: MentionCandidate) => {
     const editor = inputRef.current
     if (!editor || !mention) return
-    const holder = placeMention(mention, bot)
-    setPlaced((current) => [...current, { holder, bot }])
-    sync(editor)
+    switch (candidate.kind) {
+      case 'bot': {
+        const holder = placeMention(mention, candidate.bot)
+        setPlaced((current) => [...current, { holder, bot: candidate.bot }])
+        return sync(editor)
+      }
+      case 'action':
+        removeTypedMention(mention)
+        sync(editor)
+        return candidate.onSelect?.()
+      default:
+        return candidate satisfies never
+    }
   }
 
   /** Arrows, Enter, Tab and Escape steer the @ menu while it is open; true when the key was for it. */
@@ -210,7 +230,14 @@ export function Composer({
         </ul>
       )}
       <div className="flex items-end gap-1">
-        <IconButton icon="plus" iconSize={20} label={words.addAttachment} onClick={() => picker.current?.click()} />
+        <MenuButton
+          menuLabel={words.add}
+          aria-label={words.add}
+          items={plusMenu}
+          className="grid size-9 shrink-0 place-items-center rounded-full text-soft transition-colors duration-150 hover:text-ink"
+        >
+          <Icon name="plus" size={20} />
+        </MenuButton>
         {/* a textarea holds plain text only; the chips need an editable element */}
         <div
           ref={attachEditor}
@@ -318,6 +345,12 @@ function placeMention({ node, start, end }: TypedMention, bot: Bot): HTMLElement
   range.insertNode(holder)
   document.getSelection()?.collapse(space, 1)
   return holder
+}
+
+/** Takes the typed @query out, leaving the caret where its @ was. */
+function removeTypedMention({ node, start, end }: TypedMention) {
+  node.deleteData(start, end - start)
+  document.getSelection()?.collapse(node, start)
 }
 
 /** The element a chip is drawn into: the browser edits around it as one piece, and the draft reads its name. */

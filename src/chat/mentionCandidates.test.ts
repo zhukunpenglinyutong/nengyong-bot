@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { DEMO_SIDEBAR } from '../demo/demoData'
-import { mentionCandidates, mentionQuery } from './mentionCandidates'
+import { mentionActions, mentionCandidates, mentionQuery } from './mentionCandidates'
 
 const names = (query: string, sidebar = DEMO_SIDEBAR, selfId = 'chief') =>
   mentionCandidates(sidebar, selfId, query).map((candidate) => candidate.bot.name)
@@ -44,5 +44,30 @@ describe('mentionCandidates', () => {
   it('matches names ignoring case and returns nothing when none match', () => {
     expect(names('GITHUB')).toEqual(['GitHub 数据日报'])
     expect(names('不存在')).toEqual([])
+  })
+})
+
+describe('mentionActions', () => {
+  const menu = [
+    { label: '规划职责', icon: 'target' as const },
+    'separator' as const,
+    { label: '停用的', disabled: true },
+    { label: '上传技能', submenu: [{ label: '技能文件夹' }, { label: '压缩包' }] },
+  ]
+  const rows = (query: string) => mentionActions(menu, query).map(({ label, detail }) => [label, detail])
+
+  it('offers each enabled item, and each item of a submenu under its parent name', () => {
+    expect(rows('')).toEqual([
+      ['规划职责', undefined],
+      ['上传技能', '技能文件夹'],
+      ['上传技能', '压缩包'],
+    ])
+  })
+
+  it('keeps the ones whose name contains the query', () => {
+    expect(rows('上传')).toEqual([
+      ['上传技能', '技能文件夹'],
+      ['上传技能', '压缩包'],
+    ])
   })
 })

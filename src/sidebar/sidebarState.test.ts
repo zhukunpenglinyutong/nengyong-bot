@@ -4,21 +4,26 @@ import {
   addUnread,
   createBot,
   createSectionWith,
-  deleteBot,
+  daysLeftOf,
   deleteSection,
+  dismissBot,
+  forgetBot,
   INITIAL_SIDEBAR,
   markSeen,
   markUnseenAsSeen,
   moveSection,
   moveToSection,
+  placeBot,
   renameBot,
   renameSection,
+  restoreBot,
   setBotAvatar,
   setBotLook,
   setHidden,
   setUnread,
   togglePin,
   toggleSection,
+  withoutExpired,
 } from './sidebarState'
 import { sidebarView } from '../sidebarView'
 
@@ -101,12 +106,37 @@ describe('sidebar updates', () => {
     expect(renameSection(DEMO, 's1', long).sections[0].name).toHaveLength(80)
   })
 
-  it('deletes a bot with every reference to it, but never the main bot', () => {
-    const gone = deleteBot(setUnread(togglePin(DEMO, 'support'), 'support', true), 'support')
+  it('lets a bot go with every reference to it, keeping it to restore, but never the main bot', () => {
+    const gone = dismissBot(setUnread(togglePin(DEMO, 'support'), 'support', true), 'support', 5)
     expect(ids(gone.bots)).not.toContain('support')
     expect([gone.pinned, gone.unread, gone.placement.support]).toEqual([['chief', 'secretary'], {}, undefined])
     expect(gone.seenAt).not.toHaveProperty('support')
-    expect(deleteBot(DEMO, 'chief')).toBe(DEMO)
+    expect(gone.dismissed).toEqual([{ bot: DEMO.bots.find((bot) => bot.id === 'support'), sectionId: 's1', at: 5 }])
+    expect(dismissBot(DEMO, 'chief', 5)).toBe(DEMO)
+  })
+
+  it('restores a bot let go into the section it was in, or into 其他 when that section is gone', () => {
+    const gone = dismissBot(DEMO, 'support', 5)
+    const back = restoreBot(gone, 'support')
+    expect([back.placement.support, back.dismissed]).toEqual(['s1', []])
+    expect(back.bots.find((bot) => bot.id === 'support')).toEqual(DEMO.bots.find((bot) => bot.id === 'support'))
+    expect('support' in restoreBot(deleteSection(gone, 's1'), 'support').placement).toBe(false)
+    expect(restoreBot(gone, 'nobody')).toBe(gone)
+  })
+
+  it('drops a bot from the recycle bin for good, leaving the rest of it alone', () => {
+    const gone = dismissBot(dismissBot(DEMO, 'support', 5), 'repo', 6)
+    const forgotten = forgetBot(gone, 'support')
+    expect(forgotten.dismissed.map(({ bot }) => bot.id)).toEqual(['repo'])
+    expect(ids(forgotten.bots)).not.toContain('support')
+    expect(forgetBot(gone, 'nobody')).toBe(gone)
+  })
+
+  it('forgets bots let go once their days to be restored have run out', () => {
+    const day = 86_400_000
+    const gone = dismissBot(dismissBot(DEMO, 'support', 0), 'repo', 2 * day)
+    expect([daysLeftOf(0, 0), daysLeftOf(0, day + 1), daysLeftOf(0, 7 * day)]).toEqual([7, 6, 0])
+    expect(withoutExpired(gone, 7 * day).dismissed.map(({ bot }) => bot.id)).toEqual(['repo'])
   })
 
   it('remembers when the user last looked at each bot, keeping the others', () => {
@@ -131,6 +161,32 @@ describe('sidebar updates', () => {
     expect(sidebarView(created).ungrouped.slice(-1)[0]).toMatchObject({ id: 'b1', name: '写作助手', shape: 'cat' })
     expect(created.ungroupedCollapsed).toBe(false)
     expect(createBot(created, { id: 'b1', name: '重复', shape: 'blob', color: '#1E1E22' })).toBe(created)
+  })
+
+  it('creates a bot into the section of that name, expanded, and makes the section when there is none', () => {
+    const bot = { id: 'b1', name: '运营专员', shape: 'cat', color: '#2BC48A' } as const
+    const into = (state: typeof DEMO, name: string) => createBot(state, { ...bot, section: { id: 'sNew', name } })
+    const collapsed = { ...DEMO, sections: DEMO.sections.map((section) => ({ ...section, collapsed: true })) }
+    const existing = DEMO.sections[0]
+    const joined = into(collapsed, existing.name)
+    expect(joined.placement.b1).toBe(existing.id)
+    expect(joined.sections).toHaveLength(DEMO.sections.length)
+    expect(joined.sections[0].collapsed).toBe(false)
+    const made = into(DEMO, '运营团队')
+    expect(made.sections.slice(-1)).toEqual([{ id: 'sNew', name: '运营团队', collapsed: false }])
+    expect(made.placement.b1).toBe('sNew')
+  })
+
+  it('moves a bot into the section of that name, making it when there is none, or back to 其他', () => {
+    const existing = DEMO.sections[0]
+    expect(placeBot(DEMO, 'travel', { id: 'sNew', name: existing.name }).placement.travel).toBe(existing.id)
+    const made = placeBot(DEMO, 'repo', { id: 'sNew', name: '运营团队' })
+    expect(made.sections.slice(-1)).toEqual([{ id: 'sNew', name: '运营团队', collapsed: false }])
+    expect(made.placement.repo).toBe('sNew')
+    const twice = placeBot(made, 'support', { id: 'sOther', name: '运营团队' })
+    expect([twice.sections.length, twice.placement.support]).toEqual([made.sections.length, 'sNew'])
+    const back = placeBot({ ...made, ungroupedCollapsed: true }, 'repo', undefined)
+    expect(['repo' in back.placement, back.ungroupedCollapsed]).toEqual([false, false])
   })
 
   it('an uploaded picture replaces the look until a new look is picked', () => {

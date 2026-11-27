@@ -4,6 +4,8 @@ export const sidebar = {
     failed: '没跑成',
     idle: '空闲',
     unread: '未读',
+    deciding: '等你决定',
+    decidingCount: (count: number) => `等你决定 · ${count} 件`,
     failedTask: (title: string, when: string) => `「${title}」没跑成 · ${when}`,
     running: (title: string, elapsed: string) => `在跑「${title}」 ${elapsed}`,
     runningMany: (title: string, count: number, elapsed: string) => `在跑「${title}」 等 ${count} 个 ${elapsed}`,
@@ -49,7 +51,8 @@ export const sidebar = {
     sectionMenu: '分组菜单',
     letGo: '离职…',
     letGoTitle: (name: string) => `让“${name}”离职`,
-    letGoBody: '离职后，此 Bot 及其聊天记录会被永久删除。此操作无法撤销。',
+    letGoBody: (days: number) =>
+      `离职后它会离开侧边栏，在设置「Bot 回收站」里放 ${days} 天，期间随时能恢复，记忆和聊天记录都在；过了 ${days} 天就再也找不回了。`,
     letGoConfirm: '离职',
     staffNumber: (number: string) => `工号 ${number}`,
     pin: '置顶',

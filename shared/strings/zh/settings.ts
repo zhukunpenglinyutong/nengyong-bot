@@ -17,6 +17,20 @@ export const settings = {
     debug: '调试模式',
     debugHint: '在 Bot 面板显示最近任务，在灵动岛显示上下文、每轮过程和记忆变化。点开灵动岛也能切换。',
   },
+  dismissed: {
+    title: 'Bot 回收站',
+    intro: (days: number) =>
+      `离职的 Bot 先在回收站里放 ${days} 天，期间随时能恢复：回到原来的分组，记忆、聊天记录和例行任务都还在。也可以直接彻底删除，把它的数据一起清掉；过了 ${days} 天就再也找不回了。`,
+    empty: '回收站是空的。',
+    daysLeft: (days: number) => `还剩 ${days} 天`,
+    restore: '恢复',
+    restoreBot: (name: string) => `恢复 ${name}`,
+    delete: '彻底删除',
+    deleteBot: (name: string) => `彻底删除 ${name}`,
+    deleteTitle: (name: string) => `彻底删除“${name}”？`,
+    deleteBody:
+      '它的记忆、聊天记录、任务、例行任务、流程、技能和小程序都会删掉，资料库里它写的文件会留下。删了就找不回来了。',
+  },
   data: {
     exported: (path: string) => `已导出到 ${path}`,
     title: '数据',
@@ -40,6 +54,7 @@ export const settings = {
       tools: '工具',
       devices: '设备',
       data: '数据',
+      dismissed: 'Bot 回收站',
       usage: '用量',
       nengyongKey: 'Nengyong Key',
       limits: '精细化配置',
@@ -106,13 +121,9 @@ export const settings = {
     shrink: '缩小',
   },
   tools: {
-    cliTab: 'CLI 工具',
     title: '工具',
     intro: 'Bot 的后台任务能用的本机工具。',
-    toolType: '工具类型',
     connecting: '正在连接 MCP 服务…',
-    cliOff: '未开启',
-    cliHint: '打开后，Bot 能把写代码之类的活交给它，用的是它自己的登录和额度。',
     invalidJson: 'MCP 配置不是合法的 JSON',
     mcpConfig: 'MCP 配置',
     format: '格式化',
@@ -125,7 +136,6 @@ export const settings = {
     noDescription: '没有说明',
     connected: '已连接',
     connectFailed: '连接失败',
-    mcpTab: 'MCP',
   },
   limits: {
     title: '精细化配置',

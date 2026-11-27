@@ -17,7 +17,7 @@ export function MiniAppCard({ app, at, thumbUrl, onOpen }: Props) {
   const then = versionAt(app, at)
   const latest = latestVersion(app).version
   return (
-    <div className="relative mt-2 w-[248px] rounded-lg bg-surface px-3 pt-2.5 shadow-card has-[button:active]:scale-97">
+    <div className="relative mt-2 w-[248px] rounded-lg bg-surface px-3 pt-2.5 shadow-card">
       <span className="flex items-center gap-1.5 text-sm text-muted">
         <MiniAppTile app={app} size={16} />
         {app.name}
@@ -30,7 +30,7 @@ export function MiniAppCard({ app, at, thumbUrl, onOpen }: Props) {
         type="button"
         aria-label={words.open(app.name)}
         onClick={(event) => onOpen(event.currentTarget)}
-        className="mt-2.5 flex h-8 w-full items-center gap-1.5 border-t border-line text-xs text-muted after:absolute after:inset-0 active:scale-none"
+        className="mt-2.5 flex h-8 w-full items-center gap-1.5 border-t border-line text-xs text-muted after:absolute after:inset-0"
       >
         <Icon name="cube" size={13} />
         {words.label(then.version)}

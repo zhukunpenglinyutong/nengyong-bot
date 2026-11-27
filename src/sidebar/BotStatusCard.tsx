@@ -6,13 +6,14 @@ import { isUnfinished } from '../../shared/bridge'
 import { plainText } from '../../shared/plainText'
 import { activityLabel } from '../activityLabel'
 import { BotAvatar } from '../bot/BotAvatar'
-import { ELAPSED_REFRESH_MS, elapsedLabel } from '../elapsedLabel'
+import { ELAPSED_REFRESH_MS } from '../elapsedLabel'
 import type { Thread } from '../harnessState'
 import { taskProgressLabel } from '../taskProgressLabel'
 import { Icon } from '../ui/Icon'
 import { POP } from '../ui/motion'
 import { useNow } from '../ui/useNow'
-import { type BotStatus, DOT_LABELS, dotKindOf, whenLabel } from './botStatus'
+import { whenLabel } from '../timeLabel'
+import { type BotStatus, DOT_LABELS, dotKindOf, statusLineOf } from './botStatus'
 import { StatusDot } from './StatusDot'
 import { strings } from '../../shared/strings'
 
@@ -52,7 +53,10 @@ export function BotStatusCard({ bot, thread, status, anchor }: Props) {
         <BotAvatar bot={bot} size={36} />
         <span className="flex min-w-0 flex-col leading-[1.4]">
           <strong className="truncate text-md font-semibold">{bot.name}</strong>
-          <span data-kind={status.kind} className="text-muted data-[kind=failed]:text-danger">
+          <span
+            data-kind={status.kind}
+            className="text-muted data-[kind=deciding]:text-accent data-[kind=failed]:text-danger"
+          >
             {dotKind ? DOT_LABELS[dotKind] : strings().sidebar.status.idle}
           </span>
         </span>
@@ -74,7 +78,10 @@ export function BotStatusCard({ bot, thread, status, anchor }: Props) {
             <Item
               mark={<StatusDot kind="busy" size={14} />}
               title={words.replying}
-              detail={`${activityLabel(progress.activity, progress.draw)} ${elapsedLabel(now - progress.since)}`.trim()}
+              detail={statusLineOf(
+                { kind: 'replying', label: activityLabel(progress.activity, progress.draw), since: progress.since },
+                now,
+              )}
             />
           )}
           {unfinished.map((task) => (
@@ -123,7 +130,7 @@ interface ItemProps {
   mark: ReactNode
   title: string
   meta?: string
-  detail?: string
+  detail?: string | null
   isDanger?: boolean
 }
 

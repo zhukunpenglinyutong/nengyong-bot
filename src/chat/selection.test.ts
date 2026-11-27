@@ -61,7 +61,7 @@ it('ignores presses and drags outside selection mode, and leaves it on end', () 
 
 it('offers the user and bot messages of the transcript, not the greeting, the streamed draft or notes', () => {
   const messages: Message[] = [
-    { kind: 'time', text: '今天 9:00' },
+    { kind: 'note', text: '今天 9:00' },
     { kind: 'user', text: '你好', seq: 1, at: 10, attachments: ['uploads/a.png'] },
     { kind: 'bot', text: '好的', seq: 2, at: 20, requestId: 'chatcmpl-1' },
     { kind: 'from-bot', from: 'CEO', text: '帮我查' },

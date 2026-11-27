@@ -20,13 +20,13 @@ export interface MenuItem {
 }
 
 /** Lines of plain text between the items, such as when a message was written: never focused or pressed. */
-export interface MenuNote {
+interface MenuNote {
   note: string[]
 }
 
 export type MenuEntry = MenuItem | MenuNote | 'separator'
 
-const isItem = (entry: MenuEntry): entry is MenuItem => entry !== 'separator' && !('note' in entry)
+export const isItem = (entry: MenuEntry): entry is MenuItem => entry !== 'separator' && !('note' in entry)
 
 const EDGE = 8
 const COPIED_LINGER_MS = 700
@@ -35,7 +35,7 @@ interface PanelProps {
   items: MenuEntry[]
   label: string
   /** Where to open: a point (right-click) or the item a submenu hangs off. */
-  at: { kind: 'point'; x: number; y: number } | { kind: 'anchor'; rect: DOMRect }
+  at: { kind: 'point'; x: number; y: number; aboveY?: number } | { kind: 'anchor'; rect: DOMRect }
   onCloseAll: () => void
   onBack?: () => void
   header?: ReactNode
@@ -228,15 +228,18 @@ function placeOf(at: PanelProps['at'], size: ElementSize | null): { left: number
   if (!size) return { left, top }
   const fitsRight = left + size.width <= window.innerWidth - EDGE
   const flipped = isSub ? at.rect.left - size.width - 4 : window.innerWidth - size.width - EDGE
+  const fitsBelow = top + size.height <= window.innerHeight - EDGE
+  const above = !isSub && at.aboveY !== undefined && !fitsBelow ? at.aboveY - size.height : top
   return {
     left: Math.max(EDGE, fitsRight ? left : flipped),
-    top: Math.max(EDGE, Math.min(top, window.innerHeight - size.height - EDGE)),
+    top: Math.max(EDGE, Math.min(above, window.innerHeight - size.height - EDGE)),
   }
 }
 
 interface Props {
   x: number
   y: number
+  aboveY?: number // where its bottom goes when there is no room under y, as for a button low in the window: its top
   items: MenuEntry[]
   label: string
   header?: ReactNode
@@ -248,9 +251,9 @@ interface Props {
  * Right-click menu: closes on outside press, scroll, resize or window blur, and hands focus back to its trigger.
  * Its owner renders it inside an AnimatePresence, keyed by where it opens, so it fades out while a new one opens.
  */
-export function ContextMenu({ x, y, items, label, header, tiles, onClose }: Props) {
+export function ContextMenu({ x, y, aboveY, items, label, header, tiles, onClose }: Props) {
   const opener = useRef<Element | null>(document.activeElement)
-  const [at] = useState({ kind: 'point' as const, x, y })
+  const [at] = useState({ kind: 'point' as const, x, y, aboveY })
   const closeLatest = useEffectEvent(onClose)
   const isPresent = useIsPresent()
 

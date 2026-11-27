@@ -7,7 +7,7 @@ import type { HarnessEvent } from '../shared/bridge'
 import { setLanguage } from '../shared/language'
 import { strings } from '../shared/strings'
 import { appHome, DATABASE_FILE, LIBRARY_DIR, resolveDataDir } from './dataDir'
-import { registerDataDirIpc } from './dataDirIpc'
+import { createDataDirHandlers } from './dataDirHandlers'
 import { createHandlers, type Handler } from './handlers'
 import { lockHome } from './homeLock'
 import { savedLanguage } from './language'
@@ -60,12 +60,15 @@ function registerIpc(home: string, dataDir: string, store: Store) {
     emit,
     devUrl: DEV_URL,
   })
-  const handlers: Record<string, Handler> = { ...core.handlers, ...access.handlers }
+  const handlers: Record<string, Handler> = {
+    ...core.handlers,
+    ...access.handlers,
+    ...createDataDirHandlers({ window: () => win, home, dataDir, store, restart }),
+  }
   for (const [name, handle] of Object.entries(handlers))
     ipcMain.handle(`nengyongbot:${name}`, (_e, ...args: unknown[]) => handle(...args))
   serveAttachments(core.workspace)
   serveMiniApps(store, core.workspace)
-  registerDataDirIpc({ window: () => win, home, dataDir, store, restart })
   scheduleRoutines(store, emit, core.harness.startRoutine)
   lan = access
   app.on('will-quit', access.close)

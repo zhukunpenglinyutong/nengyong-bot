@@ -1,11 +1,12 @@
 import { tool } from 'ai'
 import { z } from 'zod'
-import { BOT_NAME_MAX, newBotId, PALETTE, PICKER_SHAPES } from '../shared/bot'
+import { BOT_NAME_MAX, MAIN_BOT_ID, newBotId, PALETTE, PICKER_SHAPES, type SectionByName } from '../shared/bot'
 import type { HarnessEvent } from '../shared/bridge'
+import { MAX_ANSWERS } from '../shared/decisions'
 import type { Limits } from '../shared/limits'
 import type { FlowSaved } from '../shared/flow'
 import { newId } from '../shared/newId'
-import { SECTION_NAME_MAX } from '../shared/sidebar'
+import { DISMISSED_KEEP_DAYS, SECTION_NAME_MAX } from '../shared/sidebar'
 import {
   MESSAGES_PER_POINT,
   POINTS_PER_FIRST_FLOW_RUN,
@@ -15,26 +16,35 @@ import {
   tierOf,
   trustOf,
 } from '../shared/trust'
-import { checkFlow, NewFlow, OptionalId, updateFlows } from './flows'
+import { checkFlow, NewFlow, patchFlow, updateFlows } from './flows'
 import { miniAppOf } from './miniApps'
 import { checkModel } from './modelTools'
-import { MODEL_INPUT, NewRoutine, setRoutineEnabled, updateRoutines } from './routines'
+import { NewRoutine, patchRoutine, updateRoutines } from './routines'
 import type { ModelChoices } from './runModel'
 import type { Store } from './store'
 import type { TaskRunner } from './tasks'
+import { checkOwner } from './checkOwner'
+import { welcome } from './duty'
+import { line, MODEL_INPUT, OptionalId } from './toolInputs'
 import type { Fact } from './types'
 import { strings } from '../shared/strings'
 
 const COLORS = PALETTE.filter((color) => color.id !== 'ink')
 const pick = <T>(list: readonly T[]) => list[Math.floor(Math.random() * list.length)]
 
-function sectionIdOf(store: Store, name: string): string {
-  const sections = store.sidebar()?.sections ?? []
-  const section = sections.find((candidate) => candidate.name === name)
-  if (section) return section.id
-  const names = sections.map((candidate) => candidate.name).join('、') || '无'
-  throw new Error(`没有叫「${name}」的分组，现有分组：${names}。不填 section 就放在「${strings().common.ungrouped}」`)
+/** The sidebar section called `name`, with a new id when there is none yet (the sidebar then makes it); undefined: 其他. */
+function sectionByName(store: Store, name: string | undefined): SectionByName | undefined {
+  if (name === undefined || name === strings().common.ungrouped) return undefined
+  const existing = store.sidebar()?.sections.find((candidate) => candidate.name === name)
+  return { id: existing?.id ?? newId('s'), name }
 }
+
+const sectionInput = () =>
+  line(SECTION_NAME_MAX)
+    .optional()
+    .describe(
+      `放进侧边栏的哪个分组：填「团队里的其他 Bot」里列出的分组名；用户要的分组还没有就填它的名字，会新建；不填就放在「${strings().common.ungrouped}」`,
+    )
 
 interface ChatContext {
   botId: string
@@ -45,12 +55,33 @@ interface ChatContext {
   models: ModelChoices
 }
 
-/** What a bot does in its chat: memories, bots, routines, flows and tasks. */
+/** What a bot does in its chat: ask the user, memories, bots, routines, flows and tasks. */
 export function chatTools({ botId, store, emit, tasks, limits, models }: ChatContext) {
   const { maxFacts, maxRoutines, maxFlows } = limits
   const bot = () => store.get().bots[botId]
 
   return {
+    ask_user: tool({
+      description:
+        '要用户拿主意时用：在几个做法里选一个，或者同意了你才能做的事（存流程、让 Bot 离职、要不要补跑……）。问题和选项会贴在用户输入框的上方，用户点一个，就作为一条回复发给你；用户也可能不点、直接打字回你。',
+      inputSchema: z.object({
+        question: line(120).describe(
+          '一句话的问题，如「今早的日报没跑成，现在补一次吗？」；来龙去脉写在回复里，不写在这',
+        ),
+        answers: z
+          .array(line(24))
+          .min(2)
+          .max(MAX_ANSWERS)
+          .describe(
+            '用户能点的回答，每个几个字，就是用户替你说出的话，如「现在补一次」「不补，记进缺口」；你建议的放第一个',
+          ),
+      }),
+      execute: async ({ question, answers }) => ({
+        question,
+        answers,
+        note: '问题已经贴在用户的输入框上方。这一轮到此为止：不要再写问句，也不要在回复里把选项再列一遍，等用户回。',
+      }),
+    }),
     remember: tool({
       description: '记住一条长期有用的信息。scope=user：关于用户本人、所有 Bot 共享；scope=bot：只和你的职责有关。',
       inputSchema: z.object({ text: z.string().min(1).max(500), scope: z.enum(['user', 'bot']) }),
@@ -77,14 +108,6 @@ export function chatTools({ botId, store, emit, tasks, limits, models }: ChatCon
         return { forgotten: id }
       },
     }),
-    update_my_instructions: tool({
-      description: '改写你自己的职责说明（完整替换）。',
-      inputSchema: z.object({ instructions: z.string().min(1).max(2000) }),
-      execute: async ({ instructions }) => {
-        store.updateBot(botId, { instructions })
-        return { ok: true }
-      },
-    }),
     update_my_name: tool({
       description: '改你自己在侧边栏里显示的名字。',
       inputSchema: z.object({ name: z.string().trim().min(1).max(BOT_NAME_MAX) }),
@@ -98,29 +121,46 @@ export function chatTools({ botId, store, emit, tasks, limits, models }: ChatCon
       description: '新建一个 Bot，它会出现在用户的侧边栏里。',
       inputSchema: z.object({
         name: z.string().trim().min(1).max(BOT_NAME_MAX),
-        instructions: z.string().min(1).max(2000).describe('它负责什么、怎么做、不做什么'),
+        purpose: line(200).describe('它为什么在这儿：一句话。目标和验收指标它会自己和用户定'),
         shape: z.enum(PICKER_SHAPES).optional(),
         color: z.enum(COLORS.map((choice) => choice.id)).optional(),
-        section: z
-          .string()
-          .trim()
-          .min(1)
-          .max(SECTION_NAME_MAX)
-          .optional()
-          .describe(
-            `放进侧边栏的哪个分组，填「团队里的其他 Bot」里列出的分组名；不填就放在「${strings().common.ungrouped}」`,
-          ),
+        section: sectionInput(),
       }),
-      execute: async ({ name, instructions, shape, color, section }) => {
-        const sectionId = section === undefined ? undefined : sectionIdOf(store, section)
+      execute: async ({ name, purpose, shape, color, section: sectionName }) => {
+        const section = sectionByName(store, sectionName)
         const id = newBotId()
         const palette = COLORS.find((choice) => choice.id === color) ?? pick(COLORS)
-        const created = { id, name, shape: shape ?? pick(PICKER_SHAPES), color: palette.value, sectionId }
-        store.addBot(created, instructions)
+        const created = { id, name, shape: shape ?? pick(PICKER_SHAPES), color: palette.value, section }
+        store.addBot(created, purpose)
         emit({ kind: 'bot-created', bot: created })
-        return { id, name, section: section ?? strings().common.ungrouped, mention: `[${name}](bot:${id})` }
+        emit({ kind: 'entry', botId: id, entry: welcome(store, id) })
+        return { id, name, section: section?.name ?? strings().common.ungrouped, mention: `[${name}](bot:${id})` }
       },
     }),
+    move_bot: tool({
+      description: '把一个 Bot 换到侧边栏的另一个分组（分组还没有就新建）。',
+      inputSchema: z.object({ botId: z.string().describe('要换分组的 Bot 的 id'), section: sectionInput() }),
+      execute: async ({ botId: target, section: sectionName }) => {
+        checkOwner(store, botId, target, '给别的 Bot 换分组')
+        const section = sectionByName(store, sectionName)
+        emit({ kind: 'bot-moved', botId: target, section })
+        return { botId: target, section: section?.name ?? strings().common.ungrouped }
+      },
+    }),
+    ...(botId === MAIN_BOT_ID
+      ? {
+          dismiss_bot: tool({
+            description: `让一个 Bot 离职：它离开侧边栏，在设置「Bot 回收站」里放 ${DISMISSED_KEEP_DAYS} 天，期间用户能恢复，之后再也找不回。用户明确同意了才用。`,
+            inputSchema: z.object({ botId: z.string().describe('要离职的 Bot 的 id') }),
+            execute: async ({ botId: target }) => {
+              if (target === MAIN_BOT_ID) throw new Error('主 Bot 不能离职')
+              checkOwner(store, botId, target, '让 Bot 离职')
+              emit({ kind: 'bot-dismissed', botId: target })
+              return { dismissed: target, daysToRestore: DISMISSED_KEEP_DAYS }
+            },
+          }),
+        }
+      : {}),
     list_bot_levels: tool({
       description: `查看团队里每个 Bot（含你自己）的等级、段位和经验来源，已按经验从高到低排好。经验规则：和它对话每 ${MESSAGES_PER_POINT} 次 +1；沉淀一个新流程 +${POINTS_PER_FLOW_SAVED}；一个流程第一次做成 +${POINTS_PER_FIRST_FLOW_RUN}，之后每做成一次 +${POINTS_PER_FLOW_RUN}；从 Lv.n 升到下一级要 n × ${POINTS_PER_LEVEL} 经验。返回的 mention 原样写进回复。`,
       inputSchema: z.object({}),
@@ -154,7 +194,7 @@ export function chatTools({ botId, store, emit, tasks, limits, models }: ChatCon
       description: '暂停（false）或恢复（true）你的一个例行任务。',
       inputSchema: z.object({ id: z.string(), isEnabled: z.boolean() }),
       execute: async ({ id, isEnabled }) => {
-        setRoutineEnabled(store, emit, botId, id, isEnabled)
+        patchRoutine(store, emit, botId, id, { isEnabled })
         return { ok: true }
       },
     }),
@@ -163,10 +203,7 @@ export function chatTools({ botId, store, emit, tasks, limits, models }: ChatCon
       inputSchema: z.object({ id: z.string(), flowId: OptionalId }),
       execute: async ({ id, flowId }) => {
         if (flowId) checkFlow(store, botId, flowId)
-        updateRoutines(store, emit, botId, (routines) => {
-          if (!routines.some((routine) => routine.id === id)) throw new Error(`没有 id 为 ${id} 的例行任务`)
-          return routines.map((routine) => (routine.id === id ? { ...routine, flowId } : routine))
-        })
+        patchRoutine(store, emit, botId, id, { flowId })
         return { ok: true }
       },
     }),
@@ -174,10 +211,7 @@ export function chatTools({ botId, store, emit, tasks, limits, models }: ChatCon
       description: '删除你的一个例行任务。',
       inputSchema: z.object({ id: z.string() }),
       execute: async ({ id }) => {
-        updateRoutines(store, emit, botId, (routines) => {
-          if (!routines.some((routine) => routine.id === id)) throw new Error(`没有 id 为 ${id} 的例行任务`)
-          return routines.filter((routine) => routine.id !== id)
-        })
+        patchRoutine(store, emit, botId, id, null)
         return { deleted: id }
       },
     }),
@@ -186,17 +220,18 @@ export function chatTools({ botId, store, emit, tasks, limits, models }: ChatCon
         '存一个流程：一套以后照着做的做法，显示在用户面板的「流程」里。带 id 就整条替换那个流程。返回的 mention 原样写进回复。',
       inputSchema: NewFlow,
       execute: async ({ id, ...fields }) => {
-        const now = Date.now()
+        const updatedAt = Date.now()
         const savedId = id ?? newId('f')
+        const saved = { saved: savedId, isNew: !id, mention: `[${fields.name}](flow:${savedId})` } satisfies FlowSaved
+        if (id) {
+          patchFlow(store, emit, botId, id, { ...fields, updatedAt })
+          return saved
+        }
         updateFlows(store, emit, botId, (flows) => {
-          if (id) {
-            if (!flows.some((flow) => flow.id === id)) throw new Error(`没有 id 为 ${id} 的流程`)
-            return flows.map((flow) => (flow.id === id ? { ...flow, ...fields, updatedAt: now } : flow))
-          }
           if (flows.length >= maxFlows) throw new Error(`最多 ${maxFlows} 个流程，先删掉不用的`)
-          return [...flows, { ...fields, id: savedId, updatedAt: now }]
+          return [...flows, { ...fields, id: savedId, updatedAt }]
         })
-        return { saved: savedId, isNew: !id, mention: `[${fields.name}](flow:${savedId})` } satisfies FlowSaved
+        return saved
       },
     }),
     delete_flow: tool({
@@ -210,10 +245,7 @@ export function chatTools({ botId, store, emit, tasks, limits, models }: ChatCon
             `${names}按这个流程做：先用 set_routine_flow 把它们换到别的流程或去掉流程，或者用 save_flow 改这个流程`,
           )
         }
-        updateFlows(store, emit, botId, (flows) => {
-          if (!flows.some((flow) => flow.id === id)) throw new Error(`没有 id 为 ${id} 的流程`)
-          return flows.filter((flow) => flow.id !== id)
-        })
+        patchFlow(store, emit, botId, id, null)
         return { deleted: id }
       },
     }),

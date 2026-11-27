@@ -18,7 +18,7 @@ const MAX_PAIRING_BODY_BYTES = 1000
 // what a device hears: chats, tasks and what the panel shows; debug reports, the pairing and the desktop's own windows stay here
 const DEVICE_EVENTS: ReadonlySet<HarnessEvent['kind']> = new Set([
   'entry',
-  'draft',
+  'streaming',
   'busy',
   'queued',
   'activity',
@@ -26,11 +26,13 @@ const DEVICE_EVENTS: ReadonlySet<HarnessEvent['kind']> = new Set([
   'bot-renamed',
   'routines',
   'flows',
+  'duty',
   'skills',
   'mini-apps',
   'mini-app-data',
   'library',
   'tasks',
+  'decisions',
   'models',
   'error',
 ])
@@ -95,8 +97,7 @@ export function createLanServer(options: Options) {
     if (path === REMOTE_API.pair && request.method === 'POST') {
       const ask = PairingAsk.safeParse(JSON.parse(await bodyOf(request, MAX_PAIRING_BODY_BYTES)))
       if (!ask.success) throw new HttpError(400, strings().main.lan.badDeviceName)
-      const { id, code } = await tryOr(409, () => pairing.start(ask.data))
-      return json(response, { id, code })
+      return json(response, await tryOr(409, () => pairing.start(ask.data)))
     }
     if (path.startsWith(`${REMOTE_API.pair}/`)) {
       const answer = await pairing.wait(path.slice(REMOTE_API.pair.length + 1), LONG_POLL_MS)

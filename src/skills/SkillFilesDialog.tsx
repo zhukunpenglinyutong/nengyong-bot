@@ -2,7 +2,7 @@ import { Suspense, use, useState } from 'react'
 import type { NengyongBotBridge } from '../../shared/bridge'
 import { type SkillFileView, type SkillRef, splitFrontmatter } from '../../shared/skill'
 import { strings } from '../../shared/strings'
-import { ipcErrorMessage } from '../ipcErrorMessage'
+import { ipcErrorMessage, type Loaded, settle } from '../ipcErrorMessage'
 import { Dialog } from '../ui/Dialog'
 import { Icon } from '../ui/Icon'
 import { IconButton } from '../ui/IconButton'
@@ -18,14 +18,6 @@ export interface SkillFilesTarget {
 }
 
 export type SkillReader = Pick<NengyongBotBridge, 'skillFiles' | 'skillFile'>
-
-type Loaded<T> = { kind: 'loaded'; value: T } | { kind: 'failed'; message: string }
-
-const settle = <T,>(promise: Promise<T>): Promise<Loaded<T>> =>
-  promise.then(
-    (value): Loaded<T> => ({ kind: 'loaded', value }),
-    (error): Loaded<T> => ({ kind: 'failed', message: ipcErrorMessage(error) }),
-  )
 
 interface Props {
   target: SkillFilesTarget

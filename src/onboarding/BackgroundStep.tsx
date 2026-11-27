@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import type { Bot } from '../../shared/bot'
 import type { TaskView } from '../../shared/bridge'
 import { BotAvatar } from '../bot/BotAvatar'
-import { IdleRow, TaskEndedRow, TasksRow } from '../island/BotIsland'
+import { IdleRow, TaskEndedRow, TasksRow } from '../island/IslandRows'
 import { Island } from '../island/Island'
 import { LevelUpCard } from '../island/LevelUpCard'
 import { pointsToNext, type Trust } from '../../shared/trust'
@@ -120,7 +120,7 @@ function islandAt(beat: number, boss: Bot): { view: string; content: ReactNode }
     case 4:
       return { view: 'done', content: <TaskEndedRow title={TASK_TITLE} isDone points={0} onClick={noop} /> }
     case 5:
-      return { view: 'level-up', content: <LevelUpCard bot={boss} level={2} /> }
+      return { view: 'level-up', content: <LevelUpCard bot={boss} from={1} level={2} /> }
     default: {
       const trust = beat >= 6 ? trustAt(2, 2) : trustAt(1, beat >= 1 ? 2 : 0)
       return { view: `idle-${trust.level}`, content: <IdleRow bot={boss} trust={trust} onClick={noop} /> }

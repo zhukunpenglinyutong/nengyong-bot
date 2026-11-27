@@ -2,7 +2,7 @@ import { AnimatePresence } from 'motion/react'
 import { useState } from 'react'
 import { ContextMenu, type MenuEntry } from '../ui/ContextMenu'
 import { IconButton } from '../ui/IconButton'
-import { timeLabel } from './chatMessages'
+import { timeLabel } from '../timeLabel'
 import { strings } from '../../shared/strings'
 
 interface Props {

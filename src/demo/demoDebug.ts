@@ -1,5 +1,6 @@
 import type { Entry } from '../../shared/bridge'
 import type { ContextMessage, ContextView, Trace } from '../../shared/debug'
+import { DEEPSEEK_MODEL } from '../../shared/modelServices'
 import { strings } from '../../shared/strings'
 
 const words = strings().demo
@@ -14,8 +15,8 @@ const DEMO_TOOLS = [
     description: words.debugTools.forget,
   },
   {
-    name: 'update_my_instructions',
-    description: words.debugTools.updateMyInstructions,
+    name: 'propose_duty',
+    description: words.debugTools.proposeDuty,
   },
   {
     name: 'update_my_name',
@@ -39,7 +40,7 @@ const DEMO_TOOLS = [
 export function demoContext(entries: Entry[]): ContextView {
   const kinds = (kind: Entry['kind']) => entries.filter((entry) => entry.kind === kind).length
   return {
-    model: 'deepseek-chat',
+    model: DEEPSEEK_MODEL,
     windowTokens: 131_072,
     sections: [
       {
@@ -76,6 +77,7 @@ export function demoContext(entries: Entry[]): ContextView {
         routine: kinds('routine'),
         'task-result': kinds('task-result'),
         'skill-answer': kinds('skill-answer'),
+        'duty-answer': kinds('duty-answer'),
         tool: kinds('tool'),
       },
     },

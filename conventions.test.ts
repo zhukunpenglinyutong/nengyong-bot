@@ -45,7 +45,7 @@ it('keeps arbitrary colours, font sizes, radii and shadows out of the components
   expect(violations).toEqual([])
 })
 
-// AGENTS.md「样式」: the cursor, hover tint and press reaction of a clickable come from the base layer in src/index.css
+// AGENTS.md「样式」: the cursor and hover tint of a clickable come from the base layer in src/index.css
 it('leaves the clickable feedback to src/index.css', () => {
   const violations = sourceFiles('src')
     .filter((file) => file.endsWith('.tsx') && !file.endsWith('.test.tsx'))
@@ -56,25 +56,23 @@ it('leaves the clickable feedback to src/index.css', () => {
           .matchAll(/\bcursor-(?:pointer|default|auto)\b|(?<![\w-])(?:hover|focus|focus-visible):bg-[\w/-]+/g),
       ].map(
         (match) =>
-          `${file}: ${match[0]} — drop it; a <button> already gets cursor, hover tint and press, disabled or aria-disabled turns them off`,
+          `${file}: ${match[0]} — drop it; a <button> already gets the cursor and hover tint, disabled or aria-disabled turns them off`,
       ),
     )
   expect(violations).toEqual([])
 })
 
-// the press scale makes a button the containing block of its ::after: a stretched one shrinks back to the button, so a click released over the rest of the card is lost
-it('keeps a button stretched over its card from shrinking when pressed', () => {
-  const violations = sourceFiles('src')
-    .filter((file) => file.endsWith('.tsx') && !file.endsWith('.test.tsx'))
-    .flatMap((file) =>
-      [...fs.readFileSync(file, 'utf8').matchAll(/className="([^"]*\bafter:inset-0\b[^"]*)"/g)]
-        .filter((match) => !/\bactive:scale-none\b/.test(match[1]))
-        .map(
-          (match) =>
-            `${file}: ${match[1]} — add active:scale-none to the button, and has-[button:active]:scale-97 to the card for the press`,
-        ),
-    )
-  expect(violations).toEqual([])
+// AGENTS.md「样式」: nothing shrinks while it is pressed; on a wide button the shrink shows as a gap at its edges
+it('never shrinks a clickable while it is pressed', () => {
+  const pressScale = /(?:active|:active\]):scale-[\w-]+|whileTap|:active\s*\{[^}]*\bscale\b/g
+  const violations = [
+    ...sourceFiles('src').filter((file) => !/\.test\.tsx?$/.test(file)),
+    path.join('src', 'index.css'),
+  ].flatMap((file) => [...fs.readFileSync(file, 'utf8').matchAll(pressScale)].map((match) => `${file}: ${match[0]}`))
+  expect(
+    violations,
+    'drop it: a press needs no reaction of its own, the hover tint already shows what is under the pointer',
+  ).toEqual([])
 })
 
 // AGENTS.md「样式」: a copy says on the spot whether it copied; useCopy is the one way to the clipboard
@@ -104,6 +102,47 @@ it('leaves the Enter and Escape of an input method to the input method', () => {
     violations,
     'on the same line, also check `!event.nativeEvent.isComposing` (a React event) or `!event.isComposing` (a DOM event)',
   ).toEqual([])
+})
+
+// AGENTS.md「React」: effects and timers need judgment to get right; they live only in the named hooks of src/ui and in useHarness
+it('keeps effects and timers out of components and domain hooks', () => {
+  const violations = sourceFiles('src')
+    .filter((file) => !/\.test\.tsx?$/.test(file) && !file.startsWith(path.join('src', 'ui', '')))
+    .filter((file) => file !== path.join('src', 'useHarness.ts'))
+    .filter(
+      (file) =>
+        file.endsWith('.tsx') ||
+        /^use[A-Z]/.test(path.basename(file)) ||
+        /\bfrom 'react'/.test(fs.readFileSync(file, 'utf8')),
+    )
+    .flatMap((file) =>
+      [
+        ...fs
+          .readFileSync(file, 'utf8')
+          .matchAll(/\b(?:useEffect|useLayoutEffect|setTimeout|setInterval|requestAnimationFrame)\b/g),
+      ].map((match) => `${file}: ${match[0]}`),
+    )
+  expect(
+    violations,
+    'derive it while rendering, do it in the event handler, reset state with a key, or sync through a named hook in src/ui',
+  ).toEqual([])
+})
+
+// AGENTS.md「文件与函数」: only export what another file uses; an export nobody reads is dead code that looks alive
+it('exports only what another file uses', () => {
+  const files = Object.keys(ALLOWED_IMPORTS).flatMap((dir) => sourceFiles(dir))
+  const texts = new Map(files.map((file) => [file, fs.readFileSync(file, 'utf8')]))
+  const violations = files
+    .filter((file) => !/\.test\.tsx?$/.test(file))
+    .flatMap((file) =>
+      [...(texts.get(file) ?? '').matchAll(/^export (?:async )?(?:function\*?|const|let|interface|type) (\w+)/gm)]
+        .map((match) => match[1])
+        .filter(
+          (name) => !files.some((other) => other !== file && new RegExp(`\\b${name}\\b`).test(texts.get(other) ?? '')),
+        )
+        .map((name) => `${file}: ${name}`),
+    )
+  expect(violations, 'drop the export, or delete it when the file does not use it either').toEqual([])
 })
 
 // AGENTS.md「文件与函数」: a file over the limit holds two concepts and has to be split

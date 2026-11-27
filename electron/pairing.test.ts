@@ -17,10 +17,14 @@ afterEach(() => vi.useRealTimers())
 
 const pairing = () => createPairing({ admit, onChange: (request) => asked.push(request) })
 
-it('asks this computer with a four-digit code', () => {
-  const request = pairing().start(IPHONE)
-  expect(request.code).toMatch(/^\d{4}$/)
-  expect(asked).toEqual([request])
+it('hands the asking browser a four-digit code', () => {
+  const { code } = pairing().start(IPHONE)
+  expect(code).toMatch(/^\d{4}$/)
+})
+
+it('asks this computer who wants in, without the code: only the asking device shows it', () => {
+  const { id } = pairing().start(IPHONE)
+  expect(asked).toEqual([{ id, ...IPHONE }])
 })
 
 it('replaces a request still waiting, so nobody can hold the one place to keep others out', async () => {
@@ -29,7 +33,7 @@ it('replaces a request still waiting, so nobody can hold the one place to keep o
   const answer = flow.wait(first.id, WAIT_MS)
   const second = flow.start(IPHONE)
   await expect(answer).resolves.toEqual({ status: 'gone' })
-  expect(asked.at(-1)).toEqual(second)
+  expect(asked.at(-1)).toEqual({ id: second.id, ...IPHONE })
 })
 
 it('hands the token to the waiting browser once the user types its code', async () => {

@@ -45,12 +45,6 @@ it('shows which models the bot works with, read only, and how to change them', a
   expect(within(panel).getByText(/想换模型，直接跟它说/)).toBeInTheDocument()
 })
 
-it('says sharing is not open yet when share is pressed', async () => {
-  const { user, panel } = await openChiefPanel()
-  await user.click(within(panel).getByRole('button', { name: '分享' }))
-  expect(within(panel).getByRole('status')).toHaveTextContent('暂未开放，敬请期待')
-})
-
 it('shows a running task with its progress, and stops it', async () => {
   const { user, panel } = await openChiefPanel({ isDebug: true })
   const running = within(panel).getByRole('list', { name: '进行中' })

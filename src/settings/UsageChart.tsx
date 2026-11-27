@@ -2,7 +2,7 @@ import { use, useRef, useState } from 'react'
 import { useElementSize } from '../ui/useElementSize'
 import { ColumnTip } from './ColumnTip'
 import { MeasureContext } from './measure'
-import type { Period, Periods } from './periods'
+import { byPeriod, type Period, type Periods } from './periods'
 import {
   type Dimension,
   KEY_OF,
@@ -10,7 +10,6 @@ import {
   type Segment,
   segmentsOf,
   type Totals,
-  totalsOf,
   type UsageNames,
 } from './usageStats'
 import { strings } from '../../shared/strings'
@@ -27,6 +26,7 @@ interface Props {
   periods: Periods
   records: Measured[] // of these periods
   colors: Map<string, string>
+  hasSeveralModels: boolean // then a column's tip splits it by model
   dimension: Dimension
   pointed: string | null // a key of `dimension`
   names: UsageNames
@@ -40,18 +40,16 @@ export interface Column {
 }
 
 /** The measure per day, or per hour of today, each column stacked by model; while a row of the list is pointed at, its part keeps its colours and the rest fades. */
-export function UsageChart({ periods, records, colors, dimension, pointed, names }: Props) {
+export function UsageChart({ periods, records, colors, hasSeveralModels, dimension, pointed, names }: Props) {
   const ref = useRef<HTMLDivElement>(null)
   const width = useElementSize(ref)?.width ?? 0
   const [hovered, setHovered] = useState<number | null>(null)
   const isPointed = pointed === null ? null : (record: Measured) => KEY_OF[dimension](record) === pointed
-  const columns = periods.list.map((period): Column => {
-    const ofPeriod = records.filter((record) => periods.idOf(record) === period.id)
-    return { period, records: ofPeriod, totals: totalsOf(ofPeriod), segments: segmentsOf(ofPeriod, colors, isPointed) }
-  })
+  const columns = byPeriod(periods, records).map(
+    (part): Column => ({ ...part, segments: segmentsOf(part.records, colors, isPointed) }),
+  )
   const layout = layoutOf(columns, width)
   const column = hovered === null ? undefined : columns[hovered]
-  const isByModel = new Set(records.map((record) => record.model)).size > 1
   return (
     <div ref={ref} className="relative mt-4 h-[196px]">
       {width > 0 && <Plot columns={columns} layout={layout} periods={periods} hovered={hovered} onHover={setHovered} />}
@@ -59,7 +57,7 @@ export function UsageChart({ periods, records, colors, dimension, pointed, names
         <ColumnTip
           column={column}
           place={tipPlace(hovered, layout)}
-          lineDimension={isByModel ? 'model' : dimension}
+          lineDimension={hasSeveralModels ? 'model' : dimension}
           dimension={dimension}
           pointed={pointed}
           colors={colors}

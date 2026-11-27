@@ -10,7 +10,7 @@ export type Notice =
   // a task the open bot started has ended; points: what it earned; fallbackFrom: its model, which the main one stood in for
   | { kind: 'task'; id: number; title: string; isDone: boolean; points: number; fallbackFrom?: string }
   | { kind: 'reply'; id: number; botId: string; text: string } // another bot replied
-  | { kind: 'level-up'; id: number; botId: string; level: number }
+  | { kind: 'level-up'; id: number; botId: string; from: number; level: number } // from: one entry can jump several levels
   | { kind: 'learned'; id: number; botId: string; flowId: string; name: string; isNew: boolean; points: number } // the open bot saved a flow; botId: the chat may change before it shows
   | { kind: 'skill-learned'; id: number; botId: string; names: string[] } // the user installed skills from the open chat's card; botId: whose they are
   // debug mode only, about the open bot's chat
@@ -52,19 +52,20 @@ export function islandNotices(state: Notices, event: NoticeEvent): Notices {
 // a save_flow record: its output is FlowSaved, unless the save failed
 const SavedFlow = z.object({ input: z.object({ name: z.string() }), output: FlowSaved })
 
-type Draft = Notice extends infer Each ? (Each extends Notice ? Omit<Each, 'id'> : never) : never
+type NewNotice = Notice extends infer Each ? (Each extends Notice ? Omit<Each, 'id'> : never) : never
 
-function noticesFor({ botId, activeId, entry, before, isDebug }: Extract<NoticeEvent, { kind: 'entry' }>): Draft[] {
+function noticesFor({ botId, activeId, entry, before, isDebug }: Extract<NoticeEvent, { kind: 'entry' }>): NewNotice[] {
   if (before.some((known) => known.seq === entry.seq)) return []
   if (botId !== activeId) return entry.kind === 'bot' ? [{ kind: 'reply', botId, text: entry.text }] : []
   const points = pointsOf(entry, before)
   const news = newsOf(entry, botId, isDebug, points)
   if (!points) return news
+  const from = trustOf(before).level
   const level = trustOf([...before, entry]).level
-  return level > trustOf(before).level ? [...news, { kind: 'level-up', botId, level }] : news
+  return level > from ? [...news, { kind: 'level-up', botId, from, level }] : news
 }
 
-function newsOf(entry: Entry, botId: string, isDebug: boolean, points: number): Draft[] {
+function newsOf(entry: Entry, botId: string, isDebug: boolean, points: number): NewNotice[] {
   if (entry.kind === 'task-result')
     return [
       { kind: 'task', title: entry.title, isDone: entry.status === 'done', points, fallbackFrom: entry.fallbackFrom },
@@ -83,7 +84,7 @@ function newsOf(entry: Entry, botId: string, isDebug: boolean, points: number): 
   return text ? [{ kind: 'remembered', text }] : []
 }
 
-function traceNotices({ botId, activeId, trace, before }: Extract<NoticeEvent, { kind: 'trace' }>): Draft[] {
+function traceNotices({ botId, activeId, trace, before }: Extract<NoticeEvent, { kind: 'trace' }>): NewNotice[] {
   if (botId !== activeId || trace.id !== botId) return [] // tasks already announce how they end
   const isNew = before?.startedAt !== trace.startedAt
   const hasJustEnded = trace.endedAt !== null && (isNew || before?.endedAt === null)
@@ -96,15 +97,15 @@ function traceNotices({ botId, activeId, trace, before }: Extract<NoticeEvent, {
   ]
 }
 
-function enqueue(state: Notices, draft: Draft): Notices {
-  const queue = state.queue.filter((notice) => !isSameNews(notice, draft))
-  return { queue: [...queue, { ...draft, id: state.nextId }], nextId: state.nextId + 1 }
+function enqueue(state: Notices, news: NewNotice): Notices {
+  const queue = state.queue.filter((notice) => !isSameNews(notice, news))
+  return { queue: [...queue, { ...news, id: state.nextId }], nextId: state.nextId + 1 }
 }
 
-function isSameNews(notice: Notice, draft: Draft): boolean {
-  if (notice.kind === 'reply' && draft.kind === 'reply') return notice.botId === draft.botId
-  if (notice.kind === 'compacted' && draft.kind === 'compacted') return true // one run can be reported twice before the first report is seen
-  if (notice.kind === 'level-up' && draft.kind === 'level-up')
-    return notice.botId === draft.botId && notice.level === draft.level
+function isSameNews(notice: Notice, news: NewNotice): boolean {
+  if (notice.kind === 'reply' && news.kind === 'reply') return notice.botId === news.botId
+  if (notice.kind === 'compacted' && news.kind === 'compacted') return true // one run can be reported twice before the first report is seen
+  if (notice.kind === 'level-up' && news.kind === 'level-up')
+    return notice.botId === news.botId && notice.level === news.level
   return false
 }

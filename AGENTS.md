@@ -106,11 +106,16 @@ src/        渲染进程（React）。只 import shared。
   | Message | 聊天窗口里渲染的一条，由 Entry 算出来 |
   | Thread | 界面里一个 Bot 的对话状态：记录、正在流式输出的回复、排队、错误、进度、预览、面板，由 bridge 的事件算出来 |
   | Section | 侧边栏里的一个分组 |
+  | dismissed | 离职的 Bot：用户在侧边栏菜单「离职…」、或主 Bot 用 dismiss_bot（用户同意了才用）让它离职后，它离开侧边栏，外形和原来的分组记在 `SidebarState.dismissed`，留 `DISMISSED_KEEP_DAYS`（7）天。设置「Bot 回收站」页（`DismissedSettings`）列出它们，期间点「恢复」回到原来的分组（分组不在了就回「其他」）；点「彻底删除」（`deleteBot`）把它的记忆、聊天记录、任务、流程、技能和小程序一起删掉，资料库里它写的文件留下。过了 7 天下次启动时只从回收站去掉，数据仍留在数据库里，只是再也找不回。离职期间不在 roster 里，例行任务不跑 |
   | Task | Bot 在后台做的一件事：一次运行、独立上下文，过程记在以它的 id 命名的 transcript 里，做完把结论投回发起方的聊天 |
   | Routine | Bot 的例行任务：到点（cron + 时区）把一段指令作为这个 Bot 的一个 Task 在后台跑，结论投回它的聊天；显示在面板「近况」里 |
-  | flow | 流程：Bot 存下来、以后照着做的一套做法（`shared/flow.ts` 的 `Flow`）：名字、什么时候用、步骤、注意事项。Bot 在聊天里用 save_flow 存和改（用户同意了才存），全部写进它的系统提示词；Task 和 Routine 可以按它的某个流程做（`flowId`），任务的系统提示词里带上那个流程。显示在面板「能力 · 流程」里，回复里写成 `[名字](flow:id)`，渲染成可点的流程名 |
-  | skill | 技能：别人写好、装给某个 Bot 的做事方法包（`shared/skill.ts` 的 `Skill`）：一个含 SKILL.md 的文件夹，加上脚本和资料，格式和 Claude Code 的 Skills 一样。文件在数据目录的 `skills/<Bot id>/<名字>/`，装了哪些记在那个 Bot 的 `BotBrain.skills`。一张确认卡（`SkillOffer`）列出指向的地方找到的所有技能（技能合集也是一张卡），用户勾选后点「装上」才装；找法照 `npx skills`：技能文件夹里嵌套的 SKILL.md 算它的一部分，`metadata.internal` 的不列，同名的留第一个，装不了的连同原因列在卡上。每个 Bot 最多 150 个。两种装法：在聊天里，Bot 用 install_skill 读出技能，卡出在聊天里，答复记成一条 `skill-answer` Entry；或在面板「能力 · 技能」里从电脑上传（`SkillUploader`）一个技能文件夹或 .zip、.skill 压缩包，卡出在面板里，不进聊天、不叫醒 Bot。从同一个 GitHub 仓库、或电脑上同一个文件夹或压缩包装来的技能是一个技能合集（`SkillCollections` 的 `collectionOf`），面板里按合集分组列出。卸载用 remove_skill（一次可以好几个）、面板里技能的「卸载」或合集的「全部卸载」。use_skill、install_skill、remove_skill 只认自己的技能，主 Bot 的认所有 Bot 的；技能文件夹不另设保护，后台任务的文件工具和 run_command 照样读写得到，和资料库之外的文件一样。提示词里只列名字和描述，SKILL.md 写了 `disable-model-invocation: true` 的（`isUserInvoked`）只列名字，用户点名才用；后台任务用 use_skill 读全文再照着做，技能说明里的 Skill tool 就是 use_skill。显示在面板「能力 · 技能」里，回复里写成 `[名字](skill:名字)`，别的 Bot 的写成 `[名字](skill:Bot id/名字)` |
-  | ability | 能力：面板里流程和技能合在一起的页签（`AbilitiesTab`），里面用两颗胶囊切换；工牌上的「能力」是它的流程数加它自己的技能数 |
+  | flow | 流程：Bot 存下来、以后照着做的一套做法（`shared/flow.ts` 的 `Flow`）：名字、什么时候用、步骤、注意事项。Bot 在聊天里用 save_flow 存和改（先用 ask_user 问，用户同意了才存），全部写进它的系统提示词；Task 和 Routine 可以按它的某个流程做（`flowId`），任务的系统提示词里带上那个流程。显示在面板「Bot 核心 · 流程」里，回复里写成 `[名字](flow:id)`，渲染成可点的流程名 |
+  | skill | 技能：别人写好、装给某个 Bot 的做事方法包（`shared/skill.ts` 的 `Skill`）：一个含 SKILL.md 的文件夹，加上脚本和资料，格式和 Claude Code 的 Skills 一样。文件在数据目录的 `skills/<Bot id>/<名字>/`，装了哪些记在那个 Bot 的 `BotBrain.skills`。一张确认卡（`SkillOffer`）列出指向的地方找到的所有技能（技能合集也是一张卡），用户勾选后点「装上」才装；找法照 `npx skills`：技能文件夹里嵌套的 SKILL.md 算它的一部分，`metadata.internal` 的不列，同名的留第一个，装不了的连同原因列在卡上。每个 Bot 最多 150 个。两种装法：在聊天里，Bot 用 install_skill 读出技能，卡进输入框上方的 decision 托盘，答复记成一条 `skill-answer` Entry；或在面板「Bot 核心 · 技能」里从电脑上传（`SkillUploader`）一个技能文件夹或 .zip、.skill 压缩包，卡出在面板里，不进聊天、不叫醒 Bot。从同一个 GitHub 仓库、或电脑上同一个文件夹或压缩包装来的技能是一个技能合集（`SkillCollections` 的 `collectionOf`），面板里按合集分组列出。卸载用 remove_skill（一次可以好几个）、面板里技能的「卸载」或合集的「全部卸载」。use_skill、install_skill、remove_skill 只认自己的技能，主 Bot 的认所有 Bot 的；技能文件夹不另设保护，后台任务的文件工具和 run_command 照样读写得到，和资料库之外的文件一样。提示词里只列名字和描述，SKILL.md 写了 `disable-model-invocation: true` 的（`isUserInvoked`）只列名字，用户点名才用；后台任务用 use_skill 读全文再照着做，技能说明里的 Skill tool 就是 use_skill。显示在面板「Bot 核心 · 技能」里，回复里写成 `[名字](skill:名字)`，别的 Bot 的写成 `[名字](skill:Bot id/名字)` |
+  | duty | 职责：Bot 为什么在这儿、要做到什么、怎么验收（`shared/duty.ts` 的 `Duty`），按 OKR 写：一句 purpose（为什么有它），最多 3 个 objective（目标：要的结果，不是动作），每个 1–4 条 key result（验收指标：数字、时间窗、数从哪来，带 Bot 用 report_progress 报的进度），加上不归它管的事。只有用户在职责卡（`DutyOffer`）上点「定下来」才改，每定一次升一版：Bot 用 propose_duty 出卡（主 Bot 能替别的 Bot 出），卡进输入框上方的 decision 托盘，答复记成 `duty-answer` Entry；同一个 Bot 有了新卡，旧卡作废。新 Bot 建好先开口问用户要什么结果（`welcome`），没定之前提示词让它一步步引导用户定；以前的一段 `instructions` 迁成没定的职责的 purpose。系统提示词里放在最前，面板「Bot 核心 · 职责」里显示 |
+  | ask | Bot 放到用户面前、等用户拿主意的一件事（`shared/decisions.ts` 的 `Ask`）：职责卡（propose_duty）、技能卡（install_skill）或问题（ask_user：一句问题加 2–4 个回答，Bot 建议的排第一）。工具记录就是它，不另存。聊天里原地是一行 `AskLine`：还在等时点了在托盘里打开它，之后是它的结果（定了、没装、你选了什么） |
+  | decision | 等你决定：还在等用户的 ask，由聊天记录算出来（`pendingDecisions`）：卡片没答复、也没被同一个 Bot 的新卡替代（技能卡还没过 30 分钟），问题之后用户还没写过话。贴在输入框上方的托盘里（`DecisionTray`）：收起是一行，只有一个问题时直接摆出回答；展开是清单，问题点回答，卡片点「看一看」在里面看全、在里面定；展开时聊天蒙一层纱，点它或按 Esc 收起。点回答就是替用户发一条引用这个问题的消息，用户也可以不点、直接打字回，问题就不再等。回答和「定下来」用用户气泡的颜色，Bot 建议的那个实心。各 Bot 有几件由 harness 算（`decisionCounts`，之后靠 `decisions` 事件），侧边栏的 bot status 显示成「等你」 |
+  | weekly review | 每周复盘：职责的开关，就是 Bot 名下一个每周一 9:00 的 Routine（`Duty.reviewRoutineId`），第一次打开时建，之后只暂停、恢复；在职责卡和面板「职责」里切换。结论回到聊天，Bot 用 report_progress 更新进度，要改的出新的职责卡 |
+  | ability | 能力：面板里职责、流程和技能合在一起的页签（`AbilitiesTab`，页签上写「Bot 核心」），里面用三颗胶囊切换，打开时是职责；工牌上的「能力」是它的流程数加它自己的技能数 |
   | mini app | 小程序：Bot 写的一个手机竖屏大小的单文件 HTML 页面，加上它放进去的数据（`shared/miniApp.ts` 的 `MiniApp`）。后台任务用 save_app 新做或改页面，每改一次页面就是一个新版本，版本号只跟页面走；update_app_data 只换数据，不升版本。页面和数据存在资料库的 `apps/<id>/` 下。显示在面板「小程序」里，回复里写成 `[名字](app:id)`，渲染成聊天卡片；点开是浮在应用上的窗口（`MiniAppWindow`：沙箱 iframe，不能联网），右上角胶囊能收起到浮窗（`MiniAppDock`）或关闭。收起的 5 分钟内还收任务放进来的新数据，之后挂起；关掉的保留 30 分钟，之后销毁，再打开要重新启动（`miniAppRuns`）。页面通过 `window.nengyongbot` 读数据、存回数据、替用户给 Bot 发消息 |
   | language | 应用的语言：简体中文或英文（`shared/language.ts` 的 `Language`）。设置「通用 · 地区」里选，存在 `home/language.json`，没选过就跟系统；设备跟着电脑，演示和没配对的页面跟着浏览器。换了窗口重新加载。界面上的字在 `shared/strings/`，见「语言」 |
   | timezone | 应用的时区：固定北京时间（`shared/timezone.ts` 的 `TIMEZONE`，即 `Asia/Shanghai`），不看本机时区。Bot 眼里的现在、例行任务的默认时区、界面上的时间都按它算；设置「通用 · 地区」里显示 |
@@ -126,7 +131,7 @@ src/        渲染进程（React）。只 import shared。
   | measure | 统计口径：用量页按什么算：花费（人民币或美元）、token 还是运行次数，在用量页右上角的下拉框选、记在 localStorage（`src/settings/measure.ts`），概览、图表和明细都跟着它。人民币按固定汇率 `CNY_PER_USD` 从美元折算；price 始终是美元 |
   | settings | 设置窗口及其数据。不用 key 代指 |
   | home | 应用目录，默认 `~/.nengyongbot`（`NENGYONGBOT_HOME` 可改）：加密的账号与它们的用处（`model.bin`）、界面语言（`language.json`）、MCP 配置、精细化配置、用户填的 price、局域网访问的开关与配对过的设备（`devices.json`，只存令牌的哈希）与数据目录 |
-  | device | 设备：用户放进来的手机、平板或别的电脑（`shared/devices.ts`）。它在浏览器里打开这台电脑的局域网地址，用的是这台电脑上的 Bot：聊天（也能停下回复）、看面板、开关例行任务、停任务、开小程序；设置、侧边栏编排和数据只在电脑上（`electron/lanAccess.ts` 的 `DEVICE_METHODS`）。界面是 `PhoneApp`：Bot 列表、点开的聊天、抽屉里的面板，没有 island（手机自己的灵动岛就在上面）。设置「设备」页列出它们，随时能移除 |
+  | device | 设备：用户放进来的手机、平板或别的电脑（`shared/devices.ts`）。它在浏览器里打开这台电脑的局域网地址，用的是这台电脑上的 Bot：聊天（也能停下回复）、看面板、开关例行任务、停任务、开小程序；设置、侧边栏编排和数据只在电脑上（`shared/devices.ts` 的 `DEVICE_METHODS`）。界面是 `PhoneApp`：Bot 列表、点开的聊天、抽屉里的面板，没有 island（手机自己的灵动岛就在上面）。设置「设备」页列出它们，随时能移除 |
   | LAN access | 局域网访问：设置「设备」页的开关，默认关。开着时主进程在 4317 端口开 HTTP 服务（`electron/lanServer.ts`）：给设备页面，转发它的 bridge 调用，用 server-sent events 推 `DEVICE_EVENTS` 里的事件。关掉时所有设备立刻断开，配对保留，再开时自己连回来 |
   | pairing | 配对：没连过的浏览器打开局域网地址时请求进来，它的屏幕上显示 4 位配对码，用户在电脑弹出的确认框（`PairingDialog`）里输入这组码，对上了它才拿到设备 Cookie。码只在发请求的那台设备上，别人同时发来的请求放不进来。同一时间只留最新的一个请求，2 分钟没答复就作废 |
   | dataDir | 数据目录，默认 `home/data`，可在设置里移到别处（新位置记在 `home/data-dir.txt`）：`nengyongbot.db` 与 `library/` |
@@ -146,7 +151,7 @@ src/        渲染进程（React）。只 import shared。
   | island | 聊天顶部的黑色胶囊（`src/island/`）：平时是 Bot 和它的等级，有后台任务时显示任务，来了 notice 就变形显示，点开是详情卡。这一轮回复的进度不上岛，留在消息下面；调试模式例外：平时多一段上下文用量，回复时显示第几步，点开是 `DebugCard` |
   | trust | 信任：由一个 Bot 的聊天记录算出的经验（`trustOf`；对话、沉淀新流程、按流程把任务做成各加不同的经验，界面上叫「经验」），决定它的等级 Lv.1–99、头像外圈的进度和段位；点开灵动岛后点等级徽章，卡片翻到等级说明（`LevelGuide`） |
   | notice | island 上自己会消失的消息：开着的 Bot 的任务结束、别的 Bot 回复、升级、学会或改了流程；调试模式下还有记住了、上下文已压缩、步数用完 |
-  | bot status | Bot 状态：侧边栏上一个 Bot 此刻在做什么，不是任务的 `status`（`src/sidebar/botStatus.ts` 的 `BotStatus`），按顺序取第一个成立的：没跑成（它最后结束的任务失败了，而且是在用户上次打开或离开它的聊天之后，记在 `SidebarState` 的 `seenAt`；正开着的不算）、回复中、跑任务、排队、空闲。头像右下角的圆点（`StatusDot`：绿色转圈是在干活，灰色三点是排队，红色 ! 是没跑成）、名字下面那一行（空闲时还是最后一句回复）、收起的分组标题右边的计数、搜索框里能点来筛选的计数都由它算；鼠标停在 Bot 上浮出 `BotStatusCard`：失败原因、正在做的事、例行任务。启动时没打开过的 Bot 的任务和例行任务由 `tasksAndRoutines` 一次带回 |
+  | bot status | Bot 状态：侧边栏上一个 Bot 此刻在做什么，不是任务的 `status`（`src/sidebar/botStatus.ts` 的 `BotStatus`），按顺序取第一个成立的：没跑成（它最后结束的任务失败了，而且是在用户上次打开或离开它的聊天之后，记在 `SidebarState` 的 `seenAt`；正开着的不算）、回复中、跑任务、排队、等你（聊天里有 decision）、空闲。头像右下角的圆点（`StatusDot`：绿色转圈是在干活，灰色三点是排队，蓝色 ? 是等你，红色 ! 是没跑成）、名字下面那一行（空闲时还是最后一句回复）、收起的分组标题右边的计数、搜索框里能点来筛选的计数都由它算；鼠标停在 Bot 上浮出 `BotStatusCard`：失败原因、正在做的事、例行任务。启动时没打开过的 Bot 的任务和例行任务由 `tasksAndRoutines` 一次带回 |
   | onboarding | 还没走过引导时（新用户，或引导上线前就有数据的老用户）盖在应用上的引导（`src/onboarding/`）：给主 Bot 起名、问用户称呼、讲 Bot 能做什么、接模型、按身份招 Bot，最后新 Bot 飞进侧边栏、主 Bot 先开口；走完之前什么都不存 |
   | identity | 引导里用户选的身份（程序员、产品经理……）：每个身份带 5 个可招的 Bot 和几条建议 |
   | MCP | 用户接入的 MCP 服务：配置存在 `home/mcp.json`（Claude Desktop 的 mcpServers 格式），在设置「工具」页编辑；工具只给 Task，名字是「服务名__工具名」 |
@@ -170,7 +175,7 @@ src/        渲染进程（React）。只 import shared。
 - **按概念拆。** 一个文件一个概念。需要 `// ---- 分隔线 ----` 的文件是两个文件。函数过 50 行，先怀疑里面混了两个概念。
 - **一个源码文件最多 500 行，测试文件不限。** 超了必须拆，沿概念的边界拆，不是在第 500 行切一刀。`conventions.test.ts` 会拦。
 - **主角在最上面。** 文件以它命名的那个导出放第一个，辅助函数按调用顺序排在下面。
-- **只导出别的文件真正在用的。** 只用具名导出（Biome 会拦），不建 `index.ts`。
+- **只导出别的文件真正在用的。** 没人用的导出 `conventions.test.ts` 会拦；只用具名导出（Biome 会拦），不建 `index.ts`。
 - **不为"以后"留东西。** 没接线的按钮、没人用的 token、只有一个调用点的选项，都删。让代码变死的那次改动负责删掉它。
 - **只用一次的 helper 就地内联**，除非它本身是一个值得起名的概念。
 - 顶层具名函数用 `function`，回调和单表达式用箭头。
@@ -244,7 +249,7 @@ src/        渲染进程（React）。只 import shared。
 - **不传"回调包"。** 一个 prop 里塞了一堆回调，说明状态放错了层；跨三层以上再用 context。
 - **hook 返回数据和函数，不返回 JSX。**
 - 几份 `Record<id, …>` 被同一串事件更新时，合成一个 reducer：`(state, event) => state`。
-- **组件和领域 hook 里不写 `useEffect`、`useLayoutEffect`，也不用 `setTimeout`、`requestAnimationFrame` 等渲染或排先后。** 它们需要判断才能用对，Agent 最常用错。按情况换成：
+- **组件和领域 hook 里不写 `useEffect`、`useLayoutEffect`，也不用 `setTimeout`、`requestAnimationFrame` 等渲染或排先后。** 它们需要判断才能用对，Agent 最常用错。`conventions.test.ts` 会拦。按情况换成：
   - 能从 props、state 算出来的：渲染时直接算。
   - 用户操作引起的：写在事件处理函数里。
   - prop 变了要重置状态：给组件换 `key`。
@@ -274,7 +279,7 @@ src/        渲染进程（React）。只 import shared。
   <button role="switch" aria-checked={on} className="h-5 w-8 bg-line aria-checked:bg-ink" />
   ```
 
-- **能点的就用 `<button>` 或 `<a href>`，三种反馈由 `src/index.css` 的 base 层统一给出：** 小手；悬停和键盘聚焦时，在按钮原有背景上叠一层 8% 的文字色（白底变灰，黑底变亮）；按下时缩到 0.97。组件里不写 `cursor-pointer`、`cursor-default`，也不写 `hover:bg-*`、`focus:bg-*`。选中态照常写（`aria-current:bg-hover`），悬停叠色会自动叠在它上面。不能点的时候用 `disabled` 或 `aria-disabled`，三种反馈会一起去掉。`<div onClick>` Biome 会拦，其余写法 `conventions.test.ts` 会拦。
+- **能点的就用 `<button>` 或 `<a href>`，两种反馈由 `src/index.css` 的 base 层统一给出：** 小手；悬停和键盘聚焦时，在按钮原有背景上叠一层 8% 的文字色（白底变灰，黑底变亮）。按下时什么都不变，不缩放（`active:scale-*`、`whileTap` 都不写）：宽的按钮一缩，两边会露出一道缝。组件里不写 `cursor-pointer`、`cursor-default`，也不写 `hover:bg-*`、`focus:bg-*`。选中态照常写（`aria-current:bg-hover`），悬停叠色会自动叠在它上面。不能点的时候用 `disabled` 或 `aria-disabled`，两种反馈会一起去掉。`<div onClick>` Biome 会拦，其余写法 `conventions.test.ts` 会拦。
 - **点下去，结果要看得见。** 结果自己就在眼前的（开关翻过来、列表变了、窗口开了）不用另说；结果不在眼前的（复制、自动保存、存到别处），就在用户点的地方说一句，过两秒自己消失：用 `ui/useFlash`，比如按钮文字换成「已保存」。失败一定要说出来，不能只进 console。复制只走 `ui/useCopy`，菜单项写 `copy: 文本`，两者都会在原地显示「已复制」或「复制失败」（`conventions.test.ts` 会拦）。
 - **重复的样式抽成组件，不导出 class 字符串常量。** 要的是 `<IconButton>`，不是 `circleBtn`。
 - class 串写在一行，不在模板字符串里换行。

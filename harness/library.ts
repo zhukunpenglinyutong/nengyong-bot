@@ -1,26 +1,12 @@
 import path from 'node:path'
 import { z } from 'zod'
+import { mediaType } from '../shared/attachment'
 import type { LibraryItem } from '../shared/bridge'
 import { strings } from '../shared/strings'
 import type { Store } from './store'
 import type { Workspace } from './workspace'
 
-const KIND_BY_EXTENSION: Record<string, LibraryItem['kind']> = {
-  '.md': 'doc',
-  '.markdown': 'doc',
-  '.txt': 'doc',
-  '.png': 'media',
-  '.jpg': 'media',
-  '.jpeg': 'media',
-  '.gif': 'media',
-  '.webp': 'media',
-  '.heic': 'media',
-  '.mp4': 'media',
-  '.mov': 'media',
-  '.mp3': 'media',
-  '.m4a': 'media',
-  '.wav': 'media',
-}
+const DOC_EXTENSIONS = new Set(['.md', '.markdown', '.txt'])
 
 const WriteResult = z.object({ written: z.string() })
 
@@ -44,4 +30,7 @@ export function libraryFile(workspace: Workspace, wanted: string) {
   return { absolute, kind: kindOf(absolute) }
 }
 
-const kindOf = (file: string) => KIND_BY_EXTENSION[path.extname(file).toLowerCase()] ?? 'file'
+function kindOf(file: string): LibraryItem['kind'] {
+  if (DOC_EXTENSIONS.has(path.extname(file).toLowerCase())) return 'doc'
+  return mediaType(file) ? 'media' : 'file'
+}

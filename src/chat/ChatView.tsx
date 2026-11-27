@@ -2,16 +2,19 @@ import { AnimatePresence, motion } from 'motion/react'
 import { type DragEvent, type ReactNode, useReducer, useRef, useState } from 'react'
 import type { Bot } from '../../shared/bot'
 import { isUnfinished, type TaskView } from '../../shared/bridge'
-import type { Flow } from '../../shared/flow'
+import { pendingDecisions } from '../../shared/decisions'
 import type { MiniApp } from '../../shared/miniApp'
 import { plainText } from '../../shared/plainText'
 import type { SidebarState } from '../../shared/sidebar'
-import type { SkillView } from '../../shared/skill'
-import type { SkillFilesTarget } from '../skills/SkillFilesDialog'
+import type { SkillUploadKind } from '../../shared/skill'
 import type { SendKey } from '../preferences'
 import { BotAvatar } from '../bot/BotAvatar'
+import type { Thread } from '../harnessState'
 import { ViewingMiniApp } from '../miniApp/ViewingMiniApp'
+import { useNavigation } from '../NavigationContext'
+import { progressOf } from '../progressOf'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
+import type { MenuEntry } from '../ui/ContextMenu'
 import { Icon } from '../ui/Icon'
 import { IconButton } from '../ui/IconButton'
 import { EASE_SHARP, ENTER } from '../ui/motion'
@@ -20,60 +23,37 @@ import { taskProgressLabel } from '../taskProgressLabel'
 import { useKeyDown } from '../ui/useKeyDown'
 import { useNow } from '../ui/useNow'
 import { useStickToBottom } from '../ui/useStickToBottom'
-import type { Message } from './chatMessages'
+import { chatMessages } from './chatMessages'
 import { Composer } from './Composer'
+import { DecisionTray, type TrayView } from './DecisionTray'
 import { MentionContext } from './MentionContext'
 import { MessageList } from './MessageList'
 import { SelectBar } from './SelectBar'
 import { selectableMessages, selectionOf } from './selection'
 import { ShareDialog } from './ShareDialog'
+import { type DraftChange, type Drafts, fillWith, useDraft } from './drafts'
 import { strings } from '../../shared/strings'
 
 interface Props {
   bot: Bot
   sidebar: SidebarState // its bots resolve [name](bot:id) mentions in replies; an @ in the message box offers them
-  messages: Message[]
+  thread: Thread
   bubbleColor?: string // fills the user's bubbles; without one they are ink
   sendKey: SendKey
-  progress?: { label: string; since: number } // set while the bot is working
-  tasks: TaskView[] // its background tasks; the unfinished ones show under the chat while it is not replying
   attachmentUrl: (path: string) => string
   onOpenFile: (path: string) => void // a file a reply links to, in the library
   onSend: (text: string, files: File[], quoteSeq: number | null) => boolean // false: refused (the thread says why), keep what was typed
   onStopReply: () => void
   onDelete: (seqs: number[]) => void
-  onOpenBot: (botId: string) => void
-  flows: Flow[] // for resolving [name](flow:id) mentions in replies
-  onOpenFlow: (flowId: string) => void
-  skills: SkillView[] // for resolving [name](skill:…) mentions in replies
-  onOpenSkill: (botId: string, name: string) => void
-  onAnswerSkillOffer?: (offer: string, names: string[]) => Promise<void> // an install card's buttons; absent on a device, which only looks
-  onOpenSkillFiles: (target: SkillFilesTarget) => void
-  miniApps: MiniApp[] // for resolving [name](app:id) links in replies
-  onOpenMiniApp: (miniAppId: string, from: Element) => void
   thumbUrl: (app: MiniApp) => string
   viewing: MiniApp | undefined // the mini app of this bot open now: what a message sent now is about
-  fill: ComposerFill // the latest text put in the message box from outside it
-  onFill: (text: string) => void
+  drafts: Drafts
   island: ReactNode
   isPanelOpen: boolean
   onTogglePanel: () => void
+  onAnswerDuty?: (offer: string, isAccepted: boolean, isReviewOn: boolean) => Promise<void> // absent on a device
+  onUploadSkill?: (kind: SkillUploadKind) => void // absent on a device: skills are uploaded on the computer
 }
-
-/** A text put in the message box for the user to finish and send; a new count replaces what was typed. */
-export interface ComposerFill {
-  text: string
-  count: number
-}
-
-/** What is written to one bot and not sent yet; each bot keeps its own while another is open. */
-interface Draft {
-  text: string
-  files: File[]
-  quote: { seq: number; text: string } | null
-}
-
-const EMPTY_DRAFT: Draft = { text: '', files: [], quote: null }
 
 /** A mention clicked in `from`'s chat, scrolled to `scrollTop`, that opened `to`. */
 interface Jump {
@@ -85,54 +65,38 @@ interface Jump {
 export function ChatView({
   bot,
   sidebar,
-  messages,
+  thread,
   bubbleColor,
   sendKey,
-  progress,
-  tasks,
   attachmentUrl,
   onOpenFile,
   onSend,
   onStopReply,
   onDelete,
-  onOpenBot,
-  flows,
-  onOpenFlow,
-  skills,
-  onOpenSkill,
-  onAnswerSkillOffer,
-  onOpenSkillFiles,
-  miniApps,
-  onOpenMiniApp,
   thumbUrl,
   viewing,
-  fill,
-  onFill,
+  drafts,
   island,
   isPanelOpen,
   onTogglePanel,
+  onAnswerDuty,
+  onUploadSkill,
 }: Props) {
   const words = strings().chat.view
-  const [drafts, setDrafts] = useState<Record<string, Draft>>({})
-  const draft = drafts[bot.id] ?? EMPTY_DRAFT
-  const editDraft = (changes: (current: Draft) => Partial<Draft>) =>
-    setDrafts((all) => {
-      const current = all[bot.id] ?? EMPTY_DRAFT
-      return { ...all, [bot.id]: { ...current, ...changes(current) } }
-    })
-  const [fillCount, setFillCount] = useState(fill.count)
-  if (fillCount !== fill.count) {
-    setFillCount(fill.count)
-    editDraft(() => ({ text: fill.text }))
-  }
+  const draft = useDraft(drafts, bot.id)
+  const editDraft = (change: DraftChange) => drafts.edit(bot.id, change)
+  const { openBot } = useNavigation()
   const [isDraggingFiles, setIsDraggingFiles] = useState(false)
   const [jumps, setJumps] = useState<Jump[]>([]) // the mention clicks that led to this chat, latest last
   const [selection, dispatchSelection] = useReducer(selectionOf, null)
   const [deleting, setDeleting] = useState<number[] | null>(null) // asking before these messages are deleted
   const [isSharing, setIsSharing] = useState(false)
+  const [trayView, setTrayView] = useState<TrayView>('closed')
+  const [answered, setAnswered] = useState<string[]>([]) // refs of questions answered here, until the reply reaches the chat
   const [shownBotId, setShownBotId] = useState(bot.id)
   if (shownBotId !== bot.id) {
     setShownBotId(bot.id)
+    setTrayView('closed')
     if (jumps.at(-1)?.to !== bot.id) setJumps([]) // opened from the sidebar, a notice, the island: no way back
     dispatchSelection({ kind: 'end' })
     setDeleting(null) // its seqs belong to the chat that was open
@@ -142,18 +106,24 @@ export function ChatView({
   const backBot = back && sidebar.bots.find((candidate) => candidate.id === back.from)
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLDivElement>(null)
+  const messages = chatMessages(thread, bot, sidebar.bots)
+  const progress = progressOf(thread)
   const last = messages.at(-1)
   const suggestions = last?.kind === 'bot' ? last.suggestions : undefined
-  const running = tasks.filter(isUnfinished)
+  const running = thread.panel.tasks.filter(isUnfinished)
   const selectable = selectableMessages(messages)
   const picked = selection ? selectable.filter((message) => selection.seqs.includes(message.seq)) : []
   const pickedSeqs = picked.map((message) => message.seq)
   const addFiles = (added: File[]) => editDraft(({ files }) => ({ files: [...files, ...added] }))
   const scroll = useStickToBottom(scrollRef, bot.id)
+  const decisions = pendingDecisions(thread.entries, Date.now()).filter(
+    ({ seq }) => !answered.includes(`${bot.id}#${seq}`),
+  )
+  const isTrayOpen = decisions.length > 0 && trayView !== 'closed'
 
   const send = (text: string) => {
     if (!onSend(text, draft.files, draft.quote?.seq ?? null)) return false
-    editDraft(() => EMPTY_DRAFT)
+    editDraft(() => ({ text: '', files: [], quote: null }))
     scroll.stick()
     return true
   }
@@ -161,19 +131,35 @@ export function ChatView({
   const jumpTo = (botId: string) => {
     if (botId !== bot.id)
       setJumps([...jumps, { from: bot.id, to: botId, scrollTop: scrollRef.current?.scrollTop ?? 0 }])
-    onOpenBot(botId)
+    openBot(botId)
   }
 
   const goBack = (jump: Jump) => {
     setJumps(jumps.slice(0, -1))
     scroll.startNextAt(jump.scrollTop)
-    onOpenBot(jump.from)
+    openBot(jump.from)
+  }
+
+  const answerQuestion = (seq: number, answer: string) => {
+    if (!onSend(answer, [], seq)) return
+    setAnswered([...answered, `${bot.id}#${seq}`])
+    scroll.stick()
+  }
+
+  // a question is answered in the list; a card opens in full
+  const openAsk = (seq: number) => {
+    const decision = decisions.find((candidate) => candidate.seq === seq)
+    if (decision) setTrayView(decision.ask.kind === 'question' ? 'list' : seq)
   }
 
   const startQuote = (seq: number, text: string) => {
     editDraft(() => ({ quote: { seq, text } }))
     inputRef.current?.focus()
   }
+
+  useKeyDown(isTrayOpen && selection === null, (event) => {
+    if (event.key === 'Escape' && !event.isComposing) setTrayView('closed')
+  })
 
   useKeyDown(selection !== null && deleting === null && !isSharing, (event) => {
     if (event.key === 'Escape' && !event.isComposing) return dispatchSelection({ kind: 'end' })
@@ -230,28 +216,23 @@ export function ChatView({
               chatBotId: bot.id,
               bots: sidebar.bots,
               open: jumpTo,
-              flows,
-              openFlow: onOpenFlow,
-              miniApps,
-              openMiniApp: onOpenMiniApp,
+              flows: thread.panel.flows,
+              miniApps: thread.panel.miniApps,
               thumbUrl,
-              fileUrl: attachmentUrl,
+              attachmentUrl,
               openFile: onOpenFile,
-              skills,
-              openSkill: onOpenSkill,
-              answerSkillOffer: onAnswerSkillOffer,
-              openSkillFiles: onOpenSkillFiles,
+              skills: thread.panel.skills,
             }}
           >
             <MessageList
               key={bot.id}
               messages={messages}
               bubbleColor={bubbleColor}
-              attachmentUrl={attachmentUrl}
               selection={selection}
               onQuote={startQuote}
               onSelection={dispatchSelection}
               onDelete={(seq) => setDeleting([seq])}
+              onOpenAsk={openAsk}
             />
             <AnimatePresence>
               {isSharing && (
@@ -264,7 +245,7 @@ export function ChatView({
               )}
             </AnimatePresence>
           </MentionContext>
-          {suggestions && <Suggestions texts={suggestions} onPick={onFill} />}
+          {suggestions && <Suggestions texts={suggestions} onPick={(text) => editDraft(fillWith(text))} />}
           {progress ? (
             <ProgressRow bot={bot} label={progress.label} since={progress.since} />
           ) : (
@@ -288,25 +269,59 @@ export function ChatView({
           onExit={() => dispatchSelection({ kind: 'end' })}
         />
       ) : (
-        <Composer
-          key={`${bot.id}:${fill.count}`}
-          initialDraft={draft.text}
-          placeholder={draft.quote ? words.replyPlaceholder : words.messagePlaceholder(bot.name)}
-          quote={draft.quote ? plainText(draft.quote.text) : undefined}
-          viewing={viewing && <ViewingMiniApp app={viewing} />}
-          inputRef={inputRef}
-          sidebar={sidebar}
-          botId={bot.id}
-          files={draft.files}
-          sendKey={sendKey}
-          isReplying={Boolean(progress)}
-          onStop={onStopReply}
-          onAddFiles={addFiles}
-          onRemoveFile={(index) => editDraft(({ files }) => ({ files: files.filter((_, at) => at !== index) }))}
-          onCancelQuote={() => editDraft(() => ({ quote: null }))}
-          onDraftChange={(text) => editDraft(() => ({ text }))}
-          onSend={send}
-        />
+        <>
+          <AnimatePresence>
+            {isTrayOpen && (
+              <motion.button
+                type="button"
+                tabIndex={-1}
+                aria-hidden="true"
+                onClick={() => setTrayView('closed')}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="absolute inset-0 z-[2] bg-canvas/70 bg-none backdrop-blur-xs"
+              />
+            )}
+          </AnimatePresence>
+          <div className="relative z-[3] flex flex-col">
+            <DecisionTray
+              decisions={decisions}
+              view={trayView}
+              onView={setTrayView}
+              bot={bot}
+              bots={sidebar.bots}
+              accent={bubbleColor}
+              onAnswer={answerQuestion}
+              onAnswerDuty={onAnswerDuty}
+            />
+            <Composer
+              key={`${bot.id}:${draft.fills}`}
+              initialDraft={draft.text}
+              placeholder={draft.quote ? words.replyPlaceholder : words.messagePlaceholder(bot.name)}
+              quote={draft.quote ? plainText(draft.quote.text) : undefined}
+              viewing={viewing && <ViewingMiniApp app={viewing} />}
+              inputRef={inputRef}
+              sidebar={sidebar}
+              botId={bot.id}
+              files={draft.files}
+              menu={composerMenu(
+                thread.panel.duty.objectives.length > 0,
+                (text) => editDraft(fillWith(text)),
+                onUploadSkill,
+              )}
+              sendKey={sendKey}
+              isReplying={Boolean(progress)}
+              onStop={onStopReply}
+              onAddFiles={addFiles}
+              onRemoveFile={(index) => editDraft(({ files }) => ({ files: files.filter((_, at) => at !== index) }))}
+              onCancelQuote={() => editDraft(() => ({ quote: null }))}
+              onDraftChange={(text) => editDraft(() => ({ text }))}
+              onSend={send}
+            />
+          </div>
+        </>
       )}
       <AnimatePresence>
         {deleting && (
@@ -359,6 +374,24 @@ function Suggestions({ texts, onPick }: { texts: string[]; onPick: (text: string
       ))}
     </motion.div>
   )
+}
+
+/** What the message box's plus offers besides attaching files: settle the duty, save a flow, upload a skill. */
+function composerMenu(hasDuty: boolean, fill: (text: string) => void, onUploadSkill?: (kind: SkillUploadKind) => void) {
+  const words = strings().chat.composer
+  const duty = strings().bot.duty
+  const upload = strings().skills.upload
+  const entries: MenuEntry[] = [
+    { label: words.planDuty, icon: 'target', onSelect: () => fill(hasDuty ? duty.adjustStarter : duty.planStarter) },
+    { label: words.saveFlow, icon: 'flow', onSelect: () => fill(words.saveFlowStarter) },
+  ]
+  if (!onUploadSkill) return entries
+  const kinds: MenuEntry[] = [
+    { label: upload.folder, icon: 'folder', onSelect: () => onUploadSkill('folder') },
+    { label: upload.archive, icon: 'file', detail: upload.archiveTypes, onSelect: () => onUploadSkill('archive') },
+  ]
+  const uploadSkill: MenuEntry = { label: words.uploadSkill, icon: 'skill', submenu: kinds }
+  return [...entries, uploadSkill]
 }
 
 /** Working row: the bot's avatar plus a shimmering line saying what it is doing, with elapsed time after a minute. */

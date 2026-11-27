@@ -4,6 +4,10 @@ import type { Strings } from '../../strings'
 export const skills: Strings['skills'] = {
   names: (names) =>
     names.length > 3 ? `${names.slice(0, 3).join(', ')} and ${names.length - 3} more` : names.join(', '),
+  source: {
+    gitHub: (repo) => `From ${repo}`,
+    folder: 'Local folder',
+  },
   list: {
     title: 'Skills',
     intro:
@@ -32,8 +36,6 @@ export const skills: Strings['skills'] = {
   detail: {
     back: 'Back to skills',
     version: (version) => `v${version}`,
-    fromGitHub: (repo) => `From ${repo}`,
-    fromFolder: 'Local folder',
     installedOn: (date) => `installed ${date}`,
     owner: (name) => `${name}’s skill; you can use it too`,
     when: 'When to use it',
@@ -74,7 +76,6 @@ export const skills: Strings['skills'] = {
     scripts: (count) => plural(count, 'script'),
     moreScripts: (count) => `${count} more, under “View files”`,
     files: (count) => plural(count, 'file'),
-    fromFolder: 'Local folder',
     replaces: (version) => (version ? `Replaces the installed v${version}` : 'Replaces the installed one'),
     viewFiles: 'View files',
     onComputer: 'Decide on the computer',

@@ -3,11 +3,10 @@ import type { MouseEvent } from 'react'
 import { flushSync } from 'react-dom'
 import type { Theme } from '../preferences'
 import { Icon } from './Icon'
-import { SPRING } from './motion'
+import { EASE_SHARP, SPRING } from './motion'
 import { strings } from '../../shared/strings'
 
 const REVEAL_MS = 560
-const REVEAL_EASE = 'cubic-bezier(0.165, 0.84, 0.44, 1)'
 const SHOWN = { opacity: 1, rotate: 0, scale: 1 }
 const SUN_GONE = { opacity: 0, rotate: 90, scale: 0.4 }
 const MOON_GONE = { opacity: 0, rotate: -90, scale: 0.4 }
@@ -66,7 +65,11 @@ function revealFrom(button: HTMLElement, apply: () => void) {
     .then(() =>
       document.documentElement.animate(
         { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${radius}px at ${x}px ${y}px)`] },
-        { duration: REVEAL_MS, easing: REVEAL_EASE, pseudoElement: '::view-transition-new(root)' },
+        {
+          duration: REVEAL_MS,
+          easing: `cubic-bezier(${EASE_SHARP.join(', ')})`,
+          pseudoElement: '::view-transition-new(root)',
+        },
       ),
     )
     .catch(() => {}) // skipped, e.g. by a second click mid-reveal: the theme is already applied, only the animation is lost

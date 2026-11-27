@@ -3,24 +3,23 @@ import { useState } from 'react'
 import type { SkillSource, SkillView } from '../../shared/skill'
 import { strings } from '../../shared/strings'
 import { PanelCard } from '../bot/PanelCard'
-import { dateTimeLabel } from '../chat/chatMessages'
+import { useNavigation } from '../NavigationContext'
+import { dateTimeLabel } from '../timeLabel'
 import { ipcErrorMessage } from '../ipcErrorMessage'
 import { Collapsible } from '../ui/Collapsible'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { Icon } from '../ui/Icon'
-import type { SkillKey } from './SkillsTab'
 
 interface Props {
   skills: SkillView[] // one bot's
   botName: string // whose they are
   expanded: string[] // the collections open, as `botId/collection id`; the rest are folded
   onToggle: (key: string) => void
-  onOpen: (skill: SkillKey) => void
   onRemove?: (names: string[]) => Promise<void> // absent on a device: skills are removed on the computer
 }
 
 /** One bot's skills under the collection each came from, in the order they were installed, folded until opened. */
-export function SkillCollections({ skills, botName, expanded, onToggle, onOpen, onRemove }: Props) {
+export function SkillCollections({ skills, botName, expanded, onToggle, onRemove }: Props) {
   const collections = Map.groupBy(skills, (skill) => collectionOf(skill.source).id)
   return (
     <div className="flex flex-col gap-1">
@@ -33,7 +32,6 @@ export function SkillCollections({ skills, botName, expanded, onToggle, onOpen, 
             botName={botName}
             isOpen={expanded.includes(key)}
             onToggle={() => onToggle(key)}
-            onOpen={onOpen}
             onRemove={onRemove}
           />
         )
@@ -51,7 +49,7 @@ function collectionOf(source: SkillSource) {
   return { id: source.root, name: source.root.split(/[\\/]/).filter(Boolean).at(-1) ?? source.root }
 }
 
-interface CollectionProps extends Pick<Props, 'skills' | 'botName' | 'onOpen' | 'onRemove'> {
+interface CollectionProps extends Pick<Props, 'skills' | 'botName' | 'onRemove'> {
   isOpen: boolean
   onToggle: () => void
 }
@@ -60,7 +58,7 @@ interface CollectionProps extends Pick<Props, 'skills' | 'botName' | 'onOpen' | 
  * A collection's name and count over its skills, held under the panel's tabs while its skills scroll by;
  * one of several can be removed at once, once confirmed.
  */
-function Collection({ skills, botName, isOpen, onToggle, onOpen, onRemove }: CollectionProps) {
+function Collection({ skills, botName, isOpen, onToggle, onRemove }: CollectionProps) {
   const words = strings().skills
   const [isConfirming, setIsConfirming] = useState(false)
   const [failure, setFailure] = useState<string | null>(null)
@@ -100,7 +98,7 @@ function Collection({ skills, botName, isOpen, onToggle, onOpen, onRemove }: Col
       </div>
       <Collapsible isOpen={isOpen}>
         <div className="p-px pb-2">
-          <SkillList label={name} skills={skills} onOpen={onOpen} />
+          <SkillList label={name} skills={skills} />
         </div>
       </Collapsible>
       {failure && (
@@ -123,8 +121,9 @@ function Collection({ skills, botName, isOpen, onToggle, onOpen, onRemove }: Col
   )
 }
 
-function SkillList({ label, skills, onOpen }: { label: string } & Pick<Props, 'skills' | 'onOpen'>) {
+function SkillList({ label, skills }: { label: string } & Pick<Props, 'skills'>) {
   const words = strings().skills.list
+  const { openSkill } = useNavigation()
   return (
     <PanelCard>
       <ul aria-label={label}>
@@ -132,7 +131,7 @@ function SkillList({ label, skills, onOpen }: { label: string } & Pick<Props, 's
           <li key={`${skill.botId}/${skill.name}`}>
             <button
               type="button"
-              onClick={() => onOpen({ botId: skill.botId, name: skill.name })}
+              onClick={() => openSkill(skill.botId, skill.name)}
               className="flex w-full flex-col p-3 text-left leading-[1.35]"
             >
               <span className="truncate text-md text-ink">{skill.name}</span>

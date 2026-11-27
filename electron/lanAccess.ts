@@ -3,7 +3,7 @@ import { z } from 'zod'
 import type { Store } from '../harness/store'
 import type { Workspace } from '../harness/workspace'
 import type { HarnessEvent, NengyongBotBridge } from '../shared/bridge'
-import { type DevicesView, PairingCode } from '../shared/devices'
+import { DEVICE_METHODS, type DevicesView, PairingCode } from '../shared/devices'
 import { BYTES_PER_MB, type Limits } from '../shared/limits'
 import { appFiles } from './appFiles'
 import { createDevices } from './devices'
@@ -15,30 +15,6 @@ import { createPairing } from './pairing'
 const LAN_PORT = 4317
 const BASE64_GROWTH = 4 / 3
 const CALL_OVERHEAD_BYTES = 1_000_000 // the text and the rest of a call besides its attachments
-
-// what a paired device may do: chat and follow the bots' work; the settings, the sidebar and the data stay on this computer
-const DEVICE_METHODS = [
-  'getLanguage',
-  'send',
-  'askFromMiniApp',
-  'saveMiniAppData',
-  'restoreMiniApp',
-  'deleteMiniApp',
-  'miniAppHtml',
-  'history',
-  'deleteMessages',
-  'previews',
-  'panel',
-  'tasksAndRoutines',
-  'setRoutineEnabled',
-  'stopReply',
-  'stopTask',
-  'skillFiles',
-  'skillFile',
-  'getSidebar',
-  'getModelServices',
-  'getLimits',
-] as const satisfies readonly (keyof NengyongBotBridge)[]
 
 interface Options {
   home: string

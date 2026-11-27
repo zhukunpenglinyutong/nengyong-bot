@@ -1,7 +1,9 @@
-import { generateText, type LanguageModel } from 'ai'
+import fs from 'node:fs'
+import { generateText } from 'ai'
 import type { AttachmentFile } from '../shared/attachment'
 import type { BotModels, Entry, HarnessEvent, Quote } from '../shared/bridge'
 import { type Compaction, type ContextView, joinSections } from '../shared/debug'
+import { askOf, quotedText } from '../shared/decisions'
 import type { Limits } from '../shared/limits'
 import { currentLanguage, type Language } from '../shared/language'
 import { strings } from '../shared/strings'
@@ -12,22 +14,24 @@ import { saveAttachments } from './attachments'
 import { chatTools } from './chatTools'
 import { describeContext, GUESSED_TOKENS_PER_CHAR, withMeasure } from './context'
 import { describeError, NoKeyError } from './describeError'
+import { answerDutyOffer, setReview } from './duty'
+import { dutyTools } from './dutyTools'
 import { historyTools } from './historyTools'
 import type { Mcp } from './mcp'
-import { miniAppOf } from './miniApps'
+import { miniAppFolder, miniAppOf } from './miniApps'
 import { modelTools } from './modelTools'
-import { recordNote, speaker, systemSections, toMessages } from './prompt'
-import { type ModelChoices, type ModelObject, runModel } from './runModel'
+import { systemSections } from './prompt'
+import { type ModelChoices, type ModelObject, modelIdOf, runModel } from './runModel'
 import { sessionHeaders } from './sessionHeaders'
 import type { Skills } from './skills'
 import { skillChatTools } from './skillTools'
 import type { Store } from './store'
 import { createTaskRunner, RECENT_TASKS } from './tasks'
 import { clip } from './textWindow'
-import { usageOf } from './trace'
+import { entryText, speaker, toMessages } from './transcriptText'
 import { runTurn } from './turn'
 import type { EntryInput } from './types'
-import { modelIdOf } from './usage'
+import { usageOf } from './usage'
 import type { Workspace } from './workspace'
 
 const QUOTE_CHARS = 200 // of a quoted message: enough to tell which one it is; its ref opens the rest
@@ -37,7 +41,7 @@ interface HarnessOptions {
   workspace: Workspace
   getModel: () => ModelObject | null // the main model; null = none chosen yet
   models: ModelChoices
-  getApiKey: () => string | null
+  searchKey: () => string | null
   windowTokensOf: (model: string) => number
   mcp: Mcp
   skills: Skills
@@ -52,13 +56,13 @@ interface Batch {
   isShown: boolean // its user messages are on screen as queued; false when the turn starts right away
 }
 
-// a message of attachments only still shows up as a queued bubble
 // the model reads it whatever the app's language; the summary comes in the app's language
 const SUMMARY_INSTRUCTIONS: Record<Language, string> = {
   zh: '把对话压缩成中文要点摘要：保留决定、约定、待办、事实和数字，去掉寒暄。只输出摘要。',
   en: '把对话压缩成英文要点摘要：保留决定、约定、待办、事实和数字，去掉寒暄。只输出摘要。',
 }
 
+// a message of attachments only still shows up as a queued bubble
 const queuedTexts = (inputs: EntryInput[]) =>
   inputs.flatMap((input) => (input.kind === 'user' ? [input.text || strings().harness.chat.attachment] : []))
 
@@ -67,6 +71,8 @@ export function createHarness(options: HarnessOptions) {
   let isDebug = false // context and trace events cost a copy of the prompt and of every step: sent only while someone looks
   const emit = (event: HarnessEvent) => {
     if (isDebug || (event.kind !== 'context' && event.kind !== 'trace')) options.emit(event)
+    if (event.kind === 'entry' && settlesOrAsks(event.entry))
+      options.emit({ kind: 'decisions', botId: event.botId, count: store.decisionCount(event.botId) })
   }
   const queues = new Map<string, Promise<unknown>>()
   const inFlight = new Map<string, number>() // waiting + running turns per bot
@@ -75,12 +81,11 @@ export function createHarness(options: HarnessOptions) {
   const track = (id: string, d: number) => inFlight.set(id, (inFlight.get(id) ?? 0) + d)
   const tasks = createTaskRunner({ ...options, emit, deliver })
   const tokensPerChar = new Map<string, number>() // per bot, from the API's count of its last turn
-  const lineOf = (entry: Entry, botName: string) =>
-    `${speaker(entry, store.get(), botName)}：${'text' in entry ? entry.text : recordNote(entry)}`
+  const lineOf = (entry: Entry, botName: string) => `${speaker(entry, store.get(), botName)}：${entryText(entry)}`
 
   async function compact(
     botId: string,
-    model: LanguageModel,
+    model: ModelObject,
     runId: string,
     abortSignal: AbortSignal,
   ): Promise<Compaction> {
@@ -114,7 +119,7 @@ export function createHarness(options: HarnessOptions) {
     const bot = state.bots[botId]
     const entries = store.range(botId, bot.summarizedUpTo + 1)
     const current = limits()
-    const tasksOfBot = store.tasksRequestedBy(botId, RECENT_TASKS)
+    const tasksOfBot = store.tasksRequestedBy(botId, RECENT_TASKS + current.endedTasksShown)
     const main = modelName(getModel())
     const model = bot.model?.model ?? main
     const sections = systemSections(
@@ -131,6 +136,7 @@ export function createHarness(options: HarnessOptions) {
       ...chatTools({ botId, store, emit, tasks, limits: current, models: options.models }),
       ...modelTools({ botId, store, emit, choices: options.models, onBotModels: showModels }),
       ...skillChatTools({ botId, store, skills: options.skills }),
+      ...dutyTools({ botId, store, emit }),
       ...historyTools(store, current),
     }
     const parts = { model, windowTokens: options.windowTokensOf(model), sections, entries, messages, tools }
@@ -158,10 +164,9 @@ export function createHarness(options: HarnessOptions) {
       const { system, messages, tools, context } = chatInput(botId)
       let counted: ContextView = context
       emit({ kind: 'context', botId, context })
-      await runTurn({
+      const maxSteps = limits().chatSteps
+      const { finishReason } = await runTurn({
         store,
-        workspace,
-        emit,
         botId,
         transcriptId: botId,
         runId,
@@ -169,10 +174,10 @@ export function createHarness(options: HarnessOptions) {
         system,
         messages,
         tools,
-        maxSteps: limits().chatSteps,
+        maxSteps,
         silenceSeconds: limits().modelSilenceSeconds,
         stopSignal: stop.signal,
-        onDraft: (text) => emit({ kind: 'draft', botId, text }),
+        onStreaming: (text) => emit({ kind: 'streaming', botId, text }),
         onEntry: (entry) => emit({ kind: 'entry', botId, entry }),
         onActivity: (activity) => emit({ kind: 'activity', botId, activity }),
         trace: {
@@ -190,6 +195,7 @@ export function createHarness(options: HarnessOptions) {
         },
       })
       if (isDebug) emit({ kind: 'context', botId, context: chatInput(botId).context }) // with this turn's reply in it
+      if (finishReason === 'tool-calls') throw new Error(strings().harness.chat.outOfSteps(maxSteps))
     } catch (error) {
       if (!stop.signal.aborted) throw error
     } finally {
@@ -220,15 +226,10 @@ export function createHarness(options: HarnessOptions) {
    */
   function deliver(botId: string, input: EntryInput): Promise<void> {
     const waiting = batches.get(botId)
-    if (waiting) {
-      const next = { ...waiting, inputs: [...waiting.inputs, input] }
-      batches.set(botId, next)
-      if (next.isShown && input.kind === 'user') emit({ kind: 'queued', botId, texts: queuedTexts(next.inputs) })
-      return next.turn
-    }
-    const { turn, isShown } = openBatch(botId, [input])
-    if (isShown && input.kind === 'user') emit({ kind: 'queued', botId, texts: [input.text] })
-    return turn
+    const batch = waiting ? { ...waiting, inputs: [...waiting.inputs, input] } : openBatch(botId, [input])
+    batches.set(botId, batch)
+    if (batch.isShown && input.kind === 'user') emit({ kind: 'queued', botId, texts: queuedTexts(batch.inputs) })
+    return batch.turn
   }
 
   /** A turn that reads what is already recorded (the answer to an install card): the waiting turn, or a new one. */
@@ -262,7 +263,7 @@ export function createHarness(options: HarnessOptions) {
     const main = getModel()
     const bot = store.get().bots[botId]
     const shown = (choice: ModelChoice | undefined) =>
-      choice ? { model: choice.model, isGone: options.models.of(choice) === null } : null
+      choice ? { model: choice.model, isGone: options.models.modelOf(choice) === null } : null
     return { main: main && modelIdOf(main), chat: shown(bot?.model), tasks: shown(bot?.taskModel) }
   }
 
@@ -272,8 +273,9 @@ export function createHarness(options: HarnessOptions) {
 
   function quoteOf(botId: string, seq: number): Quote {
     const [entry] = store.range(botId, seq, seq)
-    if (!entry || !('text' in entry)) throw new Error(strings().harness.chat.quoteMissing)
-    return { seq, text: clip(entry.text, QUOTE_CHARS) }
+    const text = entry && quotedText(entry)
+    if (text === undefined) throw new Error(strings().harness.chat.quoteMissing)
+    return { seq, text: clip(text, QUOTE_CHARS) }
   }
 
   function miniAppRef(botId: string, id: string, isSentByApp: boolean) {
@@ -310,6 +312,20 @@ export function createHarness(options: HarnessOptions) {
     setDebug(isOn: boolean) {
       isDebug = isOn
     },
+    /** Deletes a bot let go, with everything the harness keeps of it. */
+    deleteBot(botId: string) {
+      const bot = store.get().bots[botId]
+      if (!bot) throw new Error(strings().harness.unknownBot(botId))
+      if (store.get().roster.includes(botId)) throw new Error(strings().harness.botNotDismissed)
+      replies.get(botId)?.stop.abort()
+      batches.delete(botId)
+      tasks.stopBot(botId)
+      tokensPerChar.delete(botId)
+      for (const app of bot.miniApps)
+        fs.rmSync(workspace.resolve(miniAppFolder(app.id)), { recursive: true, force: true })
+      options.skills.removeBot(botId)
+      store.deleteBot(botId)
+    },
     startWaitingTasks: tasks.startWaiting,
     botModels,
     /** The main model or the accounts changed: every bot's panel shows what it runs on now. */
@@ -326,6 +342,13 @@ export function createHarness(options: HarnessOptions) {
       emit({ kind: 'entry', botId, entry })
       void wake(botId)
     },
+    /** The user answered a duty card in this bot's chat: recorded at once, like an install card's answer, then the bot reads it. */
+    answerDutyOffer(botId: string, offer: string, isAccepted: boolean, isReviewOn: boolean) {
+      const entry = store.append(botId, answerDutyOffer(store, emit, botId, offer, isAccepted, isReviewOn))
+      emit({ kind: 'entry', botId, entry })
+      void wake(botId)
+    },
+    setDutyReview: (botId: string, isOn: boolean) => setReview(store, emit, botId, isOn),
     /**
      * Stops the turn the user saw running, keeping what it wrote so far; a stop that comes after that turn ended leaves
      * the next one alone. Messages queued behind it still get their turn.
@@ -341,4 +364,11 @@ export function createHarness(options: HarnessOptions) {
   }
 }
 
-const modelName = (model: LanguageModel | null) => (model === null ? strings().harness.chat.noModel : modelIdOf(model))
+const modelName = (model: ModelObject | null) => (model === null ? strings().harness.chat.noModel : modelIdOf(model))
+
+/** An entry that can change which asks of a chat wait on the user: an ask, an answer to a card, a user message. */
+function settlesOrAsks(entry: Entry): boolean {
+  return (
+    entry.kind === 'user' || entry.kind === 'duty-answer' || entry.kind === 'skill-answer' || askOf(entry) !== undefined
+  )
+}

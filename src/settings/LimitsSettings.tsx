@@ -2,8 +2,10 @@ import { type FocusEvent, useState } from 'react'
 import { DEFAULT_LIMITS, Limits } from '../../shared/limits'
 import { type Strings, strings } from '../../shared/strings'
 import { ipcErrorMessage } from '../ipcErrorMessage'
+import { Button } from '../ui/Button'
+import { TextInput } from '../ui/TextInput'
 import { useFlash } from '../ui/useFlash'
-import { SettingsButton, SettingsRow, SettingsSection } from './SettingsSection'
+import { SettingsPage, SettingsRow, SettingsSection } from './SettingsSection'
 
 interface Props {
   limits: Limits
@@ -51,11 +53,7 @@ export function LimitsSettings({ limits, onLimitsChange }: Props) {
 
   return (
     <div className="flex min-w-0 flex-1 flex-col">
-      <div className="flex-1 overflow-y-auto px-10 pt-9 pb-8">
-        <h2 id="settings-title" className="text-xl font-semibold tracking-tight">
-          {words.title}
-        </h2>
-        <p className="mt-1 text-sm text-muted">{words.intro}</p>
+      <SettingsPage title={words.title} intro={words.intro}>
         {GROUPS.map((group) => (
           <SettingsSection key={group.id} title={words.groups[group.id]}>
             {group.keys.map((key) => (
@@ -70,7 +68,7 @@ export function LimitsSettings({ limits, onLimitsChange }: Props) {
             ))}
           </SettingsSection>
         ))}
-      </div>
+      </SettingsPage>
 
       <footer className="flex items-center gap-2 border-t border-line px-10 py-3.5">
         <p role="alert" className="truncate text-sm text-danger">
@@ -79,7 +77,7 @@ export function LimitsSettings({ limits, onLimitsChange }: Props) {
         <p role="status" className="mr-auto text-sm text-muted">
           {isSaved && words.saved}
         </p>
-        <SettingsButton
+        <Button
           onClick={() => {
             setRestoredTimes((times) => times + 1)
             save(DEFAULT_LIMITS)
@@ -87,7 +85,7 @@ export function LimitsSettings({ limits, onLimitsChange }: Props) {
           disabled={isDefault}
         >
           {words.restoreDefaults}
-        </SettingsButton>
+        </Button>
       </footer>
     </div>
   )
@@ -124,7 +122,7 @@ function LimitInput({ fieldKey, value, onChange }: InputProps) {
 
   return (
     <span className="flex shrink-0 items-center gap-2 text-sm text-muted">
-      <input
+      <TextInput
         id={fieldKey}
         type="number"
         min={schema.minValue ?? undefined}
@@ -136,7 +134,7 @@ function LimitInput({ fieldKey, value, onChange }: InputProps) {
         onKeyDown={(event) => {
           if (event.key === 'Enter' && !event.nativeEvent.isComposing) event.currentTarget.blur()
         }}
-        className="h-8 w-24 rounded-md border border-line bg-surface px-2.5 text-right text-sm text-ink tabular-nums outline-none transition-[border-color,box-shadow] duration-150 focus:border-ink/20 focus:ring-3 focus:ring-ink/5 aria-invalid:border-danger"
+        className="h-8 w-24 rounded-md px-2.5 text-right tabular-nums"
       />
       <span className="w-10">{strings().settings.limits.fields[fieldKey].unit}</span>
     </span>

@@ -1,8 +1,9 @@
 import { z } from 'zod'
 import type { AttachmentFile } from './attachment'
-import { Bot, type NewBot } from './bot'
+import { Bot, type NewBot, type SectionByName } from './bot'
 import type { ContextView, Trace } from './debug'
 import type { DevicesView, PairingRequest } from './devices'
+import type { Duty } from './duty'
 import type { Flow } from './flow'
 import type { Limits } from './limits'
 import type { Language } from './language'
@@ -40,6 +41,7 @@ export interface NengyongBotBridge {
   previews: () => Promise<Record<string, string>> // last reply per bot, for the sidebar
   panel: (botId: string) => Promise<PanelData> // the right-hand panel of one bot
   tasksAndRoutines: () => Promise<Record<string, TasksAndRoutines>> // of every bot, for the status the sidebar shows before one is opened
+  decisionCounts: () => Promise<Record<string, number>> // of every bot: the asks in its chat still waiting on the user
   context: (botId: string) => Promise<ContextView | null> // what its chat would send the model now, for debug mode
   setDebug: (isOn: boolean) => Promise<void> // context and trace events are sent only while debug mode is on
   setRoutineEnabled: (botId: string, routineId: string, isEnabled: boolean) => Promise<void>
@@ -52,6 +54,10 @@ export interface NengyongBotBridge {
   // the user's answer to the card an upload showed in botId's panel, as above; nothing goes in the chat
   answerSkillUpload: (botId: string, offer: string, names: string[]) => Promise<void>
   removeSkills: (botId: string, names: string[]) => Promise<void> // of that bot, all or none; their folders are deleted
+  // the user's answer to a duty card in botId's chat; isReviewOn: the weekly review, as the card's switch was left. Throws
+  // a readable reason once the card is void: answered, replaced by a newer card, or another version agreed meanwhile
+  answerDutyOffer: (botId: string, offer: string, isAccepted: boolean, isReviewOn: boolean) => Promise<void>
+  setDutyReview: (botId: string, isOn: boolean) => Promise<void> // its weekly review, a routine made the first time it is turned on
   skillFiles: (ref: SkillRef) => Promise<SkillFileView[]> // for the files dialog, SKILL.md first
   skillFile: (ref: SkillRef, path: string) => Promise<string | null> // its text; null when it is not text or too big
   revealSkill: (botId: string, name: string) => Promise<void> // shows its folder in Finder
@@ -60,6 +66,8 @@ export interface NengyongBotBridge {
   getSidebar: () => Promise<SidebarState | null> // null until the first save
   needsOnboarding: () => Promise<boolean> // the onboarding has not run yet: it comes first, even over saved data
   saveSidebar: (sidebar: SidebarState) => Promise<NewBot[]> // returns bots the harness created that the sidebar has not shown yet
+  // only a bot let go: its brain, chats, tasks, skills and mini apps are deleted; the files it wrote stay
+  deleteBot: (botId: string) => Promise<void>
   getDataDir: () => Promise<string>
   openDataDir: () => Promise<void> // shows the data dir in Finder
   moveDataDir: () => Promise<void> // asks for a new place; on success the app restarts with the data there
@@ -138,6 +146,14 @@ export const Entry = z.discriminatedUnion('kind', [
     botId: z.string(),
     names: z.array(z.string()),
   }),
+  // the user's answer to a duty card in this chat, for `botId`'s duty
+  z.object({
+    ...stamp,
+    kind: z.literal('duty-answer'),
+    offer: z.string(),
+    botId: z.string(),
+    isAccepted: z.boolean(),
+  }),
   z.object({
     ...stamp,
     kind: z.literal('tool'),
@@ -157,19 +173,23 @@ export type Activity = { kind: 'thinking' } | { kind: 'typing' } | { kind: 'tool
 
 export type HarnessEvent =
   | { kind: 'entry'; botId: string; entry: Entry }
-  | { kind: 'draft'; botId: string; text: string } // the message being streamed right now ('' clears it)
+  | { kind: 'streaming'; botId: string; text: string } // the message being streamed right now ('' clears it)
   | { kind: 'busy'; botId: string; busy: boolean; runId: string } // runId: the turn starting or ending, which stopReply names
   | { kind: 'queued'; botId: string; texts: string[] } // user messages waiting for the running turn to end; [] once read
   | { kind: 'activity'; botId: string; activity: Activity } // what the bot is doing right now, for the progress row
   | { kind: 'bot-created'; bot: NewBot }
   | { kind: 'bot-renamed'; botId: string; name: string }
+  | { kind: 'bot-moved'; botId: string; section?: SectionByName } // absent: back to the ungrouped one
+  | { kind: 'bot-dismissed'; botId: string } // the sidebar lets it go, to be restored in the settings for a while
   | { kind: 'routines'; botId: string; routines: RoutineView[] }
   | { kind: 'flows'; botId: string; flows: Flow[] }
+  | { kind: 'duty'; botId: string; duty: Duty }
   | { kind: 'skills'; botId: string; skills: SkillView[] } // what its panel lists: the main bot's lists every bot's
   | { kind: 'mini-apps'; botId: string; miniApps: MiniApp[] }
   | { kind: 'mini-app-data'; botId: string; miniAppId: string; data: unknown; dataAt: number } // a task put new data in
   | { kind: 'library'; botId: string; library: LibraryItem[] }
   | { kind: 'tasks'; botId: string; tasks: TaskView[] }
+  | { kind: 'decisions'; botId: string; count: number } // an ask in its chat came or was answered
   | { kind: 'models'; botId: string; models: BotModels } // it switched its chat model, or the main model changed
   | { kind: 'context'; botId: string; context: ContextView } // a chat turn starts with it; again once the API has counted it
   | { kind: 'trace'; botId: string; trace: Trace } // a run of this bot (its chat or one of its tasks) moved on
@@ -234,6 +254,7 @@ interface ChosenModel {
 export type TasksAndRoutines = Pick<PanelData, 'tasks' | 'routines'>
 
 export interface PanelData {
+  duty: Duty
   routines: RoutineView[]
   flows: Flow[]
   skills: SkillView[] // its own; the main bot's are every bot's, since it can use them all

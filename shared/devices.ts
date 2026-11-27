@@ -1,20 +1,20 @@
 import { z } from 'zod'
+import type { NengyongBotBridge } from './bridge'
 
 /** 设备: a phone, tablet or other computer the user let in over the local network to use this computer's bots. */
 export const DeviceKind = z.enum(['phone', 'tablet', 'computer'])
 export type DeviceKind = z.infer<typeof DeviceKind>
 
-export const DEVICE_NAME_MAX = 40
+const DEVICE_NAME_MAX = 40
 export const PairingCode = z.string().regex(/^\d{4}$/)
 
 /** What a browser asking to pair says about itself; shown to the user, who decides. */
 export const PairingAsk = z.object({ name: z.string().trim().min(1).max(DEVICE_NAME_MAX), kind: DeviceKind })
 export type PairingAsk = z.infer<typeof PairingAsk>
 
-/** A device waiting on this computer to be let in: it shows the code, and the user types it here to let it in. */
+/** A device waiting on this computer to be let in: it shows its code, which never comes here, and the user types it here. */
 export interface PairingRequest extends PairingAsk {
   id: string
-  code: string
 }
 
 export interface DeviceView {
@@ -32,6 +32,30 @@ export interface DevicesView {
   error: string | null // why it does not listen although it is on
   devices: DeviceView[]
 }
+
+/** The bridge methods a paired device may call: chat and follow the bots' work; the settings, the sidebar and the data stay on this computer. */
+export const DEVICE_METHODS = [
+  'getLanguage',
+  'send',
+  'askFromMiniApp',
+  'saveMiniAppData',
+  'restoreMiniApp',
+  'deleteMiniApp',
+  'miniAppHtml',
+  'history',
+  'deleteMessages',
+  'previews',
+  'panel',
+  'tasksAndRoutines',
+  'decisionCounts',
+  'setRoutineEnabled',
+  'stopReply',
+  'stopTask',
+  'skillFiles',
+  'skillFile',
+  'getSidebar',
+  'getLimits',
+] as const satisfies readonly (keyof NengyongBotBridge)[]
 
 /** The HTTP API a paired browser uses in place of preload's IPC; every path but these few needs the device's cookie. */
 export const REMOTE_API = {

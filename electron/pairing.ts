@@ -1,5 +1,5 @@
 import { randomInt, randomUUID } from 'node:crypto'
-import type { PairingAnswer, PairingAsk, PairingRequest } from '../shared/devices'
+import type { PairingAnswer, PairingAsk, PairingRequest, PairingStarted } from '../shared/devices'
 import { strings } from '../shared/strings'
 
 export const PAIRING_TTL_MS = 2 * 60_000
@@ -9,6 +9,7 @@ type Status = Decision | { status: Exclude<PairingAnswer['status'], Decision['st
 
 interface Pending {
   request: PairingRequest
+  code: string // kept out of request, which goes to the renderer
   decision: Decision | null
   wake: (() => void)[] // browsers waiting for the decision
 }
@@ -35,24 +36,25 @@ export function createPairing({ admit, onChange }: Options) {
 
   return {
     /** Asks this computer's user; a request still waiting is dropped, so nobody can hold the one place to keep others out. */
-    start(ask: PairingAsk): PairingRequest {
+    start(ask: PairingAsk): PairingStarted {
       const replaced = pending
-      const request = { ...ask, id: randomUUID(), code: String(randomInt(0, 10_000)).padStart(4, '0') }
-      pending = { request, decision: null, wake: [] }
+      const request = { ...ask, id: randomUUID() }
+      const code = String(randomInt(0, 10_000)).padStart(4, '0')
+      pending = { request, code, decision: null, wake: [] }
       for (const wake of replaced?.wake ?? []) wake()
       onChange(request)
       setTimeout(() => {
         settle(request.id, null)
         if (pending?.request.id === request.id) pending = null // allowed, but the browser never came back for its token
       }, PAIRING_TTL_MS)
-      return request
+      return { id: request.id, code }
     },
     /** `code`: what the user typed from the device's screen, which only the device that asked shows; null turns it away. */
     answer(id: string, code: string | null) {
       const current = pendingAt(id)
       if (!current || current.decision) throw new Error(strings().main.pairing.expired)
       if (code === null) return settle(id, { status: 'denied' })
-      if (code !== current.request.code) throw new Error(strings().main.pairing.wrongCode)
+      if (code !== current.code) throw new Error(strings().main.pairing.wrongCode)
       const { name, kind } = current.request
       settle(id, { status: 'allowed', token: admit({ name, kind }) })
     },

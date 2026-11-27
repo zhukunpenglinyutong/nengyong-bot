@@ -6,7 +6,8 @@ const words = strings().app.activity
 const TOOL_LABELS: Record<string, string> = {
   remember: words.noting,
   forget: words.noting,
-  update_my_instructions: words.noting,
+  propose_duty: words.noting,
+  report_progress: words.noting,
   update_my_name: words.renaming,
   search_history: words.lookingBack,
   create_bot: words.creatingBot,

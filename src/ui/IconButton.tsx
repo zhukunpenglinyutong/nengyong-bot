@@ -1,7 +1,5 @@
-import { motion } from 'motion/react'
 import type { MouseEvent } from 'react'
 import { Icon, type IconName } from './Icon'
-import { TAP } from './motion'
 
 interface Props {
   icon: IconName
@@ -26,8 +24,7 @@ export function IconButton({
   className = '',
 }: Props) {
   return (
-    <motion.button
-      whileTap={TAP}
+    <button
       type={type}
       aria-label={label}
       data-variant={variant}
@@ -36,6 +33,6 @@ export function IconButton({
       className={`grid size-9 shrink-0 place-items-center rounded-full transition-colors duration-150 data-[variant=ghost]:text-soft data-[variant=ghost]:hover:text-ink data-[variant=raised]:bg-surface data-[variant=raised]:shadow-card data-[variant=solid]:bg-ink data-[variant=solid]:text-canvas data-[variant=solid]:disabled:bg-line data-[variant=solid]:disabled:text-muted/70 ${className}`}
     >
       <Icon name={icon} size={iconSize} />
-    </motion.button>
+    </button>
   )
 }

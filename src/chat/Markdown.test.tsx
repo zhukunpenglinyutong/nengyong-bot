@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
 import { Markdown } from './Markdown'
+import { NavigationContext } from '../NavigationContext'
 import { MentionContext } from './MentionContext'
 
 afterEach(cleanup)
@@ -22,29 +23,28 @@ const SKILL = {
 
 function renderReply(text: string, openFile = vi.fn(), openSkill = vi.fn()) {
   render(
-    <MentionContext
-      value={{
-        chatBotId: 'chief',
-        bots: [],
-        open: vi.fn(),
-        flows: [],
-        openFlow: vi.fn(),
-        miniApps: [],
-        openMiniApp: vi.fn(),
-        thumbUrl: () => '',
-        fileUrl: (path) => `attachment:${path}`,
-        openFile,
-        skills: [
-          { ...SKILL, botId: 'chief' },
-          { ...SKILL, botId: 'balance' },
-        ],
-        openSkill,
-        answerSkillOffer: vi.fn(),
-        openSkillFiles: vi.fn(),
-      }}
+    <NavigationContext
+      value={{ openBot: vi.fn(), openFlow: vi.fn(), openSkill, openSkillFiles: vi.fn(), openMiniApp: vi.fn() }}
     >
-      <Markdown text={text} />
-    </MentionContext>,
+      <MentionContext
+        value={{
+          chatBotId: 'chief',
+          bots: [],
+          open: vi.fn(),
+          flows: [],
+          miniApps: [],
+          thumbUrl: () => '',
+          attachmentUrl: (path) => `attachment:${path}`,
+          openFile,
+          skills: [
+            { ...SKILL, botId: 'chief' },
+            { ...SKILL, botId: 'balance' },
+          ],
+        }}
+      >
+        <Markdown text={text} />
+      </MentionContext>
+    </NavigationContext>,
   )
   return openFile
 }

@@ -70,3 +70,40 @@ it('reads a string field of unknown JSON, and nothing else', () => {
   expect(fieldOf({ text: 1 }, 'text')).toBeUndefined()
   expect(fieldOf(null, 'text')).toBeUndefined()
 })
+
+it('shows a duty once the user agreed to its card, with the one it replaced', () => {
+  const card = (seq: number, offer: string, purpose: string) =>
+    tool(
+      seq,
+      'propose_duty',
+      {},
+      {
+        offer,
+        botId: 'writer',
+        baseVersion: 0,
+        plan: { purpose, objectives: [{ id: 'o1', name: '每周稳定更新', keyResults: [] }], outOfScope: [] },
+        changes: [],
+        isReviewOn: false,
+      },
+    )
+  const answer = (seq: number, offer: string, isAccepted: boolean): Entry => ({
+    seq,
+    at: seq,
+    kind: 'duty-answer',
+    offer,
+    botId: 'writer',
+    isAccepted,
+  })
+  const changes = changesOf([
+    card(1, 'd1', '运营公众号'),
+    answer(2, 'd1', true),
+    card(3, 'd2', '别断更'),
+    answer(4, 'd2', false),
+    card(5, 'd3', '让公众号每周稳定更新'),
+    answer(6, 'd3', true),
+  ])
+  expect(changes.map((change) => [change.label, change.text, change.before])).toEqual([
+    ['职责', '让公众号每周稳定更新 · 每周稳定更新', '运营公众号 · 每周稳定更新'],
+    ['职责', '运营公众号 · 每周稳定更新', undefined],
+  ])
+})

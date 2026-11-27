@@ -36,11 +36,11 @@ it('remembers nothing when the user gave no address', () => {
   expect(store.get().userFacts).toEqual([])
 })
 
-it('hires the secretary first, then each bot asked with its duty as its instructions, waiting for the sidebar to show them', () => {
+it('hires the secretary first, then each bot asked with its duty as its purpose, waiting for the sidebar to show them', () => {
   const { bots } = onboard(store, choices, true)
   expect(bots.map((bot) => bot.name)).toEqual(['秘书Bot', '竞品分析师', '需求整理员'])
   expect(bots[0]).toEqual(secretary())
-  expect(store.get().bots[bots[1]?.id ?? '']?.instructions).toBe('每周一汇总竞品动态')
+  expect(store.get().bots[bots[1]?.id ?? '']?.duty.purpose).toBe('每周一汇总竞品动态')
   expect(store.get().pending.map((bot) => bot.id)).toEqual(bots.map((bot) => bot.id))
 })
 
@@ -63,7 +63,7 @@ it('says the model is not connected yet when there is no key', () => {
 it('still hires the secretary when nobody else was kept', () => {
   const { bots, greeting } = onboard(store, { ...choices, hires: [], suggestions: [] }, true)
   expect(bots).toEqual([secretary()])
-  expect(store.get().bots.secretary?.instructions).toContain('日程')
+  expect(store.get().bots.secretary?.duty.purpose).toContain('日程')
   expect(greeting.kind === 'bot' && greeting.text).toContain('我先帮你招了 [秘书Bot](bot:secretary)，在左边')
   expect(greeting.kind === 'bot' && greeting.suggestions).toBeUndefined()
 })

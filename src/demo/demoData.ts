@@ -1,6 +1,7 @@
 import { MAIN_BOT, PALETTE, secretary } from '../../shared/bot'
 import type { BotModels, Entry, PanelData } from '../../shared/bridge'
-import type { ModelServicesView } from '../../shared/modelServices'
+import { DEEPSEEK_MODEL, type ModelServicesView } from '../../shared/modelServices'
+import { type Duty, type DutyPlan, dutyOf } from '../../shared/duty'
 import type { Flow } from '../../shared/flow'
 import type { SidebarState } from '../../shared/sidebar'
 import { DEMO_MINI_APP_BOT, DEMO_MINI_APP_TRANSCRIPT, DEMO_MINI_APPS } from './demoMiniApps'
@@ -44,6 +45,7 @@ export const DEMO_SIDEBAR: SidebarState = {
   seenAt: { support: Date.now() - 60 * 60_000 },
   ungroupedCollapsed: false,
   hiddenCollapsed: true,
+  dismissed: [],
 }
 
 const MINUTE_MS = 60_000
@@ -104,6 +106,23 @@ export const DEMO_TRANSCRIPTS: Record<string, Entry[]> = {
       ]),
     ]),
   ),
+  travel: [
+    ...transcript([
+      [DAY_MINUTES + 1, 'user', words.chats.askProgress],
+      [DAY_MINUTES, 'bot', words.lastReplies.travel],
+    ]),
+    {
+      seq: 3,
+      at: loadedAt - DAY_MINUTES * MINUTE_MS,
+      kind: 'tool',
+      name: 'ask_user',
+      input: {},
+      output: {
+        question: words.travelQuestion.question,
+        answers: [words.travelQuestion.book, words.travelQuestion.skip],
+      },
+    },
+  ],
 }
 
 const daysAgo = (days: number) => Date.now() - days * DAY_MINUTES * 60_000
@@ -145,15 +164,91 @@ export const DEMO_LEARNED_FLOW: Omit<Flow, 'id' | 'updatedAt'> = {
   notes: [words.learnedFlow.note],
 }
 
-const DEMO_MAIN_MODEL = 'deepseek-flash'
-
 /** What a bot's panel shows of its models while it chats on the main one. */
-export const DEMO_BOT_MODELS: BotModels = { main: DEMO_MAIN_MODEL, chat: null, tasks: null }
+export const DEMO_BOT_MODELS: BotModels = { main: DEEPSEEK_MODEL, chat: null, tasks: null }
+
+/** 发版助理's duty, agreed twice already, its weekly review on: what the 职责 list looks like once settled. */
+function releaseDuty(): Duty {
+  const duty = words.duty
+  const progress = (text: string, ratio: number, verdict: 'met' | 'onTrack' | 'behind') => ({
+    text,
+    ratio,
+    verdict,
+    at: Date.now(),
+  })
+  return {
+    purpose: duty.purpose,
+    version: 2,
+    reviewRoutineId: DEMO_REVIEW_ROUTINE,
+    objectives: [
+      {
+        id: 'notes',
+        name: duty.notesObjective,
+        keyResults: [
+          {
+            text: duty.notesEarly,
+            window: duty.eachRelease,
+            source: duty.selfCounted,
+            progress: progress(duty.notesEarlyNow, 1, 'met'),
+          },
+          {
+            text: duty.fewEdits,
+            window: duty.eachRelease,
+            source: duty.editsCompared,
+            progress: progress(duty.fewEditsNow, 0.6, 'behind'),
+          },
+        ],
+      },
+      {
+        id: 'safe',
+        name: duty.safeObjective,
+        keyResults: [
+          {
+            text: duty.checksRun,
+            window: duty.eachPr,
+            source: duty.selfCounted,
+            progress: progress(duty.checksRunNow, 0.8, 'onTrack'),
+          },
+        ],
+      },
+    ],
+    outOfScope: [duty.notFeatures, duty.notIssues],
+  }
+}
+
+export const DEMO_REVIEW_ROUTINE = 'weekly-review'
+
+/** The duty a demo bot proposes when asked to plan one: its first version. */
+export function demoDutyPlan(): DutyPlan {
+  const duty = words.duty
+  return {
+    purpose: duty.planPurpose,
+    objectives: [
+      {
+        id: 'daily',
+        name: duty.planObjective,
+        keyResults: [
+          { text: duty.dailyBy9, window: duty.everyDay, source: duty.selfCounted },
+          { text: duty.issuesLabeled, window: duty.everyDay, source: duty.selfCounted },
+        ],
+      },
+    ],
+    outOfScope: [duty.planOutOfScope],
+  }
+}
 
 export const DEMO_PANELS: Record<string, PanelData> = {
   release: {
+    duty: releaseDuty(),
     skills: [],
     routines: [
+      {
+        id: DEMO_REVIEW_ROUTINE,
+        name: strings().harness.duty.reviewName,
+        timezone: 'Asia/Shanghai',
+        isEnabled: true,
+        nextRunAt: Date.now() + 3 * DAY_MINUTES * 60_000,
+      },
       {
         id: 'friday-release',
         name: words.routines.fridayRelease,
@@ -190,9 +285,10 @@ export const DEMO_PANELS: Record<string, PanelData> = {
         flowId: PRE_MERGE_FLOW.id,
       },
     ],
-    models: { main: DEMO_MAIN_MODEL, chat: { model: 'deepseek-pro', isGone: false }, tasks: null },
+    models: { main: DEEPSEEK_MODEL, chat: { model: 'deepseek-pro', isGone: false }, tasks: null },
   },
   repo: {
+    duty: dutyOf(''),
     skills: [],
     routines: [
       {
@@ -210,6 +306,7 @@ export const DEMO_PANELS: Record<string, PanelData> = {
     models: DEMO_BOT_MODELS,
   },
   support: {
+    duty: dutyOf(''),
     skills: [],
     routines: [],
     flows: [],
@@ -231,6 +328,7 @@ export const DEMO_PANELS: Record<string, PanelData> = {
     models: DEMO_BOT_MODELS,
   },
   [DEMO_MINI_APP_BOT]: {
+    duty: dutyOf(''),
     skills: [],
     routines: [],
     flows: [],
@@ -240,6 +338,7 @@ export const DEMO_PANELS: Record<string, PanelData> = {
     models: DEMO_BOT_MODELS,
   },
   [MAIN_BOT.id]: {
+    duty: dutyOf(''),
     flows: [],
     miniApps: [],
     skills: [],
@@ -316,8 +415,8 @@ export const DEMO_MODEL_SERVICES: ModelServicesView = {
   accounts: [
     { id: 'deepseek', service: 'deepseek', name: 'DeepSeek', baseURL: 'https://api.deepseek.com', keyHint: '••••demo' },
   ],
-  chat: { accountId: 'deepseek', model: DEMO_MAIN_MODEL },
+  chat: { accountId: 'deepseek', model: DEEPSEEK_MODEL },
   searchAccountId: 'deepseek',
 }
 
-export const DEMO_MODELS = ['deepseek-flash', 'deepseek-pro']
+export const DEMO_MODELS = [DEEPSEEK_MODEL, 'deepseek-pro']

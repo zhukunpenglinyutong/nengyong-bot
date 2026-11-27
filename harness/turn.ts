@@ -1,19 +1,16 @@
 import { type FinishReason, type ModelMessage, stepCountIs, streamText, type ToolSet } from 'ai'
 import { z } from 'zod'
-import type { Activity, Entry, HarnessEvent } from '../shared/bridge'
+import type { Activity, Entry } from '../shared/bridge'
 import type { Trace } from '../shared/debug'
 import { strings } from '../shared/strings'
-import { libraryItems } from './library'
 import type { RunModel } from './runModel'
 import type { Store } from './store'
 import { sessionHeaders } from './sessionHeaders'
-import { endTrace, startTrace, type TraceStart, traceWith, usageOf } from './trace'
-import type { Workspace } from './workspace'
+import { endTrace, startTrace, type TraceStart, traceWith } from './trace'
+import { usageOf } from './usage'
 
 interface TurnOptions {
   store: Store
-  workspace: Workspace
-  emit: (event: HarnessEvent) => void
   botId: string
   transcriptId: string
   runId: string // what the 用量 page counts as one chat turn or task
@@ -25,7 +22,7 @@ interface TurnOptions {
   silenceSeconds: number // the model sending nothing for this long ends the run with an error
   abortSignal?: AbortSignal // ends the run at once, tool calls under way included: a task stopped or timed out
   stopSignal?: AbortSignal // the user stopped the reply: it ends once the tool calls under way have recorded their results
-  onDraft?: (text: string) => void
+  onStreaming?: (text: string) => void
   onEntry?: (entry: Entry) => void
   onActivity?: (activity: Activity) => void
   trace: TraceStart
@@ -42,15 +39,15 @@ interface Paragraph {
  * `finishReason` is 'tool-calls' when the step limit cut it off mid-work, undefined when it was aborted.
  */
 export async function runTurn(options: TurnOptions): Promise<{ said: Paragraph[]; finishReason?: FinishReason }> {
-  const { store, transcriptId, onDraft = () => {}, onEntry = () => {}, onActivity = () => {} } = options
+  const { store, transcriptId, onStreaming = () => {}, onEntry = () => {}, onActivity = () => {} } = options
   const said: Paragraph[] = []
   let finishReason: FinishReason | undefined
-  let draft = ''
+  let streamed = ''
   let requestId: string | undefined
   const flush = () => {
-    const text = draft.trim()
-    draft = ''
-    onDraft('')
+    const text = streamed.trim()
+    streamed = ''
+    onStreaming('')
     if (!text) return
     const model = options.model.name()
     const fallbackFrom = options.model.fallbackFrom()
@@ -64,15 +61,8 @@ export async function runTurn(options: TurnOptions): Promise<{ said: Paragraph[]
     said.push({ seq: entry.seq, text })
     onEntry(entry)
   }
-  const recordTool = (name: string, input: unknown, output: unknown) => {
+  const recordTool = (name: string, input: unknown, output: unknown) =>
     onEntry(store.append(transcriptId, { kind: 'tool', name, input, output }))
-    if (name === 'write_file')
-      options.emit({
-        kind: 'library',
-        botId: options.botId,
-        library: libraryItems(store, options.workspace, options.botId),
-      })
-  }
   let trace = startTrace(transcriptId, options.maxSteps, options.trace, Date.now())
   let failure: string | null = null
   options.onTrace(trace)
@@ -107,9 +97,9 @@ export async function runTurn(options: TurnOptions): Promise<{ said: Paragraph[]
           requestId ??= ResponseChunk.safeParse(part.rawValue).data?.id
           break
         case 'text-delta':
-          if (!draft) onActivity({ kind: 'typing' })
-          draft += part.text
-          onDraft(draft)
+          if (!streamed) onActivity({ kind: 'typing' })
+          streamed += part.text
+          onStreaming(streamed)
           break
         case 'text-end':
           flush()

@@ -46,6 +46,7 @@ export function createRemoteBridge(): { bridge: NengyongBotBridge; connection: C
       throw new Error(strings().remote.unreachable)
     }
     if (response.status === 401) setConnection('removed')
+    if (source?.readyState === EventSource.OPEN) setConnection('online')
     if (!response.ok) throw new Error(await reasonOf(response))
     return response.json()
   }
@@ -109,6 +110,7 @@ export function createRemoteBridge(): { bridge: NengyongBotBridge; connection: C
     previews: () => call('previews', []),
     panel: (botId) => call('panel', [botId]),
     tasksAndRoutines: () => call('tasksAndRoutines', []),
+    decisionCounts: () => call('decisionCounts', []),
     context: desktopOnly,
     setDebug: async () => {}, // debug mode belongs to the computer: a device neither turns it on nor off
     setRoutineEnabled: (botId, routineId, isEnabled) => call('setRoutineEnabled', [botId, routineId, isEnabled]),
@@ -120,6 +122,8 @@ export function createRemoteBridge(): { bridge: NengyongBotBridge; connection: C
     stopTask: (botId, taskId) => call('stopTask', [botId, taskId]),
     // installing, removing and the Finder belong to the computer; a device only looks at a skill's files
     answerSkillOffer: desktopOnly,
+    answerDutyOffer: desktopOnly,
+    setDutyReview: desktopOnly,
     uploadSkill: desktopOnly,
     answerSkillUpload: desktopOnly,
     removeSkills: desktopOnly,
@@ -129,12 +133,13 @@ export function createRemoteBridge(): { bridge: NengyongBotBridge; connection: C
     getSidebar: () => call('getSidebar', []),
     needsOnboarding: async () => false,
     saveSidebar: desktopOnly,
+    deleteBot: desktopOnly,
     getDataDir: desktopOnly,
     openDataDir: desktopOnly,
     moveDataDir: desktopOnly,
     exportData: desktopOnly,
     importData: desktopOnly,
-    getModelServices: () => call('getModelServices', []),
+    getModelServices: desktopOnly,
     listModels: desktopOnly,
     saveAccount: desktopOnly,
     removeAccount: desktopOnly,

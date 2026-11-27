@@ -9,7 +9,7 @@ const MAX_BYTES = 20 * BYTES_PER_MB
 export type SkillFiles = Map<string, Buffer>
 
 /** What a skill folder holds, read from its SKILL.md and checked: what an install card shows and an install records. */
-export interface SkillPackage {
+interface SkillPackage {
   name: string
   description: string
   version?: string
@@ -32,8 +32,6 @@ export function checkPackage(files: SkillFiles, folderName: string): SkillPackag
   const words = strings().harness.skills
   const skillFile = files.get(SKILL_FILE)
   if (!skillFile) throw new Error(words.noSkillFile)
-  const bytes = [...files.values()].reduce((sum, data) => sum + data.length, 0)
-  checkSize(files.size, bytes)
   checkDistinct([...files.keys()])
   const fields = frontmatter(skillFile.toString('utf8'))
   const name = fields.name ?? folderName
@@ -49,7 +47,7 @@ export function checkPackage(files: SkillFiles, folderName: string): SkillPackag
     scripts: [...files.keys()].filter(isScript).sort(),
     isUserInvoked: fields['disable-model-invocation'] === 'true',
     isInternal: ['true', '1'].includes(fields['metadata.internal'] ?? ''),
-    bytes,
+    bytes: [...files.values()].reduce((sum, data) => sum + data.length, 0),
   }
 }
 

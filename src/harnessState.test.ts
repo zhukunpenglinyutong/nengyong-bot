@@ -2,6 +2,7 @@ import { expect, it } from 'vitest'
 import type { Entry } from '../shared/bridge'
 import type { Trace } from '../shared/debug'
 import { harnessState, type ThreadEvent, type Threads } from './harnessState'
+import { dutyOf } from '../shared/duty'
 
 const user = (seq: number, text: string): Entry => ({ seq, at: seq, kind: 'user', text })
 const reply = (seq: number, text: string): Entry => ({ seq, at: seq, kind: 'bot', text })
@@ -19,18 +20,18 @@ it('keeps entries in order and without duplicates, whatever order they arrive in
 
 it('replaces the streamed draft with the committed reply and remembers it as the preview', () => {
   const state = run([
-    { kind: 'draft', botId: 'chief', text: '正在' },
+    { kind: 'streaming', botId: 'chief', text: '正在' },
     { kind: 'entry', botId: 'chief', entry: reply(1, '好了') },
   ])
-  expect(state.chief).toMatchObject({ draft: '', preview: '好了' })
+  expect(state.chief).toMatchObject({ streaming: '', preview: '好了' })
 })
 
 it('keeps the draft while the user entry of the same turn arrives', () => {
   const state = run([
-    { kind: 'draft', botId: 'chief', text: '正在' },
+    { kind: 'streaming', botId: 'chief', text: '正在' },
     { kind: 'entry', botId: 'chief', entry: user(1, '你好') },
   ])
-  expect(state.chief.draft).toBe('正在')
+  expect(state.chief.streaming).toBe('正在')
 })
 
 it('tracks progress only while a turn is running', () => {
@@ -65,6 +66,7 @@ it('shows the messages waiting for the next turn, replacing the list each time',
 
 it('merges loaded history with entries that arrived while it was loading', () => {
   const panel = {
+    duty: dutyOf(''),
     routines: [routine(false)],
     flows: [],
     skills: [],
@@ -78,7 +80,26 @@ it('merges loaded history with entries that arrived while it was loading', () =>
     { kind: 'loaded', botId: 'chief', entries: [user(1, 'a'), reply(2, 'b')], panel },
   ])
   expect(state.chief.entries.map((entry) => entry.seq)).toEqual([1, 2, 3])
-  expect(state.chief.panel).toBe(panel)
+  expect(state.chief.panel).toEqual(panel)
+})
+
+it('keeps panel changes that arrived while the history was loading over the loaded panel', () => {
+  const done = taskOf('日报')
+  const panel = {
+    duty: dutyOf(''),
+    routines: [routine(false)],
+    flows: [],
+    skills: [],
+    miniApps: [],
+    library: [],
+    tasks: [{ ...done, status: 'running' as const }],
+    models: NO_MODELS,
+  }
+  const state = run([
+    { kind: 'tasks', botId: 'chief', tasks: [done] },
+    { kind: 'loaded', botId: 'chief', entries: [], panel },
+  ])
+  expect(state.chief.panel).toEqual({ ...panel, tasks: [done] })
 })
 
 it('replaces the panel routines when the bot changes them, keeping the library', () => {
@@ -88,11 +109,21 @@ it('replaces the panel routines when the bot changes them, keeping the library',
       kind: 'loaded',
       botId: 'chief',
       entries: [],
-      panel: { routines: [routine(false)], flows: [], skills: [], miniApps: [], library, tasks: [], models: NO_MODELS },
+      panel: {
+        duty: dutyOf(''),
+        routines: [routine(false)],
+        flows: [],
+        skills: [],
+        miniApps: [],
+        library,
+        tasks: [],
+        models: NO_MODELS,
+      },
     },
     { kind: 'routines', botId: 'chief', routines: [routine(true)] },
   ])
   expect(state.chief.panel).toEqual({
+    duty: dutyOf(''),
     routines: [routine(true)],
     flows: [],
     skills: [],
@@ -111,6 +142,7 @@ it('replaces the panel library when the bot writes a file, keeping the routines'
       botId: 'chief',
       entries: [],
       panel: {
+        duty: dutyOf(''),
         routines: [routine(true)],
         flows: [],
         skills: [],
@@ -123,6 +155,7 @@ it('replaces the panel library when the bot writes a file, keeping the routines'
     { kind: 'library', botId: 'chief', library },
   ])
   expect(state.chief.panel).toEqual({
+    duty: dutyOf(''),
     routines: [routine(true)],
     flows: [],
     skills: [],
@@ -150,11 +183,21 @@ it('replaces the panel tasks when they change, keeping the routines and the libr
       kind: 'loaded',
       botId: 'chief',
       entries: [],
-      panel: { routines: [routine(true)], flows: [], skills: [], miniApps: [], library, tasks: [], models: NO_MODELS },
+      panel: {
+        duty: dutyOf(''),
+        routines: [routine(true)],
+        flows: [],
+        skills: [],
+        miniApps: [],
+        library,
+        tasks: [],
+        models: NO_MODELS,
+      },
     },
     { kind: 'tasks', botId: 'chief', tasks: [task] },
   ])
   expect(state.chief.panel).toEqual({
+    duty: dutyOf(''),
     routines: [routine(true)],
     flows: [],
     skills: [],
@@ -173,11 +216,21 @@ it('replaces the panel flows when the bot saves one, keeping the rest of the pan
       kind: 'loaded',
       botId: 'chief',
       entries: [],
-      panel: { routines: [routine(true)], flows: [], skills: [], miniApps: [], library, tasks: [], models: NO_MODELS },
+      panel: {
+        duty: dutyOf(''),
+        routines: [routine(true)],
+        flows: [],
+        skills: [],
+        miniApps: [],
+        library,
+        tasks: [],
+        models: NO_MODELS,
+      },
     },
     { kind: 'flows', botId: 'chief', flows: [flow] },
   ])
   expect(state.chief.panel).toEqual({
+    duty: dutyOf(''),
     routines: [routine(true)],
     flows: [flow],
     skills: [],
@@ -200,6 +253,14 @@ it('lets a reply that already arrived win over the loaded preview', () => {
     { kind: 'previews', previews: { chief: '旧回复', flow: '已记录' } },
   ])
   expect([state.chief.preview, state.flow.preview]).toEqual(['新回复', '已记录'])
+})
+
+it('lets a count of what waits on the user that already arrived win over the startup snapshot', () => {
+  const state = run([
+    { kind: 'decisions', botId: 'chief', count: 0 },
+    { kind: 'decision-counts', counts: { chief: 2, flow: 1 } },
+  ])
+  expect([state.chief.decisions, state.flow.decisions]).toEqual([0, 1])
 })
 
 it('fills in the tasks and routines of every bot from the startup snapshot', () => {

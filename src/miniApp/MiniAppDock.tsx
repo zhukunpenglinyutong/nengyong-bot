@@ -2,7 +2,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import type { RefObject } from 'react'
 import { latestVersion, type MiniApp } from '../../shared/miniApp'
 import { IconButton } from '../ui/IconButton'
-import type { Run } from './miniAppRuns'
+import { type Run, runKey } from './miniAppRuns'
 import { MiniAppTile } from './MiniAppTile'
 import { runStatus } from './runStatus'
 import { strings } from '../../shared/strings'
@@ -33,7 +33,7 @@ export function MiniAppDock({ docked, now, dockRef, onOpen, onClose }: Props) {
           const status = runStatus(run, latest, now)
           return (
             <motion.div
-              key={`${run.botId}/${run.miniAppId}`}
+              key={runKey(run)}
               layout
               initial={{ opacity: 0, scale: 0.5 }}
               animate={{ opacity: 1, scale: 1 }}

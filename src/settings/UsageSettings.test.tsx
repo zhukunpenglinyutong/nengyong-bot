@@ -2,12 +2,14 @@ import { act, cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, expect, it, vi } from 'vitest'
 import { MAIN_BOT } from '../../shared/bot'
+import { setLanguage } from '../../shared/language'
 import type { ModelPrice, Price, UsageRecord, UsageView } from '../../shared/usage'
 import { UsageSettings } from './UsageSettings'
 
 afterEach(() => {
   cleanup()
   localStorage.clear()
+  setLanguage('zh')
 })
 
 const TODAY = 20_000
@@ -121,6 +123,28 @@ it('opens a bot to what it spent on each of its sources', async () => {
   await user.click(await screen.findByRole('button', { name: new RegExp(MAIN_BOT.name) }))
   expect(screen.getByText('例行任务「每日汇报」')).toBeInTheDocument()
   expect(screen.getByText('3 轮')).toBeInTheDocument()
+})
+
+it('closes the open row when the range changes', async () => {
+  const user = userEvent.setup()
+  await renderPage(view([record({}), record({ day: TODAY - 10, botId: 'ledger', cost: 2 })]))
+  const row = await screen.findByRole('button', { name: new RegExp(MAIN_BOT.name) })
+  await user.click(row)
+  expect(row).toHaveAttribute('aria-expanded', 'true')
+  await user.click(screen.getByRole('button', { name: '30 天' }))
+  expect(screen.getByRole('button', { name: new RegExp(MAIN_BOT.name) })).toHaveAttribute('aria-expanded', 'false')
+})
+
+it('counts the tokens of each model a bot used in English too', async () => {
+  const user = userEvent.setup()
+  const prices = [
+    { model: 'deepseek-flash', price: FLASH, isCustom: false },
+    { model: 'gpt-5', price: { input: 1.25, cached: 0.125, output: 10 }, isCustom: false },
+  ]
+  setLanguage('en')
+  await renderPage(view([record({}), record({ model: 'gpt-5' })], prices))
+  await user.click(await screen.findByRole('button', { name: new RegExp(MAIN_BOT.name) }))
+  expect(screen.getAllByText('1M tokens')).toHaveLength(2)
 })
 
 it('refuses a price without input and output, then saves a full one and shows the spend it prices', async () => {

@@ -1,34 +1,37 @@
 import { AnimatePresence, motion } from 'motion/react'
 import { type MouseEvent, type ReactNode, useState } from 'react'
 import { BOT_NAME_MAX, type Bot } from '../../shared/bot'
-import { plainText } from '../../shared/plainText'
-import { SECTION_NAME_MAX, type SidebarState } from '../../shared/sidebar'
+import { SECTION_NAME_MAX, unreadTotal } from '../../shared/sidebar'
 import { ELAPSED_REFRESH_MS } from '../elapsedLabel'
 import { Icon } from '../ui/Icon'
 import { IconButton } from '../ui/IconButton'
 import { Collapsible } from '../ui/Collapsible'
 import { EASE_SHARP } from '../ui/motion'
 import { useNow } from '../ui/useNow'
-import { DOT_LABELS, dotKindOf, nextRoutineOf, statusLineOf, whenLabel } from './botStatus'
+import { nextRoutineOf } from '../nextRoutineOf'
+import { whenLabel } from '../timeLabel'
+import { DOT_LABELS, dotKindOf } from './botStatus'
 import { InlineRename } from './InlineRename'
 import { useBotEntry, useSidebar } from './SidebarContext'
-import { sidebarView } from '../sidebarView'
+import { inSidebarOrder, sidebarView } from '../sidebarView'
 import { StatusAvatar } from './StatusAvatar'
 import { StatusDot } from './StatusDot'
+import { StatusLine } from './StatusLine'
 import { HIDDEN_NAME, moveToSection, renameSection, toggleSection } from './sidebarState'
-import { MAX_SHOWN_UNREAD, UnreadBadge } from './UnreadBadge'
+import { cappedCount, UnreadBadge } from './UnreadBadge'
 import { strings } from '../../shared/strings'
 
 const PIN_PITCH = 102
 const PIN_GAP = 6
 const BOT_DRAG_TYPE = 'application/x-nengyongbot-bot'
-const STATUS_FILTERS = ['busy', 'failed'] as const
+const STATUS_FILTERS = ['busy', 'deciding', 'failed'] as const
 const FILTERS = ['unread', ...STATUS_FILTERS] as const
 type Filter = (typeof FILTERS)[number]
 const FILTER_LABELS: Record<Filter, string> = {
   unread: strings().sidebar.status.unread,
   busy: DOT_LABELS.busy,
   failed: DOT_LABELS.failed,
+  deciding: DOT_LABELS.deciding,
 }
 
 /** The bot list beside the rail: a search field over the matching bots, the unread, at work or failed bots, or every section. */
@@ -41,9 +44,10 @@ export function SidebarList({ onCreate }: { onCreate: () => void }) {
     kind === 'unread' ? (sidebar.unread[bot.id] ?? 0) > 0 : dotKindOf(statusOf(bot.id)) === kind
   const matching = (kind: Filter) => inSidebarOrder(sidebar).filter((bot) => isMatch(kind, bot))
   const counts: Record<Filter, number> = {
-    unread: Object.values(sidebar.unread).reduce((sum, count) => sum + count, 0),
+    unread: unreadTotal(sidebar),
     busy: matching('busy').length,
     failed: matching('failed').length,
+    deciding: matching('deciding').length,
   }
   const toggleFilter = (kind: Filter) =>
     setFilter((current) =>
@@ -99,12 +103,6 @@ export function SidebarList({ onCreate }: { onCreate: () => void }) {
   )
 }
 
-/** Every bot in the order the sections show them, the hidden ones last. */
-function inSidebarOrder(sidebar: SidebarState): Bot[] {
-  const view = sidebarView(sidebar)
-  return [...view.pinned, ...view.sections.flatMap((section) => section.bots), ...view.ungrouped, ...view.hidden]
-}
-
 /** How many replies wait unread, or bots are at work or failed: pressed, the list shows only those bots. */
 function FilterChip({
   kind,
@@ -131,7 +129,7 @@ function FilterChip({
       }
       data-kind={kind}
       onClick={onToggle}
-      className="flex h-6 shrink-0 overflow-hidden rounded-full text-xs font-medium tabular-nums aria-pressed:ring-1 aria-pressed:ring-current data-[kind=busy]:bg-working/12 data-[kind=busy]:text-working data-[kind=failed]:bg-danger/10 data-[kind=failed]:text-danger data-[kind=unread]:bg-accent/10 data-[kind=unread]:text-accent"
+      className="flex h-6 shrink-0 overflow-hidden rounded-full text-xs font-medium tabular-nums aria-pressed:ring-1 aria-pressed:ring-current data-[kind=busy]:bg-working/12 data-[kind=busy]:text-working data-[kind=deciding]:bg-accent/10 data-[kind=deciding]:text-accent data-[kind=failed]:bg-danger/10 data-[kind=failed]:text-danger data-[kind=unread]:bg-accent/10 data-[kind=unread]:text-accent"
     >
       <span className="flex items-center gap-1 px-1.5">
         {kind === 'unread' ? (
@@ -139,7 +137,7 @@ function FilterChip({
         ) : (
           <StatusDot kind={kind} size={12} />
         )}
-        {count > MAX_SHOWN_UNREAD ? `${MAX_SHOWN_UNREAD}+` : count}
+        {cappedCount(count)}
       </span>
     </motion.button>
   )
@@ -309,25 +307,13 @@ function BotRow({ bot, dimmed = false }: { bot: Bot; dimmed?: boolean }) {
   const entry = useBotEntry(bot)
   const now = useNow(ELAPSED_REFRESH_MS)
   const { preview, panel } = thread(bot.id)
-  const line = statusLineOf(entry.status, now)
   const next = entry.status.kind === 'idle' ? nextRoutineOf(panel.routines) : undefined
   const avatar = (
     <span data-dimmed={dimmed || undefined} className="data-dimmed:opacity-50">
       <StatusAvatar bot={bot} size={36} dotSize={14} status={entry.status} />
     </span>
   )
-  const status = (
-    <span className="flex min-w-0 items-center gap-2">
-      <small
-        data-live={(line !== null && entry.status.kind !== 'failed') || undefined}
-        data-failed={entry.status.kind === 'failed' || undefined}
-        className="min-w-0 flex-1 truncate text-sm text-muted data-failed:text-danger data-live:text-soft"
-      >
-        {line ?? plainText(preview)}
-      </small>
-      <UnreadBadge count={entry.unread} />
-    </span>
-  )
+  const status = <StatusLine status={entry.status} preview={preview} unread={entry.unread} now={now} />
   if (entry.isEditing) {
     return (
       <div className="group flex w-full items-center gap-3 rounded-lg bg-hover px-2.5 py-2">
@@ -462,7 +448,7 @@ function StatusSummary({ botIds }: { botIds: string[] }) {
         <span
           key={kind}
           data-kind={kind}
-          className="mr-1.5 flex items-center gap-1 text-xs tabular-nums data-[kind=busy]:text-working data-[kind=failed]:text-danger"
+          className="mr-1.5 flex items-center gap-1 text-xs tabular-nums data-[kind=busy]:text-working data-[kind=deciding]:text-accent data-[kind=failed]:text-danger"
         >
           <StatusDot kind={kind} size={12} />
           {count}

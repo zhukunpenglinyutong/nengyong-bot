@@ -5,6 +5,7 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { MAIN_BOT } from '../../shared/bot'
 import type { Entry } from '../../shared/bridge'
 import type { ContextView, Trace } from '../../shared/debug'
+import { type Navigation, NavigationContext } from '../NavigationContext'
 import { BotIsland } from './BotIsland'
 
 afterEach(cleanup)
@@ -23,7 +24,16 @@ const context: ContextView = {
       { role: 'user', text: '上周的结论呢' },
       { role: 'assistant', text: '在周报里。' },
     ],
-    counts: { user: 1, bot: 1, 'from-bot': 0, routine: 0, 'task-result': 0, 'skill-answer': 0, tool: 0 },
+    counts: {
+      user: 1,
+      bot: 1,
+      'from-bot': 0,
+      routine: 0,
+      'task-result': 0,
+      'skill-answer': 0,
+      'duty-answer': 0,
+      tool: 0,
+    },
   },
   tools: {
     definitions: [
@@ -72,7 +82,15 @@ const remembered: Entry = {
   output: { saved: 'm1' },
 }
 
-function island(props: Partial<ComponentProps<typeof BotIsland>> = {}) {
+function island(props: Partial<ComponentProps<typeof BotIsland>> = {}, navigation: Partial<Navigation> = {}) {
+  const value = {
+    openBot: vi.fn(),
+    openFlow: vi.fn(),
+    openSkill: vi.fn(),
+    openSkillFiles: vi.fn(),
+    openMiniApp: vi.fn(),
+    ...navigation,
+  }
   return render(
     <BotIsland
       bot={MAIN_BOT}
@@ -86,12 +104,10 @@ function island(props: Partial<ComponentProps<typeof BotIsland>> = {}) {
       traces={[]}
       notice={undefined}
       onDismissNotice={vi.fn()}
-      onOpenBot={vi.fn()}
-      onOpenFlow={vi.fn()}
-      onOpenSkill={vi.fn()}
       onDebugChange={vi.fn()}
       {...props}
     />,
+    { wrapper: ({ children }) => <NavigationContext value={value}>{children}</NavigationContext> },
   )
 }
 
@@ -111,9 +127,6 @@ it('shows how much context the chat sends, in debug mode only', () => {
       traces={[]}
       notice={undefined}
       onDismissNotice={vi.fn()}
-      onOpenBot={vi.fn()}
-      onOpenFlow={vi.fn()}
-      onOpenSkill={vi.fn()}
       onDebugChange={vi.fn()}
     />,
   )
@@ -160,6 +173,31 @@ it('counts the steps of a running turn and opens on them', async () => {
   expect(screen.getByText('进行中')).toBeInTheDocument()
 })
 
+it('opens on the context again once the turn it was opened on is over', async () => {
+  const user = userEvent.setup()
+  const { rerender } = island({ isBusy: true, traces: [turn] })
+  await user.click(screen.getByRole('button', { name: /步 2\/12/ }))
+  await user.keyboard('{Escape}')
+  rerender(
+    <BotIsland
+      bot={MAIN_BOT}
+      bots={[MAIN_BOT]}
+      entries={[remembered]}
+      tasks={[]}
+      flows={[]}
+      isBusy={false}
+      isDebug
+      context={context}
+      traces={[{ ...turn, endedAt: 9000 }]}
+      notice={undefined}
+      onDismissNotice={vi.fn()}
+      onDebugChange={vi.fn()}
+    />,
+  )
+  await user.click(await screen.findByRole('button', { name: /CEO/ }))
+  expect(screen.getByRole('tab', { name: '上下文' })).toHaveAttribute('aria-selected', 'true')
+})
+
 it('lists what the chat changed, with the record it came from', async () => {
   const user = userEvent.setup()
   island()
@@ -199,8 +237,8 @@ it('keeps the context in sight while background tasks run', () => {
 })
 
 it('opens a learned flow in the chat of the bot that learned it, whichever chat is open', async () => {
-  const onOpenBot = vi.fn()
-  const onOpenFlow = vi.fn()
+  const openBot = vi.fn()
+  const openFlow = vi.fn()
   const notice = {
     kind: 'learned' as const,
     id: 1,
@@ -210,8 +248,8 @@ it('opens a learned flow in the chat of the bot that learned it, whichever chat 
     isNew: true,
     points: 5,
   }
-  island({ isDebug: false, notice, onOpenBot, onOpenFlow })
+  island({ isDebug: false, notice }, { openBot, openFlow })
   await userEvent.click(screen.getByRole('button', { name: /学会了新流程\s*周报汇总\s*\+5 经验/ }))
-  expect(onOpenBot).toHaveBeenCalledWith('secretary')
-  expect(onOpenFlow).toHaveBeenCalledWith('f1')
+  expect(openBot).toHaveBeenCalledWith('secretary')
+  expect(openFlow).toHaveBeenCalledWith('f1')
 })

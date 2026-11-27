@@ -5,7 +5,8 @@ import { TIMEZONE } from '../../shared/timezone'
 import { BotAvatar } from '../bot/BotAvatar'
 import { ShapePattern } from '../bot/ShapePattern'
 import { Icon } from '../ui/Icon'
-import { dateLabel, dateTimeLabel, GAP_MS } from './chatMessages'
+import { dateLabel, dateTimeLabel } from '../timeLabel'
+import { GAP_MS } from './chatMessages'
 import { Markdown } from './Markdown'
 import { useMentions } from './MentionContext'
 import { MentionText } from './MentionText'
@@ -133,7 +134,7 @@ function CardMessage({ message, isTurn, bubbleColor }: CardMessageProps) {
         <div
           style={{ background: bubbleColor }}
           data-tinted={bubbleColor !== undefined || undefined}
-          className="rounded-2xl rounded-tr-sm bg-ink px-3 py-2 text-md break-words whitespace-pre-wrap text-canvas data-tinted:text-white [&_[data-mention]]:font-semibold [&_[data-mention]]:text-inherit!"
+          className="rounded-2xl rounded-tr-sm bg-ink px-3 py-2 text-md wrap-anywhere whitespace-pre-wrap text-canvas data-tinted:text-white [&_[data-mention]]:font-semibold [&_[data-mention]]:text-inherit!"
         >
           <MentionText text={message.text} bots={bots} />
         </div>

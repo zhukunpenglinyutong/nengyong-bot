@@ -24,20 +24,6 @@ const renderPage = async (setMcpConfig: NengyongBotBridge['setMcpConfig']) => {
   })
 }
 
-it('opens on the MCP config and keeps the CLI tools on their own tab', async () => {
-  await renderPage(vi.fn())
-  expect(screen.getByRole('textbox', { name: 'MCP 配置' })).toBeVisible()
-  expect(screen.getByText('Claude Code')).not.toBeVisible()
-})
-
-it('keeps an unsaved MCP edit when switching to the CLI tab and back', async () => {
-  await renderPage(vi.fn())
-  await userEvent.type(await screen.findByRole('textbox', { name: 'MCP 配置' }), ' ')
-  await userEvent.click(screen.getByRole('button', { name: 'CLI 工具' }))
-  await userEvent.click(screen.getByRole('button', { name: 'MCP' }))
-  expect(screen.getByRole('textbox', { name: 'MCP 配置' })).toHaveValue(`${SAVED.text} `)
-})
-
 it('formats the MCP config with two-space indentation', async () => {
   await renderPage(vi.fn())
   await userEvent.click(await screen.findByRole('button', { name: '格式化' }))

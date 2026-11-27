@@ -5,6 +5,7 @@ import {
   type DeskState,
   deskStateOf,
   furnitureOf,
+  isWorking,
   nextUnlockOf,
   nowLineOf,
   plantStageOf,
@@ -67,9 +68,8 @@ it('says what it is running and for how long', () => {
   expect(nowLineOf({ kind: 'task', task: task({}) }, NOW)).toEqual({
     text: '在跑「整理周报」',
     aside: '· 5 分钟',
-    isWorking: true,
   })
-  expect(nowLineOf({ kind: 'game' }, NOW)).toEqual({ text: '摸鱼中', aside: '在打王者荣耀', isWorking: false })
+  expect(nowLineOf({ kind: 'game' }, NOW)).toEqual({ text: '摸鱼中', aside: '在打王者荣耀' })
 })
 
 it('makes a different excuse each time it is caught slacking', () => {
@@ -110,4 +110,11 @@ it('reads the clock and the sky in Beijing time', () => {
   expect(clockOf(NOW)).toEqual({ hour: 15, minute: 30, timeOfDay: 'day' })
   expect(clockOf(new Date('2026-11-21T18:10:00+08:00').getTime()).timeOfDay).toBe('dusk')
   expect(clockOf(new Date('2026-11-21T02:00:00+08:00').getTime()).timeOfDay).toBe('night')
+})
+
+it('counts replying and running a task as working, and nothing else', () => {
+  expect(isWorking({ kind: 'replying' })).toBe(true)
+  expect(isWorking({ kind: 'task', task: task({}) })).toBe(true)
+  expect(isWorking({ kind: 'replied' })).toBe(false)
+  expect(isWorking({ kind: 'failed', task: task({ status: 'failed' }) })).toBe(false)
 })

@@ -10,6 +10,7 @@ import { App } from './App'
 import { DEMO_SIDEBAR } from './demo/demoData'
 import { renderDemoApp } from './demo/renderDemoApp'
 import { RELEASES } from './settings/releases'
+import { dutyOf } from '../shared/duty'
 
 describe('App on the demo bridge', () => {
   it('shows the chief thread by default', async () => {
@@ -156,6 +157,7 @@ function fakeBridge(hasModel = true): NengyongBotBridge {
     deleteMessages: vi.fn(async () => {}),
     previews: vi.fn(async () => ({ repo: '明天 **10 点** 开会，见 [CEO](bot:chief)' })),
     panel: vi.fn(async () => ({
+      duty: dutyOf(''),
       routines: [],
       flows: [],
       skills: [],
@@ -165,6 +167,7 @@ function fakeBridge(hasModel = true): NengyongBotBridge {
       models: NO_MODELS,
     })),
     tasksAndRoutines: vi.fn(async () => ({})),
+    decisionCounts: vi.fn(async () => ({})),
     context: vi.fn(async () => null),
     setDebug: vi.fn(async () => {}),
     setRoutineEnabled: vi.fn(async () => {}),
@@ -172,6 +175,8 @@ function fakeBridge(hasModel = true): NengyongBotBridge {
     stopReply: vi.fn(async () => {}),
     stopTask: vi.fn(async () => {}),
     answerSkillOffer: vi.fn(async () => {}),
+    answerDutyOffer: vi.fn(async () => {}),
+    setDutyReview: vi.fn(async () => {}),
     uploadSkill: vi.fn(async () => null),
     answerSkillUpload: vi.fn(async () => {}),
     removeSkills: vi.fn(async () => {}),
@@ -181,6 +186,7 @@ function fakeBridge(hasModel = true): NengyongBotBridge {
     getSidebar: vi.fn(async () => null),
     needsOnboarding: vi.fn(async () => false),
     saveSidebar: vi.fn(async () => []),
+    deleteBot: vi.fn(async () => {}),
     getDataDir: vi.fn(async () => '/Users/me/.nengyongbot/data'),
     openDataDir: vi.fn(async () => {}),
     moveDataDir: vi.fn(async () => {}),
@@ -247,11 +253,11 @@ describe('App on a scripted bridge', () => {
     expect(bridge.send).toHaveBeenCalledWith('chief', '你好', [], null, null)
 
     await emit({ kind: 'entry', botId: 'chief', entry: { ...stamp(1), kind: 'user', text: '你好' } })
-    await emit({ kind: 'draft', botId: 'chief', text: '正在' })
+    await emit({ kind: 'streaming', botId: 'chief', text: '正在' })
     const list = screen.getByTestId('messages')
     expect(within(list).getByText('正在')).toBeInTheDocument()
 
-    await emit({ kind: 'draft', botId: 'chief', text: '' })
+    await emit({ kind: 'streaming', botId: 'chief', text: '' })
     await emit({
       kind: 'entry',
       botId: 'chief',
@@ -327,6 +333,14 @@ describe('App on a scripted bridge', () => {
     expect(saved?.find((bot) => bot.id === 'secretary')?.name).toBe('灵感记录')
   })
 
+  it('moves a bot into a new section when the harness moves it, and saves the sidebar', async () => {
+    renderApp()
+    await emit({ kind: 'bot-moved', botId: 'secretary', section: { id: 'sOps', name: '运营团队' } })
+    expect(screen.getByText('运营团队')).toBeInTheDocument()
+    const saved = vi.mocked(bridge.saveSidebar).mock.calls.at(-1)?.[0]
+    expect([saved?.sections.at(-1)?.name, saved?.placement.secretary]).toEqual(['运营团队', 'sOps'])
+  })
+
   it('does not flag a task that failed while its chat was open once the user moves on', async () => {
     const user = userEvent.setup()
     renderApp()
@@ -371,6 +385,17 @@ describe('App on a scripted bridge', () => {
     await emit({ kind: 'entry', botId: 'secretary', entry: { ...stamp(1), kind: 'bot', text: '提醒已设好' } })
     await emit({ kind: 'open-bot', botId: 'secretary' })
     expect(screen.getByRole('textbox', { name: '跟 秘书Bot 说点什么' })).toBeInTheDocument()
+    expect(screen.queryByLabelText('未读')).not.toBeInTheDocument()
+  })
+
+  it('counts a reply from the open bot as unread while the window is in the background, until it comes back', async () => {
+    const hasFocus = vi.spyOn(document, 'hasFocus').mockReturnValue(false)
+    renderApp()
+    await emit({ kind: 'entry', botId: 'chief', entry: { ...stamp(1), kind: 'bot', text: '报告写好了' } })
+    const pinned = screen.getByRole('group', { name: '置顶区' })
+    expect(within(within(pinned).getByRole('button', { name: /小满/ })).getByLabelText('未读')).toBeInTheDocument()
+    hasFocus.mockRestore()
+    act(() => window.dispatchEvent(new FocusEvent('focus')))
     expect(screen.queryByLabelText('未读')).not.toBeInTheDocument()
   })
 
@@ -469,7 +494,8 @@ describe('App on a scripted bridge', () => {
     const user = userEvent.setup()
     renderApp()
     await user.click(screen.getByRole('button', { name: '设置' }))
-    await user.click(screen.getByRole('button', { name: '数据' }))
+    // the page suspends until the data dir is read; outside act, the test environment never lets it resume
+    await act(() => user.click(screen.getByRole('button', { name: '数据' })))
     expect(await screen.findByText('/Users/me/.nengyongbot/data')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '导出…' }))
     expect(await screen.findByText('已导出到 /Users/me/Desktop/Nengyong Bot 备份 2026-11-18 2305')).toBeInTheDocument()
@@ -540,6 +566,7 @@ describe('App on a scripted bridge', () => {
     bridge = {
       ...fakeBridge(),
       panel: vi.fn(async () => ({
+        duty: dutyOf(''),
         routines: [],
         flows: [],
         skills: [],
@@ -573,6 +600,7 @@ describe('App on a scripted bridge', () => {
     bridge = {
       ...fakeBridge(),
       panel: vi.fn(async () => ({
+        duty: dutyOf(''),
         routines: [],
         flows: [],
         skills: [],
@@ -1284,6 +1312,7 @@ describe('the island at the top of the chat', () => {
     bridge = {
       ...fakeBridge(),
       panel: vi.fn(async () => ({
+        duty: dutyOf(''),
         routines: [],
         flows: [],
         skills: [],

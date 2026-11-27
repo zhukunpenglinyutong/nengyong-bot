@@ -3,22 +3,20 @@ import type { Bot } from '../../shared/bot'
 import { type Entry, isUnfinished, type TaskView } from '../../shared/bridge'
 import type { ContextView, Trace } from '../../shared/debug'
 import type { Flow } from '../../shared/flow'
-import { BotAvatar } from '../bot/BotAvatar'
-import { Icon, type IconName } from '../ui/Icon'
 import { useAutoDismiss } from '../ui/useAutoDismiss'
+import { useFlash } from '../ui/useFlash'
 import { useLightDismiss } from '../ui/useLightDismiss'
-import { ContextGauge } from './ContextGauge'
-import { type ContextFill, contextTokens, liveTokens } from './contextTokens'
+import { type Navigation, useNavigation } from '../NavigationContext'
+import { contextTokens, liveTokens } from './contextTokens'
 import { DebugCard, type DebugTab } from './DebugCard'
 import { DetailCard } from './DetailCard'
 import { Island } from './Island'
 import type { Notice } from './islandNotices'
-import { LevelBadge } from './LevelBadge'
+import { BusyRow, FlowSavedRow, IdleRow, NoticeRow, SkillLearnedRow, TaskEndedRow, TasksRow } from './IslandRows'
 import { LevelUpCard } from './LevelUpCard'
 import { ReplyCard } from './ReplyCard'
-import { type Trust, trustOf } from '../../shared/trust'
+import { trustOf } from '../../shared/trust'
 import { strings } from '../../shared/strings'
-import { TrustRing } from './TrustRing'
 
 const NOTICE_MS: Record<Notice['kind'], number> = {
   task: 2600,
@@ -30,7 +28,6 @@ const NOTICE_MS: Record<Notice['kind'], number> = {
   compacted: 3200,
   'out-of-steps': 5000,
 }
-const DEBUG_TOGGLED_MS = 2000
 
 interface Props {
   bot: Bot
@@ -44,9 +41,6 @@ interface Props {
   traces: Trace[]
   notice: Notice | undefined // the first of the queue; it waits while the island is open
   onDismissNotice: (id: number) => void
-  onOpenBot: (botId: string) => void
-  onOpenFlow: (flowId: string | null) => void // null: the list of its flows
-  onOpenSkill: (botId: string, name: string) => void
   onDebugChange: (isDebug: boolean) => void
 }
 
@@ -57,60 +51,39 @@ interface View {
 
 /** The island of one bot's chat: its level at rest, its background tasks, news as it comes, the details on a click. */
 export function BotIsland(props: Props) {
-  const {
-    bot,
-    bots,
-    entries,
-    tasks,
-    flows,
-    isBusy,
-    isDebug,
-    context,
-    traces,
-    notice,
-    onDismissNotice,
-    onOpenBot,
-    onOpenFlow,
-    onOpenSkill,
-    onDebugChange,
-  } = props
+  const { bot, bots, entries, tasks, flows, isBusy, isDebug, context, traces, notice, onDismissNotice, onDebugChange } =
+    props
+  const navigation = useNavigation()
   const [isExpanded, setIsExpanded] = useState(false)
   const [tab, setTab] = useState<DebugTab>('context')
-  const [debugToggledId, setDebugToggledId] = useState<number>()
+  const [toggledDebug, flashToggledDebug] = useFlash<boolean>() // what debug mode was just turned to
   const ref = useRef<HTMLDivElement>(null)
   const trust = useMemo(() => trustOf(entries), [entries])
   const running = tasks.filter(isUnfinished)
-  const shownNotice = isExpanded || debugToggledId !== undefined ? undefined : notice
+  const shownNotice = isExpanded || toggledDebug !== undefined ? undefined : notice
   useAutoDismiss(shownNotice?.id, shownNotice ? NOTICE_MS[shownNotice.kind] : 0, onDismissNotice)
-  useAutoDismiss(debugToggledId, DEBUG_TOGGLED_MS, () => setDebugToggledId(undefined))
   useLightDismiss(ref, isExpanded, () => setIsExpanded(false))
 
   const toggleDebug = (isOn: boolean) => {
     onDebugChange(isOn)
     setIsExpanded(false)
-    setDebugToggledId(Date.now())
+    flashToggledDebug(isOn)
   }
-  const expand = () => setIsExpanded(true)
-  const openTrace = () => {
-    setTab('trace')
+  const openOn = (next: DebugTab) => {
+    setTab(next)
     setIsExpanded(true)
   }
+  const expand = () => openOn('context')
+  const openTrace = () => openOn('trace')
   const chatTrace = traces.find((trace) => trace.id === bot.id)
 
   const view = (): View => {
-    if (debugToggledId !== undefined) {
-      const row = isDebug
-        ? {
-            icon: 'check' as const,
-            title: strings().island.notices.debugOn,
-            detail: strings().island.notices.debugOnDetail,
-          }
-        : {
-            icon: 'close' as const,
-            title: strings().island.notices.debugOff,
-            detail: strings().island.notices.debugOffDetail,
-          }
-      return { key: `debug-toggled-${debugToggledId}`, content: <DebugNoticeRow {...row} /> }
+    if (toggledDebug !== undefined) {
+      const words = strings().island.notices
+      const row = toggledDebug
+        ? { icon: 'check' as const, title: words.debugOn, detail: words.debugOnDetail }
+        : { icon: 'close' as const, title: words.debugOff, detail: words.debugOffDetail }
+      return { key: `debug-toggled-${toggledDebug}`, content: <NoticeRow {...row} tone="quiet" /> }
     }
     if (isExpanded && isDebug) {
       const card = { bot, trust, entries, context, traces, tab, onTab: setTab, onDebugChange: toggleDebug }
@@ -119,12 +92,12 @@ export function BotIsland(props: Props) {
     if (isExpanded) {
       const openFlows = () => {
         setIsExpanded(false)
-        onOpenFlow(null)
+        navigation.openFlow(null)
       }
       const card = { bot, trust, flowCount: flows.length, onOpenFlows: openFlows, onDebugChange: toggleDebug }
       return { key: 'detail', content: <DetailCard {...card} /> }
     }
-    const actions = { bot, bots, onDismissNotice, onOpenBot, onOpenFlow, onOpenSkill, onOpenTrace: openTrace }
+    const actions = { ...navigation, bot, bots, onDismissNotice, onOpenTrace: openTrace }
     const news = shownNotice && noticeView(shownNotice, actions)
     if (news) return news
     if (isDebug && isBusy) {
@@ -153,13 +126,12 @@ export function BotIsland(props: Props) {
   )
 }
 
-type NoticeActions = Pick<Props, 'bot' | 'bots' | 'onDismissNotice' | 'onOpenBot' | 'onOpenFlow' | 'onOpenSkill'> & {
-  onOpenTrace: () => void
-}
+type NoticeActions = Pick<Props, 'bot' | 'bots' | 'onDismissNotice'> &
+  Pick<Navigation, 'openBot' | 'openFlow' | 'openSkill'> & { onOpenTrace: () => void }
 
 function noticeView(
   notice: Notice,
-  { bot, bots, onDismissNotice, onOpenBot, onOpenFlow, onOpenSkill, onOpenTrace }: NoticeActions,
+  { bot, bots, onDismissNotice, openBot, openFlow, openSkill, onOpenTrace }: NoticeActions,
 ): View | undefined {
   const key = `notice-${notice.id}`
   switch (notice.kind) {
@@ -185,7 +157,7 @@ function noticeView(
             <ReplyCard
               sender={sender}
               text={notice.text}
-              onOpen={() => onOpenBot(sender.id)}
+              onOpen={() => openBot(sender.id)}
               onLater={() => onDismissNotice(notice.id)}
             />
           ),
@@ -196,7 +168,11 @@ function noticeView(
       return {
         key,
         content: (
-          <LevelUpCard bot={bots.find((candidate) => candidate.id === notice.botId) ?? bot} level={notice.level} />
+          <LevelUpCard
+            bot={bots.find((candidate) => candidate.id === notice.botId) ?? bot}
+            from={notice.from}
+            level={notice.level}
+          />
         ),
       }
     case 'learned':
@@ -209,8 +185,8 @@ function noticeView(
             points={notice.points}
             onClick={() => {
               onDismissNotice(notice.id)
-              onOpenBot(notice.botId)
-              onOpenFlow(notice.flowId)
+              openBot(notice.botId)
+              openFlow(notice.flowId)
             }}
           />
         ),
@@ -230,7 +206,7 @@ function noticeView(
             onClick={() => {
               onDismissNotice(notice.id)
               const [first] = notice.names
-              if (first) onOpenSkill(notice.botId, first)
+              if (first) openSkill(notice.botId, first)
             }}
           />
         ),
@@ -239,14 +215,15 @@ function noticeView(
     case 'remembered':
       return {
         key,
-        content: <DebugNoticeRow icon="pin" title={strings().island.notices.remembered} detail={notice.text} />,
+        content: <NoticeRow icon="pin" tone="quiet" title={strings().island.notices.remembered} detail={notice.text} />,
       }
     case 'compacted':
       return {
         key,
         content: (
-          <DebugNoticeRow
+          <NoticeRow
             icon="down"
+            tone="quiet"
             title={strings().island.notices.compacted}
             detail={strings().island.notices.compactedDetail(notice.folded)}
           />
@@ -256,206 +233,26 @@ function noticeView(
       return {
         key,
         content: (
-          <DebugNoticeRow
+          <NoticeRow
             icon="stop"
+            tone="warning"
             title={strings().island.notices.outOfSteps}
             detail={strings().island.notices.outOfStepsDetail(notice.maxSteps)}
-            isWarning
-            action={{
-              label: strings().island.notices.seeTurn,
-              onClick: () => {
+          >
+            <button
+              type="button"
+              onClick={() => {
                 onDismissNotice(notice.id)
                 onOpenTrace()
-              },
-            }}
-          />
+              }}
+              className="rounded-full bg-white/20 px-2.5 text-xs leading-[22px] font-semibold"
+            >
+              {strings().island.notices.seeTurn}
+            </button>
+          </NoticeRow>
         ),
       }
     default:
       return notice satisfies never
   }
-}
-
-interface RowProps {
-  bot: Bot
-  trust: Trust
-  onClick: () => void
-}
-
-export function IdleRow({ bot, trust, fill, onClick }: RowProps & { fill?: ContextFill }) {
-  return (
-    <CompactButton onClick={onClick}>
-      <TrustRing trust={trust} size={26}>
-        <BotAvatar bot={bot} size={16} />
-      </TrustRing>
-      <span className="max-w-[200px] truncate">{bot.name}</span>
-      <LevelBadge level={trust.level} />
-      {fill && (
-        <>
-          <span className="h-3.5 w-px bg-white/20" />
-          <ContextGauge {...fill} />
-        </>
-      )}
-    </CompactButton>
-  )
-}
-
-interface BusyRowProps extends RowProps {
-  step: number // the step it is on; 0 while it gets ready
-  maxSteps: number | undefined
-  fill: ContextFill | undefined
-}
-
-/** Debug mode, while a turn runs: which step of how many, and what that step sends the model. */
-function BusyRow({ bot, trust, step, maxSteps, fill, onClick }: BusyRowProps) {
-  return (
-    <CompactButton onClick={onClick}>
-      <TrustRing trust={trust} size={26}>
-        <BotAvatar bot={bot} size={16} />
-      </TrustRing>
-      <span className="max-w-[200px] truncate">{bot.name}</span>
-      <span className="h-3.5 w-px bg-white/20" />
-      <span className="shimmer-text font-mono text-xs tabular-nums">
-        {step && maxSteps ? strings().island.notices.step(step, maxSteps) : strings().island.notices.starting}
-      </span>
-      {fill && <ContextGauge {...fill} />}
-    </CompactButton>
-  )
-}
-
-interface DebugNoticeProps {
-  icon: IconName
-  title: string
-  detail: string
-  isWarning?: boolean
-  action?: { label: string; onClick: () => void }
-}
-
-function DebugNoticeRow({ icon, title, detail, isWarning = false, action }: DebugNoticeProps) {
-  return (
-    <div className="flex h-[30px] items-center gap-2 pr-3.5 pl-[2px] text-md whitespace-nowrap has-[button]:pr-1">
-      <span className="grid size-[26px] place-items-center">
-        <span
-          data-warning={isWarning || undefined}
-          className="grid size-[18px] place-items-center rounded-full bg-white/20 data-warning:bg-warning"
-        >
-          <Icon name={icon} size={11} />
-        </span>
-      </span>
-      <span>{title}</span>
-      <span className="max-w-[240px] truncate text-sm text-white/60">{detail}</span>
-      {action && (
-        <button
-          type="button"
-          onClick={action.onClick}
-          className="rounded-full bg-white/20 px-2.5 text-xs leading-[22px] font-semibold"
-        >
-          {action.label}
-        </button>
-      )}
-    </div>
-  )
-}
-
-export function TasksRow({ bot, trust, tasks, fill, onClick }: RowProps & { tasks: TaskView[]; fill?: ContextFill }) {
-  return (
-    <CompactButton onClick={onClick}>
-      <TrustRing trust={trust} size={26}>
-        <BotAvatar bot={bot} size={16} />
-      </TrustRing>
-      <span className="max-w-[200px] truncate">{bot.name}</span>
-      <span className="h-3.5 w-px bg-white/20" />
-      <span className="max-w-[220px] truncate text-sm text-white/60">
-        {tasks.length === 1
-          ? strings().island.notices.backgroundTask(tasks[0]?.title ?? '')
-          : strings().island.notices.backgroundTasks(tasks.length)}
-      </span>
-      {fill && <ContextGauge {...fill} />}
-    </CompactButton>
-  )
-}
-
-interface TaskEndedProps {
-  title: string
-  isDone: boolean
-  points: number // what it earned the bot
-  fallbackFrom?: string // the model it was set to, which the main one stood in for
-  onClick: () => void
-}
-
-export function TaskEndedRow({ title, isDone, points, fallbackFrom, onClick }: TaskEndedProps) {
-  return (
-    <CompactButton onClick={onClick}>
-      <span className="grid size-[26px] place-items-center">
-        <span
-          data-failed={!isDone || undefined}
-          className="grid size-[18px] place-items-center rounded-full bg-accent data-failed:bg-danger"
-        >
-          <Icon name={isDone ? 'check' : 'close'} size={11} />
-        </span>
-      </span>
-      <span>{isDone ? strings().island.notices.taskDone : strings().island.notices.taskFailed}</span>
-      <span className="max-w-[220px] truncate text-sm text-white/60">{title}</span>
-      {fallbackFrom && <span className="text-sm text-warning">{strings().island.notices.fellBack(fallbackFrom)}</span>}
-      {points > 0 && (
-        <span className="rounded-full bg-white/12 px-2 text-xs leading-5 font-semibold">
-          {strings().island.notices.xp(points)}
-        </span>
-      )}
-    </CompactButton>
-  )
-}
-
-interface FlowSavedProps {
-  name: string
-  isNew: boolean
-  points: number // what saving it earned the bot
-  onClick: () => void
-}
-
-function FlowSavedRow({ name, isNew, points, onClick }: FlowSavedProps) {
-  return (
-    <CompactButton onClick={onClick}>
-      <span className="grid size-[26px] place-items-center">
-        <span className="grid size-[18px] place-items-center rounded-full bg-accent">
-          <Icon name="flow" size={11} />
-        </span>
-      </span>
-      <span>{isNew ? strings().island.notices.flowLearned : strings().island.notices.flowUpdated}</span>
-      <span className="max-w-[220px] truncate text-sm text-white/60">{name}</span>
-      {points > 0 && <span className="text-sm font-semibold tabular-nums">{strings().island.notices.xp(points)}</span>}
-      <span className="rounded-full bg-white/12 px-2 text-xs leading-5 font-semibold">
-        {strings().island.notices.view}
-      </span>
-    </CompactButton>
-  )
-}
-
-function SkillLearnedRow({ title, name, onClick }: { title: string; name: string; onClick: () => void }) {
-  return (
-    <CompactButton onClick={onClick}>
-      <span className="grid size-[26px] place-items-center">
-        <span className="grid size-[18px] place-items-center rounded-full bg-accent">
-          <Icon name="skill" size={11} />
-        </span>
-      </span>
-      <span>{title}</span>
-      <span className="max-w-[220px] truncate text-sm text-white/60">{name}</span>
-      <span className="rounded-full bg-white/12 px-2 text-xs leading-5 font-semibold">
-        {strings().island.notices.view}
-      </span>
-    </CompactButton>
-  )
-}
-
-function CompactButton({ onClick, children }: { onClick: () => void; children: ReactNode }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex h-[30px] items-center gap-2 pr-3.5 pl-[2px] text-md whitespace-nowrap"
-    >
-      {children}
-    </button>
-  )
 }

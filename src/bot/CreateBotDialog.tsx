@@ -3,7 +3,6 @@ import { useState } from 'react'
 import { BOT_NAME_MAX, type Bot, PALETTE, PICKER_SHAPES } from '../../shared/bot'
 import { Dialog } from '../ui/Dialog'
 import { IconButton } from '../ui/IconButton'
-import { TAP } from '../ui/motion'
 import { BotAvatar } from './BotAvatar'
 import { type Look, LookPicker } from './LookPicker'
 import { strings } from '../../shared/strings'
@@ -67,21 +66,17 @@ export function CreateBotDialog({ onCreate, onClose }: Props) {
       </div>
 
       <footer className="flex justify-end gap-2 border-t border-line px-6 py-4">
-        <motion.button
-          whileTap={TAP}
-          onClick={onClose}
-          className="h-11 rounded-full border border-line bg-side px-5 text-base"
-        >
+        <button type="button" onClick={onClose} className="h-11 rounded-full border border-line bg-side px-5 text-base">
           {words.cancel}
-        </motion.button>
-        <motion.button
-          whileTap={canCreate ? TAP : undefined}
+        </button>
+        <button
+          type="button"
           disabled={!canCreate}
           onClick={submit}
           className="h-11 rounded-full bg-ink px-5 text-base text-canvas transition-colors disabled:bg-hover disabled:text-muted/70"
         >
           {words.create}
-        </motion.button>
+        </button>
       </footer>
     </Dialog>
   )

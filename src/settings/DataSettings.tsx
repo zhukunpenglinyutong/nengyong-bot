@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { Suspense, use, useState } from 'react'
 import type { NengyongBotBridge } from '../../shared/bridge'
-import { ipcErrorMessage } from '../ipcErrorMessage'
-import { SettingsButton, SettingsRow, SettingsSection } from './SettingsSection'
+import { ipcErrorMessage, type Loaded, settle } from '../ipcErrorMessage'
+import { Button } from '../ui/Button'
+import { SettingsPage, SettingsRow, SettingsSection } from './SettingsSection'
 import { strings } from '../../shared/strings'
 
 interface Props {
@@ -13,19 +14,15 @@ type Status = { kind: 'idle' | 'busy' } | { kind: 'done' | 'error'; message: str
 /** Where the data lives, and exporting or importing it. The folders are picked in native dialogs. */
 export function DataSettings({ bridge }: Props) {
   const words = strings().settings.data
-  const [dataDir, setDataDir] = useState('')
+  const [dataDir] = useState(() => settle(bridge.getDataDir()))
   const [status, setStatus] = useState<Status>({ kind: 'idle' })
 
-  useEffect(() => {
-    bridge.getDataDir().then(setDataDir, (error) => setStatus({ kind: 'error', message: ipcErrorMessage(error) }))
-  }, [bridge])
-
   // importing or moving restarts the app when it goes through, so only a cancel or a failure comes back here
-  const run = async (action: () => Promise<string | null>) => {
+  const run = async (action: () => Promise<unknown>) => {
     setStatus({ kind: 'busy' })
     try {
       const exported = await action()
-      setStatus(exported ? { kind: 'done', message: words.exported(exported) } : { kind: 'idle' })
+      setStatus(typeof exported === 'string' ? { kind: 'done', message: words.exported(exported) } : { kind: 'idle' })
     } catch (error) {
       setStatus({ kind: 'error', message: ipcErrorMessage(error) })
     }
@@ -33,59 +30,37 @@ export function DataSettings({ bridge }: Props) {
   const busy = status.kind === 'busy'
 
   return (
-    <div className="min-w-0 flex-1 overflow-y-auto px-10 pt-9 pb-8">
-      <h2 id="settings-title" className="text-xl font-semibold tracking-tight">
-        {words.title}
-      </h2>
-      <p className="mt-1 text-sm text-muted">{words.intro}</p>
-
+    <SettingsPage title={words.title} intro={words.intro}>
       <SettingsSection title={words.location}>
-        <SettingsRow label={words.dataDir} hint={<span className="break-all font-mono">{dataDir}</span>}>
+        <SettingsRow
+          label={words.dataDir}
+          hint={
+            <Suspense>
+              <DataDir loading={dataDir} />
+            </Suspense>
+          }
+        >
           <div className="flex shrink-0 gap-2">
-            <SettingsButton
-              onClick={() =>
-                run(async () => {
-                  await bridge.openDataDir()
-                  return null
-                })
-              }
-              disabled={busy}
-            >
+            <Button onClick={() => run(bridge.openDataDir)} disabled={busy}>
               {words.open}
-            </SettingsButton>
-            <SettingsButton
-              onClick={() =>
-                run(async () => {
-                  await bridge.moveDataDir()
-                  return null
-                })
-              }
-              disabled={busy}
-            >
+            </Button>
+            <Button onClick={() => run(bridge.moveDataDir)} disabled={busy}>
               {words.change}
-            </SettingsButton>
+            </Button>
           </div>
         </SettingsRow>
       </SettingsSection>
 
       <SettingsSection title={words.backup}>
         <SettingsRow label={words.export} hint={words.exportHint}>
-          <SettingsButton onClick={() => run(bridge.exportData)} disabled={busy}>
+          <Button onClick={() => run(bridge.exportData)} disabled={busy}>
             {words.exportButton}
-          </SettingsButton>
+          </Button>
         </SettingsRow>
         <SettingsRow label={words.import} hint={words.importHint}>
-          <SettingsButton
-            onClick={() =>
-              run(async () => {
-                await bridge.importData()
-                return null
-              })
-            }
-            disabled={busy}
-          >
+          <Button onClick={() => run(bridge.importData)} disabled={busy}>
             {words.importButton}
-          </SettingsButton>
+          </Button>
         </SettingsRow>
       </SettingsSection>
 
@@ -96,6 +71,12 @@ export function DataSettings({ bridge }: Props) {
       >
         {status.kind === 'done' || status.kind === 'error' ? status.message : ''}
       </p>
-    </div>
+    </SettingsPage>
   )
+}
+
+function DataDir({ loading }: { loading: Promise<Loaded<string>> }) {
+  const loaded = use(loading)
+  if (loaded.kind === 'failed') return <span className="text-danger">{loaded.message}</span>
+  return <span className="break-all font-mono">{loaded.value}</span>
 }

@@ -21,6 +21,20 @@ export const settings: Strings['settings'] = {
     debugHint:
       "Shows recent tasks in the bot's panel, and the context, each turn's trace and memory changes on the island. You can also switch it from the island.",
   },
+  dismissed: {
+    title: 'Bot recycle bin',
+    intro: (days) =>
+      `A bot you let go sits in the recycle bin for ${plural(days, 'day')} and can be restored any time: back in its section, with its memories, chats and routines. You can also delete it for good, with its data; after ${plural(days, 'day')} it is gone anyway.`,
+    empty: 'The recycle bin is empty.',
+    daysLeft: (days) => `${plural(days, 'day')} left`,
+    restore: 'Restore',
+    restoreBot: (name) => `Restore ${name}`,
+    delete: 'Delete for good',
+    deleteBot: (name) => `Delete ${name} for good`,
+    deleteTitle: (name) => `Delete “${name}” for good?`,
+    deleteBody:
+      'Its memories, chats, tasks, routines, flows, skills and mini apps are deleted. Files it wrote in the library stay. This cannot be undone.',
+  },
   data: {
     exported: (path) => `Exported to ${path}`,
     title: 'Data',
@@ -45,6 +59,7 @@ export const settings: Strings['settings'] = {
       tools: 'Tools',
       devices: 'Devices',
       data: 'Data',
+      dismissed: 'Bot recycle bin',
       usage: 'Usage',
       nengyongKey: 'Nengyong Key',
       limits: 'Limits',
@@ -111,13 +126,9 @@ export const settings: Strings['settings'] = {
     shrink: 'Shrink',
   },
   tools: {
-    cliTab: 'CLI tools',
     title: 'Tools',
     intro: "Tools on this computer that the bots' background tasks can use.",
-    toolType: 'Tool type',
     connecting: 'Connecting to MCP servers…',
-    cliOff: 'Off',
-    cliHint: 'Once on, bots can hand it work like writing code; it uses its own sign-in and quota.',
     invalidJson: 'The MCP config is not valid JSON',
     mcpConfig: 'MCP config',
     format: 'Format',
@@ -130,7 +141,6 @@ export const settings: Strings['settings'] = {
     noDescription: 'No description',
     connected: 'Connected',
     connectFailed: 'Failed to connect',
-    mcpTab: 'MCP',
   },
   limits: {
     title: 'Limits',

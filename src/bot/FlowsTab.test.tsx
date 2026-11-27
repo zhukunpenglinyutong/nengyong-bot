@@ -18,7 +18,8 @@ const messageBox = () => screen.getByRole('textbox', { name: '跟 发版助理 �
 it('lists the flows of a bot, opens one with its steps, notes and runs, and goes back', async () => {
   const { user } = await openReleaseBot()
   await user.click(screen.getByRole('button', { name: '展开面板' }))
-  await user.click(within(panel()).getByRole('button', { name: /^能力/ }))
+  await user.click(within(panel()).getByRole('button', { name: /^Bot 核心/ }))
+  await user.click(within(panel()).getByRole('button', { name: /^流程/ }))
   const list = within(panel()).getByRole('list', { name: '流程' })
   expect(within(list).getByRole('button', { name: /发版说明整理.*deepseek-pro/ })).toBeInTheDocument()
   expect(within(list).getByRole('button', { name: /PR 合并前检查.*正在用/ })).toBeInTheDocument()
@@ -38,7 +39,8 @@ it('lists the flows of a bot, opens one with its steps, notes and runs, and goes
 it('fills the message box to change a flow in the chat, or to teach a new one', async () => {
   const { user } = await openReleaseBot()
   await user.click(screen.getByRole('button', { name: '展开面板' }))
-  await user.click(within(panel()).getByRole('button', { name: /^能力/ }))
+  await user.click(within(panel()).getByRole('button', { name: /^Bot 核心/ }))
+  await user.click(within(panel()).getByRole('button', { name: /^流程/ }))
   await user.click(within(panel()).getByRole('button', { name: /发版说明整理/ }))
   await user.click(within(panel()).getByRole('button', { name: '在聊天里改' }))
   expect(messageBox().textContent).toBe('把「发版说明整理」改一下：')

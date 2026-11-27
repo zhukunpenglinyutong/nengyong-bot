@@ -3,9 +3,10 @@ import { Suspense, use, useState } from 'react'
 import type { NengyongBotBridge } from '../../shared/bridge'
 import type { DeviceKind, DeviceView, DevicesView } from '../../shared/devices'
 import { strings } from '../../shared/strings'
-import { timeLabel } from '../chat/chatMessages'
-import { ipcErrorMessage } from '../ipcErrorMessage'
-import { SettingsButton, SettingsRow, SettingsSection } from '../settings/SettingsSection'
+import { timeLabel } from '../timeLabel'
+import { ipcErrorMessage, type Loaded, settle } from '../ipcErrorMessage'
+import { SettingsPage, SettingsRow, SettingsSection } from '../settings/SettingsSection'
+import { Button } from '../ui/Button'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { Icon, type IconName } from '../ui/Icon'
 import { QrCode } from '../ui/QrCode'
@@ -17,41 +18,30 @@ interface Props {
   live: DevicesView | null // what the harness reported last: it changes while the page is open
 }
 
-type Loaded = { kind: 'loaded'; view: DevicesView } | { kind: 'failed'; message: string }
-
 const ICONS: Record<DeviceKind, IconName> = { phone: 'phone', tablet: 'tablet', computer: 'laptop' }
 const QR_SIZE = 132
 
 /** 设备: whether phones and tablets on the local network may connect, which ones did, and the code a new one scans. */
 export function DevicesSettings({ bridge, live }: Props) {
   const words = strings().devices.settings
-  const [loading] = useState(() =>
-    bridge.getDevices().then(
-      (view): Loaded => ({ kind: 'loaded', view }),
-      (error): Loaded => ({ kind: 'failed', message: ipcErrorMessage(error) }),
-    ),
-  )
+  const [loading] = useState(() => settle(bridge.getDevices()))
   return (
-    <div className="min-w-0 flex-1 overflow-y-auto px-10 pt-9 pb-8">
-      <h2 id="settings-title" className="text-xl font-semibold tracking-tight">
-        {words.title}
-      </h2>
-      <p className="mt-1.5 text-sm text-muted">{words.intro}</p>
+    <SettingsPage title={words.title} intro={words.intro}>
       <Suspense>
         <LoadedDevices loading={loading} live={live} bridge={bridge} />
       </Suspense>
-    </div>
+    </SettingsPage>
   )
 }
 
-function LoadedDevices({ loading, live, bridge }: Props & { loading: Promise<Loaded> }) {
+function LoadedDevices({ loading, live, bridge }: Props & { loading: Promise<Loaded<DevicesView>> }) {
   const words = strings().devices.settings
   const loaded = use(loading)
   const [isTurningOff, setIsTurningOff] = useState(false)
   const [removing, setRemoving] = useState<DeviceView | null>(null)
   const [failure, setFailure] = useState<string | null>(null)
   if (loaded.kind === 'failed') return <p className="mt-6 text-sm text-danger">{loaded.message}</p>
-  const view = live ?? loaded.view
+  const view = live ?? loaded.value
   const onlineCount = view.devices.filter((device) => device.isOnline).length
   const run = (change: Promise<unknown>) => {
     setFailure(null)
@@ -125,9 +115,9 @@ function DeviceRow({ device, isLanOn, onRemove }: { device: DeviceView; isLanOn:
           {status}
         </div>
       </div>
-      <SettingsButton onClick={onRemove} aria-label={words.removeDevice(device.name)}>
+      <Button onClick={onRemove} aria-label={words.removeDevice(device.name)}>
         {words.remove}
-      </SettingsButton>
+      </Button>
     </div>
   )
 }
