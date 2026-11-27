@@ -167,6 +167,7 @@ function fakeBridge(hasModel = true): NengyongBotBridge {
       models: NO_MODELS,
     })),
     tasksAndRoutines: vi.fn(async () => ({})),
+    decisionCounts: vi.fn(async () => ({})),
     context: vi.fn(async () => null),
     setDebug: vi.fn(async () => {}),
     setRoutineEnabled: vi.fn(async () => {}),

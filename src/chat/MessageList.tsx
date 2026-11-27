@@ -14,9 +14,7 @@ import { useMentions } from './MentionContext'
 import { MentionText } from './MentionText'
 import { MessageActions } from './MessageActions'
 import { SelectableRow } from './SelectableRow'
-import { SkillOfferCard } from '../skills/SkillOfferCard'
-import { DutyOfferCard } from './DutyOfferCard'
-import { useSkills } from '../skills/SkillsContext'
+import { AskLine } from './AskLine'
 import type { Selection, SelectionEvent } from './selection'
 import { strings } from '../../shared/strings'
 
@@ -27,7 +25,7 @@ interface Props {
   onQuote: (seq: number, text: string) => void
   onSelection: (event: SelectionEvent) => void
   onDelete: (seq: number) => void
-  onAnswerDuty?: (offer: string, isAccepted: boolean, isReviewOn: boolean) => Promise<void> // absent on a device
+  onOpenAsk: (seq: number) => void // shows a card or a question in the tray above the message box
 }
 
 // Keyed by bot: the thread fades in on switch; only messages added after mount slide up.
@@ -64,12 +62,10 @@ function MessageItem({
   onQuote,
   onSelection,
   onDelete,
-  onAnswerDuty,
+  onOpenAsk,
   animateIn,
 }: ItemProps) {
-  const { bots, chatBotId } = useMentions()
-  const { openSkillFiles } = useNavigation()
-  const { manager } = useSkills()
+  const { bots } = useMentions()
   const enter = animateIn ? ENTER : { initial: false as const }
   const row = (seq: number | undefined) => ({
     seq,
@@ -165,36 +161,12 @@ function MessageItem({
         </SelectableRow>
       )
     }
-    case 'skill-offer': {
-      const { offer } = message
-      const forBot = offer.botId === chatBotId ? undefined : bots.find((candidate) => candidate.id === offer.botId)
-      const botName = forBot?.name ?? bots.find((candidate) => candidate.id === chatBotId)?.name ?? offer.botId
+    case 'ask':
       return (
-        <motion.div {...enter} className="my-2 max-w-[min(600px,80%)] self-start">
-          <SkillOfferCard
-            offer={offer}
-            installed={message.installed}
-            forBot={forBot}
-            onAnswer={manager && ((names) => manager.answerSkillOffer(chatBotId, offer.offer, names))}
-            onViewFiles={(name) => openSkillFiles({ ref: { kind: 'offer', offer: offer.offer, name }, name, botName })}
-          />
+        <motion.div {...enter} className="my-1 max-w-[min(600px,80%)] self-start">
+          <AskLine ask={message.ask} outcome={message.outcome} onOpen={() => onOpenAsk(message.seq)} />
         </motion.div>
       )
-    }
-    case 'duty-offer': {
-      const { offer } = message
-      return (
-        <motion.div {...enter} className="my-2 max-w-[min(600px,80%)] self-start">
-          <DutyOfferCard
-            offer={offer}
-            botName={bots.find((candidate) => candidate.id === offer.botId)?.name ?? offer.botId}
-            isAgreed={message.isAgreed}
-            isReplaced={message.isReplaced}
-            onAnswer={onAnswerDuty && ((isAccepted, isReviewOn) => onAnswerDuty(offer.offer, isAccepted, isReviewOn))}
-          />
-        </motion.div>
-      )
-    }
     default:
       return message satisfies never
   }

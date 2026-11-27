@@ -11,6 +11,7 @@ export type BotStatus =
   | { kind: 'replying'; label: string; since: number }
   | { kind: 'working'; task: TaskView; count: number } // count: its unfinished tasks, this one included
   | { kind: 'waiting'; task: TaskView }
+  | { kind: 'deciding'; count: number } // asks in its chat wait on the user: a card or a question
   | { kind: 'idle' }
 
 /** The open bot's failures are not flagged: the user is looking at its chat. */
@@ -27,16 +28,18 @@ export function botStatusOf(thread: Thread, seenAt: number, isOpen: boolean): Bo
   const running = unfinished.find((task) => task.status === 'running')
   if (running) return { kind: 'working', task: running, count: unfinished.length }
   const [waiting] = unfinished
-  return waiting ? { kind: 'waiting', task: waiting } : { kind: 'idle' }
+  if (waiting) return { kind: 'waiting', task: waiting }
+  return thread.decisions ? { kind: 'deciding', count: thread.decisions } : { kind: 'idle' }
 }
 
 /** The disc on the avatar: replying and running a task are both work. Nothing while idle. */
-export type DotKind = 'busy' | 'waiting' | 'failed'
+export type DotKind = 'busy' | 'waiting' | 'failed' | 'deciding'
 
 export const DOT_LABELS: Record<DotKind, string> = {
   busy: strings().sidebar.status.busy,
   waiting: strings().common.taskStatus.waiting,
   failed: strings().sidebar.status.failed,
+  deciding: strings().sidebar.status.deciding,
 }
 
 export function dotKindOf(status: BotStatus): DotKind | null {
@@ -46,6 +49,7 @@ export function dotKindOf(status: BotStatus): DotKind | null {
       return 'busy'
     case 'waiting':
     case 'failed':
+    case 'deciding':
       return status.kind
     case 'idle':
       return null
@@ -68,6 +72,8 @@ export function statusLineOf(status: BotStatus, now: number): string | null {
     }
     case 'waiting':
       return strings().sidebar.status.queued(status.task.title, strings().common.taskStatus.waiting)
+    case 'deciding':
+      return strings().sidebar.status.decidingCount(status.count)
     case 'idle':
       return null
     default:

@@ -131,13 +131,16 @@ it('removes a skill once confirmed, and says so', async () => {
   expect(within(panel()).getByText('还没有技能。')).toBeInTheDocument()
 })
 
-it('installs a skill only once the user says yes on the card in the chat', async () => {
+it('installs a skill only once the user says yes on the card the tray above the message box opens', async () => {
   const { user } = await openSkills(/Bug 反馈整理/)
   const box = screen.getByRole('textbox', { name: '跟 Bug 反馈整理 说点什么' })
   await user.type(box, 'https://github.com/anthropics/skills/tree/main/skills/xlsx{Enter}')
   const messages = screen.getByTestId('messages')
-  await user.click(await within(messages).findByRole('button', { name: '装上' }, { timeout: 3000 }))
+  expect(await within(messages).findByRole('button', { name: /装上 xlsx？/ }, { timeout: 3000 })).toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: '看一看' }))
+  await user.click(screen.getByRole('button', { name: '装上' }))
   expect(await within(messages).findByText('已装上 xlsx')).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: '看一看' })).not.toBeInTheDocument()
   expect(await screen.findByRole('button', { name: /学会了新技能\s*xlsx/ })).toBeInTheDocument()
   expect((await openCollection(user, 'anthropics/skills')).getByRole('button', { name: /xlsx/ })).toBeInTheDocument()
 })

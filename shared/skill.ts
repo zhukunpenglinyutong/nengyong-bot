@@ -68,6 +68,9 @@ export const SkillOffer = z.object({
 })
 export type SkillOffer = z.infer<typeof SkillOffer>
 
+/** How long an install card can be answered: its skills are kept in memory that long, and not past a restart. */
+export const SKILL_OFFER_TTL_MS = 30 * 60_000
+
 /** What the user picks in a bot's panel to upload: a skill folder, or a .zip or .skill archive of one or several. */
 export const SkillUploadKind = z.enum(['folder', 'archive'])
 export type SkillUploadKind = z.infer<typeof SkillUploadKind>

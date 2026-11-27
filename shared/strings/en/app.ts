@@ -33,6 +33,7 @@ export const app: Strings['app'] = {
     readModelServices: 'Could not read the model services',
     readPreviews: 'Could not read the latest replies',
     readTasks: 'Could not read tasks and routines',
+    readDecisions: 'Could not read what the bots are waiting on',
     readLimits: 'Could not read the limits',
     switchRoutine: 'Could not switch the routine',
     switchReview: 'Could not switch the weekly review',

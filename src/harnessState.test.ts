@@ -255,6 +255,14 @@ it('lets a reply that already arrived win over the loaded preview', () => {
   expect([state.chief.preview, state.flow.preview]).toEqual(['新回复', '已记录'])
 })
 
+it('lets a count of what waits on the user that already arrived win over the startup snapshot', () => {
+  const state = run([
+    { kind: 'decisions', botId: 'chief', count: 0 },
+    { kind: 'decision-counts', counts: { chief: 2, flow: 1 } },
+  ])
+  expect([state.chief.decisions, state.flow.decisions]).toEqual([0, 1])
+})
+
 it('fills in the tasks and routines of every bot from the startup snapshot', () => {
   const state = run([{ kind: 'tasks-and-routines', byBot: { chief: { tasks: [], routines: [routine(true)] } } }])
   expect(state.chief.panel.routines).toEqual([routine(true)])

@@ -60,14 +60,16 @@ it('offers to plan the duty of a bot without one, from the panel and from the pl
   expect(messageBox().textContent).toBe('把刚才这套做法存成流程：')
 })
 
-it('shows the duty the bot proposes on a card in the chat, and lists it in the panel once agreed', async () => {
+it('shows the duty the bot proposes on a card the tray above the message box opens, and lists it in the panel once agreed', async () => {
   const { user } = await openPanelOf(/GitHub 数据日报/)
   await user.click(within(panel()).getByRole('button', { name: /规划职责/ }))
   await user.click(screen.getByRole('button', { name: '发送' }))
-  const card = await screen.findByText('GitHub 数据日报 的职责 · 第 1 版', {}, { timeout: 3000 })
-  expect(card).toBeInTheDocument()
+  const messages = screen.getByTestId('messages')
+  await user.click(
+    await within(messages).findByRole('button', { name: /GitHub 数据日报 的职责 · 第 1 版/ }, { timeout: 3000 }),
+  )
   await user.click(screen.getByRole('button', { name: '定下来' }))
-  expect(await screen.findByText('职责定下来了 · 第 1 版')).toBeInTheDocument()
+  expect(await within(messages).findByText('职责定下来了 · 第 1 版')).toBeInTheDocument()
   expect(within(panel()).getByRole('list', { name: '每天早上就知道仓库发生了什么' })).toBeInTheDocument()
   expect(within(panel()).getByRole('switch', { name: '每周复盘' })).toHaveAttribute('aria-checked', 'true')
 })

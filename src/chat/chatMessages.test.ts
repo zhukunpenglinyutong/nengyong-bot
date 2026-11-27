@@ -140,7 +140,7 @@ it('carries what a user message quotes, and which model and API call wrote a rep
   ])
 })
 
-it('shows each duty card once, with its answer, and an unanswered one a newer card replaced as replaced', () => {
+it('shows each duty card once, as waiting, answered or replaced by a newer card for the same bot', () => {
   const offer = (id: string, botId = 'writer') => ({
     offer: id,
     botId,
@@ -162,9 +162,34 @@ it('shows each duty card once, with its answer, and an unanswered one a newer ca
     card(3, 'd3', 'chief'),
     { ...stamp(4, now), kind: 'duty-answer' as const, offer: 'd2', botId: 'writer', isAccepted: true },
   ]
+  const duty = (id: string, botId?: string) => ({ kind: 'duty', offer: offer(id, botId) })
   expect(chatMessages({ entries, streaming: '', queued: [] }, MAIN_BOT, [MAIN_BOT], now).slice(1)).toEqual([
-    { kind: 'duty-offer', offer: offer('d1'), isAgreed: null, isReplaced: true },
-    { kind: 'duty-offer', offer: offer('d2'), isAgreed: true, isReplaced: false },
-    { kind: 'duty-offer', offer: offer('d3', 'chief'), isAgreed: null, isReplaced: false },
+    { kind: 'ask', seq: 1, ask: duty('d1'), outcome: { text: '这张已经被新的一张替代了', isYes: false } },
+    { kind: 'ask', seq: 2, ask: duty('d2'), outcome: { text: '职责定下来了 · 第 1 版', isYes: true } },
+    { kind: 'ask', seq: 3, ask: duty('d3', 'chief'), outcome: null },
+  ])
+})
+
+it('shows a question as waiting until the user writes, then the answer they picked', () => {
+  const question = {
+    ...stamp(1, now),
+    kind: 'tool' as const,
+    name: 'ask_user',
+    input: {},
+    output: { question: '现在补一次吗？', answers: ['补', '不补'], note: '' },
+  }
+  const ask = { kind: 'question', question: { question: '现在补一次吗？', answers: ['补', '不补'] } }
+  const messagesOf = (entries: Parameters<typeof chatMessages>[0]['entries']) =>
+    chatMessages({ entries, streaming: '', queued: [] }, MAIN_BOT, [MAIN_BOT], now).filter(
+      (message) => message.kind === 'ask',
+    )
+  expect(messagesOf([question])).toEqual([{ kind: 'ask', seq: 1, ask, outcome: null }])
+  const picked = { ...stamp(2, now), kind: 'user' as const, text: '补', quote: { seq: 1, text: '现在补一次吗？' } }
+  expect(messagesOf([question, picked])).toEqual([
+    { kind: 'ask', seq: 1, ask, outcome: { text: '你选了「补」', isYes: true } },
+  ])
+  const typed = { ...stamp(2, now), kind: 'user' as const, text: '先等等' }
+  expect(messagesOf([question, typed])).toEqual([
+    { kind: 'ask', seq: 1, ask, outcome: { text: '你没选，直接回了', isYes: true } },
   ])
 })

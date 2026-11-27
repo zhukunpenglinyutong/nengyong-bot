@@ -62,6 +62,11 @@ export const demo = {
   chats: {
     askProgress: '最新进展怎么样？',
   },
+  travelQuestion: {
+    question: '第三天下午要不要订岚山小火车？周末的票一般提前一周就没了。',
+    book: '订下午 2 点那班',
+    skip: '先不订',
+  },
   releaseNotesFlow: {
     name: '发版说明整理',
     when: '准备发版、要写 Release 说明时',

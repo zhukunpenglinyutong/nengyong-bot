@@ -71,6 +71,15 @@ describe('botStatusOf', () => {
     const queued = task('日报', 'waiting', 1)
     expect(botStatusOf(withTasks(queued), 0, false)).toEqual({ kind: 'waiting', task: queued })
   })
+
+  it('waits on the user once it is not at work, and is idle when nothing in its chat waits', () => {
+    const asking = { ...withTasks(), decisions: 2 }
+    expect(botStatusOf(asking, 0, false)).toEqual({ kind: 'deciding', count: 2 })
+    expect(botStatusOf({ ...asking, panel: withTasks(task('巡检', 'running', 1)).panel }, 0, false).kind).toBe(
+      'working',
+    )
+    expect(botStatusOf({ ...asking, decisions: 0 }, 0, false)).toEqual({ kind: 'idle' })
+  })
 })
 
 describe('dotKindOf', () => {
@@ -103,6 +112,10 @@ describe('statusLineOf', () => {
 
   it('leaves the elapsed time out in the first minute', () => {
     expect(statusLineOf({ kind: 'working', task: task('巡检', 'running', 0), count: 1 }, NOW)).toBe('在跑「巡检」')
+  })
+
+  it('says how many things wait on the user', () => {
+    expect(statusLineOf({ kind: 'deciding', count: 3 }, NOW)).toBe('等你决定 · 3 件')
   })
 
   it('keeps the last reply while idle', () => {

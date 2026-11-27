@@ -47,6 +47,7 @@ export const DEVICE_METHODS = [
   'previews',
   'panel',
   'tasksAndRoutines',
+  'decisionCounts',
   'setRoutineEnabled',
   'stopReply',
   'stopTask',

@@ -53,7 +53,10 @@ export function BotStatusCard({ bot, thread, status, anchor }: Props) {
         <BotAvatar bot={bot} size={36} />
         <span className="flex min-w-0 flex-col leading-[1.4]">
           <strong className="truncate text-md font-semibold">{bot.name}</strong>
-          <span data-kind={status.kind} className="text-muted data-[kind=failed]:text-danger">
+          <span
+            data-kind={status.kind}
+            className="text-muted data-[kind=deciding]:text-accent data-[kind=failed]:text-danger"
+          >
             {dotKind ? DOT_LABELS[dotKind] : strings().sidebar.status.idle}
           </span>
         </span>

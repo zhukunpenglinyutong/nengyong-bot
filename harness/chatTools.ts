@@ -2,6 +2,7 @@ import { tool } from 'ai'
 import { z } from 'zod'
 import { BOT_NAME_MAX, MAIN_BOT_ID, newBotId, PALETTE, PICKER_SHAPES, type SectionByName } from '../shared/bot'
 import type { HarnessEvent } from '../shared/bridge'
+import { MAX_ANSWERS } from '../shared/decisions'
 import type { Limits } from '../shared/limits'
 import type { FlowSaved } from '../shared/flow'
 import { newId } from '../shared/newId'
@@ -54,12 +55,33 @@ interface ChatContext {
   models: ModelChoices
 }
 
-/** What a bot does in its chat: memories, bots, routines, flows and tasks. */
+/** What a bot does in its chat: ask the user, memories, bots, routines, flows and tasks. */
 export function chatTools({ botId, store, emit, tasks, limits, models }: ChatContext) {
   const { maxFacts, maxRoutines, maxFlows } = limits
   const bot = () => store.get().bots[botId]
 
   return {
+    ask_user: tool({
+      description:
+        '要用户拿主意时用：在几个做法里选一个，或者同意了你才能做的事（存流程、让 Bot 离职、要不要补跑……）。问题和选项会贴在用户输入框的上方，用户点一个，就作为一条回复发给你；用户也可能不点、直接打字回你。',
+      inputSchema: z.object({
+        question: line(120).describe(
+          '一句话的问题，如「今早的日报没跑成，现在补一次吗？」；来龙去脉写在回复里，不写在这',
+        ),
+        answers: z
+          .array(line(24))
+          .min(2)
+          .max(MAX_ANSWERS)
+          .describe(
+            '用户能点的回答，每个几个字，就是用户替你说出的话，如「现在补一次」「不补，记进缺口」；你建议的放第一个',
+          ),
+      }),
+      execute: async ({ question, answers }) => ({
+        question,
+        answers,
+        note: '问题已经贴在用户的输入框上方。这一轮到此为止：不要再写问句，也不要在回复里把选项再列一遍，等用户回。',
+      }),
+    }),
     remember: tool({
       description: '记住一条长期有用的信息。scope=user：关于用户本人、所有 Bot 共享；scope=bot：只和你的职责有关。',
       inputSchema: z.object({ text: z.string().min(1).max(500), scope: z.enum(['user', 'bot']) }),

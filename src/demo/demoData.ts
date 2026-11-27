@@ -106,6 +106,23 @@ export const DEMO_TRANSCRIPTS: Record<string, Entry[]> = {
       ]),
     ]),
   ),
+  travel: [
+    ...transcript([
+      [DAY_MINUTES + 1, 'user', words.chats.askProgress],
+      [DAY_MINUTES, 'bot', words.lastReplies.travel],
+    ]),
+    {
+      seq: 3,
+      at: loadedAt - DAY_MINUTES * MINUTE_MS,
+      kind: 'tool',
+      name: 'ask_user',
+      input: {},
+      output: {
+        question: words.travelQuestion.question,
+        answers: [words.travelQuestion.book, words.travelQuestion.skip],
+      },
+    },
+  ],
 }
 
 const daysAgo = (days: number) => Date.now() - days * DAY_MINUTES * 60_000

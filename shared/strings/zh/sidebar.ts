@@ -4,6 +4,8 @@ export const sidebar = {
     failed: '没跑成',
     idle: '空闲',
     unread: '未读',
+    deciding: '等你决定',
+    decidingCount: (count: number) => `等你决定 · ${count} 件`,
     failedTask: (title: string, when: string) => `「${title}」没跑成 · ${when}`,
     running: (title: string, elapsed: string) => `在跑「${title}」 ${elapsed}`,
     runningMany: (title: string, count: number, elapsed: string) => `在跑「${title}」 等 ${count} 个 ${elapsed}`,

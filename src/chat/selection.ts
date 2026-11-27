@@ -78,8 +78,7 @@ export function selectableMessages(messages: Message[]): SelectableMessage[] {
       case 'queued':
       case 'note':
       case 'from-bot':
-      case 'skill-offer':
-      case 'duty-offer':
+      case 'ask':
         return []
       default:
         return message satisfies never

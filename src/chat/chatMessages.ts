@@ -1,7 +1,6 @@
 import type { Bot } from '../../shared/bot'
 import type { Entry, Quote } from '../../shared/bridge'
-import { DutyOffer } from '../../shared/duty'
-import { SkillOffer } from '../../shared/skill'
+import { type Ask, askOf, pendingDecisions } from '../../shared/decisions'
 import { timeLabel } from '../timeLabel'
 import type { Thread } from '../harnessState'
 import { strings } from '../../shared/strings'
@@ -23,9 +22,15 @@ export type Message =
   | { kind: 'queued'; text: string } // sent while the bot is busy; its next turn reads it
   | { kind: 'note'; text: string } // grey line across the chat: the time, a task's end, a routine's start, an error, the queued line
   | { kind: 'from-bot'; from: string; text: string } // a request delegated by another bot
-  | { kind: 'skill-offer'; offer: SkillOffer; installed: string[] | null } // an install card: the skills installed from it, null before it is answered
-  // a duty card: whether it was agreed, null before it is answered; isReplaced: a later card for the same bot came first
-  | { kind: 'duty-offer'; offer: DutyOffer; isAgreed: boolean | null; isReplaced: boolean }
+  // a card or a question the bot put to the user, answered in the tray above the message box; outcome: the line it
+  // folds into once it waits no more, null while it waits
+  | { kind: 'ask'; seq: number; ask: Ask; outcome: AskOutcome | null }
+
+/** How an ask ended: what the user picked or did, or that it lapsed; isYes: it went ahead (agreed, installed, answered). */
+export interface AskOutcome {
+  text: string
+  isYes: boolean
+}
 
 /** What the chat view renders for one bot: its transcript (or a greeting), the reply being streamed, queued messages, the last error. */
 export function chatMessages(
@@ -34,7 +39,7 @@ export function chatMessages(
   bots: Bot[],
   now = Date.now(),
 ): Message[] {
-  const transcript = transcriptMessages(thread.entries, bots, now)
+  const transcript = transcriptMessages(thread.entries, bot, bots, now)
   const greeting: Message = {
     kind: 'bot',
     text: strings().chat.messages.greeting(bot.name),
@@ -56,21 +61,14 @@ export function chatMessages(
 export const GAP_MS = 20 * 60_000 // a time divider appears after this much silence
 
 /** Transcript entries → messages, with time dividers between bursts. */
-function transcriptMessages(entries: Entry[], bots: Bot[], now: number): Message[] {
+function transcriptMessages(entries: Entry[], bot: Bot, bots: Bot[], now: number): Message[] {
   let last = 0
   const lastEntry = entries.at(-1)
-  const answers = new Map(entries.flatMap((e) => (e.kind === 'skill-answer' ? [[e.offer, e.names]] : [])))
-  const agreed = new Map(entries.flatMap((e) => (e.kind === 'duty-answer' ? [[e.offer, e.isAccepted]] : [])))
-  const dutyOffers = entries.flatMap((e) => {
-    const duty = e.kind === 'tool' && e.name === 'propose_duty' ? DutyOffer.safeParse(e.output).data : undefined
-    return duty ? [duty] : []
-  })
-  const latestFor = (botId: string) => dutyOffers.findLast((duty) => duty.botId === botId)?.offer
+  const outcomeOf = outcomes(entries, bot, bots, now)
   return entries.flatMap((e): Message[] => {
-    // of the tool records only install and duty cards show, and the answer to one shows on its card
-    const offer = e.kind === 'tool' && e.name === 'install_skill' ? SkillOffer.safeParse(e.output).data : undefined
-    const duty = e.kind === 'tool' && e.name === 'propose_duty' ? DutyOffer.safeParse(e.output).data : undefined
-    if (e.kind === 'skill-answer' || e.kind === 'duty-answer' || (e.kind === 'tool' && !offer && !duty)) return []
+    // of the tool records only the asks show, and the answer to one shows on its line
+    const ask = askOf(e)
+    if (e.kind === 'skill-answer' || e.kind === 'duty-answer' || (e.kind === 'tool' && !ask)) return []
     const divider: Message[] = e.at - last > GAP_MS ? [{ kind: 'note', text: timeLabel(e.at, now) }] : []
     last = e.at
     switch (e.kind) {
@@ -118,17 +116,49 @@ function transcriptMessages(entries: Entry[], bots: Bot[], now: number): Message
           },
         ]
       }
-      case 'tool': {
-        if (offer) return [...divider, { kind: 'skill-offer', offer, installed: answers.get(offer.offer) ?? null }]
-        if (!duty) return []
-        const isAgreed = agreed.get(duty.offer) ?? null
-        const isReplaced = isAgreed === null && latestFor(duty.botId) !== duty.offer
-        return [...divider, { kind: 'duty-offer', offer: duty, isAgreed, isReplaced }]
-      }
+      case 'tool':
+        return ask ? [...divider, { kind: 'ask', seq: e.seq, ask, outcome: outcomeOf(e.seq, ask) }] : []
       default:
         return e satisfies never
     }
   })
+}
+
+/** How each ask of a chat ended, by its seq: null while it still waits on the user. */
+function outcomes(entries: Entry[], bot: Bot, bots: Bot[], now: number) {
+  const words = strings()
+  const waiting = new Set(pendingDecisions(entries, now).map((decision) => decision.seq))
+  const agreed = new Map(entries.flatMap((e) => (e.kind === 'duty-answer' ? [[e.offer, e.isAccepted]] : [])))
+  const installed = new Map(entries.flatMap((e) => (e.kind === 'skill-answer' ? [[e.offer, e.names]] : [])))
+  const picked = new Map(entries.flatMap((e) => (e.kind === 'user' && e.quote ? [[e.quote.seq, e.text]] : [])))
+  return (seq: number, ask: Ask): AskOutcome | null => {
+    if (waiting.has(seq)) return null
+    switch (ask.kind) {
+      case 'duty': {
+        const isAccepted = agreed.get(ask.offer.offer)
+        if (isAccepted === undefined) return { text: words.bot.duty.offer.void, isYes: false }
+        if (!isAccepted) return { text: words.bot.duty.offer.declined, isYes: false }
+        return { text: words.bot.duty.offer.agreed(ask.offer.baseVersion + 1), isYes: true }
+      }
+      case 'skill': {
+        const names = installed.get(ask.offer.offer)
+        if (names === undefined) return { text: words.chat.asks.skillExpired, isYes: false }
+        const offered = words.skills.names(ask.offer.skills.map((skill) => skill.name))
+        if (!names.length) return { text: words.skills.offer.declined(offered), isYes: false }
+        const forBot = ask.offer.botId === bot.id ? undefined : bots.find((each) => each.id === ask.offer.botId)
+        const text = forBot
+          ? words.skills.offer.installedFor(forBot.name, words.skills.names(names))
+          : words.skills.offer.installed(words.skills.names(names))
+        return { text, isYes: true }
+      }
+      case 'question': {
+        const answer = picked.get(seq)
+        return { text: answer === undefined ? words.chat.asks.replied : words.chat.asks.picked(answer), isYes: true }
+      }
+      default:
+        return ask satisfies never
+    }
+  }
 }
 
 /** What a task's note adds about the model it ran on; nothing on results from before that was recorded. */

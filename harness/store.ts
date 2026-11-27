@@ -4,6 +4,7 @@ import { DatabaseSync } from 'node:sqlite'
 import type { z } from 'zod'
 import { type Bot, MAIN_BOT_ID, type NewBot } from '../shared/bot'
 import { Entry } from '../shared/bridge'
+import { pendingDecisions } from '../shared/decisions'
 import { dutyOf } from '../shared/duty'
 import { strings } from '../shared/strings'
 import { SidebarState } from '../shared/sidebar'
@@ -76,10 +77,17 @@ export function createStore(file: string) {
   )
   // case, not and: sqlite may evaluate json_extract first, and it throws on a hand-edited row that is not JSON
   const readHistory = db.prepare(
-    `select data from entries where transcript_id = ? and ${NOT_DELETED} and case when json_valid(data) then json_extract(data, '$.kind') <> 'tool' or json_extract(data, '$.name') in ('save_flow', 'install_skill', 'propose_duty') end order by seq`,
+    `select data from entries where transcript_id = ? and ${NOT_DELETED} and case when json_valid(data) then json_extract(data, '$.kind') <> 'tool' or json_extract(data, '$.name') in ('save_flow', 'install_skill', 'propose_duty', 'ask_user') end order by seq`,
   )
   const readLastReply = db.prepare(
     `select data from entries where transcript_id = ? and ${NOT_DELETED} and case when json_valid(data) then json_extract(data, '$.kind') = 'bot' end order by seq desc limit 1`,
+  )
+  // what tells which asks still wait on the user: the asks, the answers to cards, and the user's last message
+  const readDecisionEntries = db.prepare(
+    `select data from entries where transcript_id = ? and ${NOT_DELETED} and case when json_valid(data) then json_extract(data, '$.kind') in ('duty-answer', 'skill-answer') or (json_extract(data, '$.kind') = 'tool' and json_extract(data, '$.name') in ('install_skill', 'propose_duty', 'ask_user')) end order by seq`,
+  )
+  const readLastUserEntry = db.prepare(
+    `select data from entries where transcript_id = ? and ${NOT_DELETED} and case when json_valid(data) then json_extract(data, '$.kind') = 'user' end order by seq desc limit 1`,
   )
   const readToolEntries = db.prepare(
     "select data from entries where (transcript_id = ? or transcript_id in (select id from tasks where bot_id = ?)) and case when json_valid(data) then json_extract(data, '$.kind') = 'tool' and json_extract(data, '$.name') = ? end order by json_extract(data, '$.at'), seq",
@@ -179,6 +187,12 @@ export function createStore(file: string) {
       return entry?.kind === 'bot' ? entry.text : undefined
     },
     toolEntries: (botId: string, name: string) => parseRows(Entry, readToolEntries.all(botId, botId, name)),
+    /** How many asks in a chat still wait on the user, read from only the entries that tell. */
+    decisionCount: (botId: string) =>
+      pendingDecisions(
+        [...parseRows(Entry, readDecisionEntries.all(botId)), ...parseRows(Entry, readLastUserEntry.all(botId))],
+        Date.now(),
+      ).length,
     append(transcriptId: string, input: EntryInput): Entry {
       const entry: Entry = { ...input, seq: Number(nextSeq.get(transcriptId)?.seq), at: Date.now() }
       insertEntry.run(transcriptId, entry.seq, JSON.stringify(entry))

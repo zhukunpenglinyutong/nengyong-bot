@@ -25,6 +25,7 @@ const bridge: NengyongBotBridge = {
   previews: () => ipcRenderer.invoke('nengyongbot:previews'),
   panel: (botId) => ipcRenderer.invoke('nengyongbot:panel', botId),
   tasksAndRoutines: () => ipcRenderer.invoke('nengyongbot:tasksAndRoutines'),
+  decisionCounts: () => ipcRenderer.invoke('nengyongbot:decisionCounts'),
   context: (botId) => ipcRenderer.invoke('nengyongbot:context', botId),
   setDebug: (isOn) => ipcRenderer.invoke('nengyongbot:setDebug', isOn),
   setRoutineEnabled: (botId, routineId, isEnabled) =>

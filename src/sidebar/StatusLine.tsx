@@ -17,7 +17,8 @@ export function StatusLine({ status, preview, unread, now }: Props) {
       <small
         data-live={(line !== null && status.kind !== 'failed') || undefined}
         data-failed={status.kind === 'failed' || undefined}
-        className="min-w-0 flex-1 truncate text-sm text-muted data-failed:text-danger data-live:text-soft"
+        data-deciding={status.kind === 'deciding' || undefined}
+        className="min-w-0 flex-1 truncate text-sm text-muted data-deciding:text-accent data-failed:text-danger data-live:text-soft"
       >
         {line ?? plainText(preview)}
       </small>

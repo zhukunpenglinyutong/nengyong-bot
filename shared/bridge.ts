@@ -41,6 +41,7 @@ export interface NengyongBotBridge {
   previews: () => Promise<Record<string, string>> // last reply per bot, for the sidebar
   panel: (botId: string) => Promise<PanelData> // the right-hand panel of one bot
   tasksAndRoutines: () => Promise<Record<string, TasksAndRoutines>> // of every bot, for the status the sidebar shows before one is opened
+  decisionCounts: () => Promise<Record<string, number>> // of every bot: the asks in its chat still waiting on the user
   context: (botId: string) => Promise<ContextView | null> // what its chat would send the model now, for debug mode
   setDebug: (isOn: boolean) => Promise<void> // context and trace events are sent only while debug mode is on
   setRoutineEnabled: (botId: string, routineId: string, isEnabled: boolean) => Promise<void>
@@ -188,6 +189,7 @@ export type HarnessEvent =
   | { kind: 'mini-app-data'; botId: string; miniAppId: string; data: unknown; dataAt: number } // a task put new data in
   | { kind: 'library'; botId: string; library: LibraryItem[] }
   | { kind: 'tasks'; botId: string; tasks: TaskView[] }
+  | { kind: 'decisions'; botId: string; count: number } // an ask in its chat came or was answered
   | { kind: 'models'; botId: string; models: BotModels } // it switched its chat model, or the main model changed
   | { kind: 'context'; botId: string; context: ContextView } // a chat turn starts with it; again once the API has counted it
   | { kind: 'trace'; botId: string; trace: Trace } // a run of this bot (its chat or one of its tasks) moved on

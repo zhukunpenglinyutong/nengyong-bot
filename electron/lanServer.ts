@@ -32,6 +32,7 @@ const DEVICE_EVENTS: ReadonlySet<HarnessEvent['kind']> = new Set([
   'mini-app-data',
   'library',
   'tasks',
+  'decisions',
   'models',
   'error',
 ])

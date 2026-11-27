@@ -110,6 +110,7 @@ export function createRemoteBridge(): { bridge: NengyongBotBridge; connection: C
     previews: () => call('previews', []),
     panel: (botId) => call('panel', [botId]),
     tasksAndRoutines: () => call('tasksAndRoutines', []),
+    decisionCounts: () => call('decisionCounts', []),
     context: desktopOnly,
     setDebug: async () => {}, // debug mode belongs to the computer: a device neither turns it on nor off
     setRoutineEnabled: (botId, routineId, isEnabled) => call('setRoutineEnabled', [botId, routineId, isEnabled]),

@@ -342,6 +342,24 @@ describe('harness turn', () => {
     ])
   })
 
+  it('puts a question to the user, counts it as waiting, and records the answer picked as a reply quoting it', async () => {
+    const ask = { question: '今早的日报没跑成，现在补一次吗？', answers: ['现在补一次', '不补'] }
+    const model = new MockLanguageModelV4({
+      doStream: [step('今早 06:00 的日报没跑成。', [{ name: 'ask_user', input: ask }]), step(), step('好，这就补。')],
+    })
+    const { store, harness } = setup(model)
+    await harness.send('chief', '日报呢')
+    const asked = store.history('chief').find((entry) => entry.kind === 'tool' && entry.name === 'ask_user')
+    expect(store.decisionCount('chief')).toBe(1)
+    expect(events).toContainEqual({ kind: 'decisions', botId: 'chief', count: 1 })
+
+    await harness.send('chief', '现在补一次', [], asked?.seq ?? null)
+    const reply = store.history('chief').findLast((entry) => entry.kind === 'user')
+    expect(reply?.kind === 'user' && reply.quote).toEqual({ seq: asked?.seq, text: ask.question })
+    expect(store.decisionCount('chief')).toBe(0)
+    expect(events).toContainEqual({ kind: 'decisions', botId: 'chief', count: 0 })
+  })
+
   it('refuses to quote a message that is not in this chat, and records nothing', async () => {
     const { store, harness } = setup(new MockLanguageModelV4({ doStream: [step('好。')] }))
     expect(() => harness.send('chief', '这条呢', [], 9)).toThrow('要回复的那条消息不在这段聊天里')

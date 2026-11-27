@@ -3,6 +3,7 @@ import { generateText } from 'ai'
 import type { AttachmentFile } from '../shared/attachment'
 import type { BotModels, Entry, HarnessEvent, Quote } from '../shared/bridge'
 import { type Compaction, type ContextView, joinSections } from '../shared/debug'
+import { askOf, quotedText } from '../shared/decisions'
 import type { Limits } from '../shared/limits'
 import { currentLanguage, type Language } from '../shared/language'
 import { strings } from '../shared/strings'
@@ -70,6 +71,8 @@ export function createHarness(options: HarnessOptions) {
   let isDebug = false // context and trace events cost a copy of the prompt and of every step: sent only while someone looks
   const emit = (event: HarnessEvent) => {
     if (isDebug || (event.kind !== 'context' && event.kind !== 'trace')) options.emit(event)
+    if (event.kind === 'entry' && settlesOrAsks(event.entry))
+      options.emit({ kind: 'decisions', botId: event.botId, count: store.decisionCount(event.botId) })
   }
   const queues = new Map<string, Promise<unknown>>()
   const inFlight = new Map<string, number>() // waiting + running turns per bot
@@ -270,8 +273,9 @@ export function createHarness(options: HarnessOptions) {
 
   function quoteOf(botId: string, seq: number): Quote {
     const [entry] = store.range(botId, seq, seq)
-    if (!entry || !('text' in entry)) throw new Error(strings().harness.chat.quoteMissing)
-    return { seq, text: clip(entry.text, QUOTE_CHARS) }
+    const text = entry && quotedText(entry)
+    if (text === undefined) throw new Error(strings().harness.chat.quoteMissing)
+    return { seq, text: clip(text, QUOTE_CHARS) }
   }
 
   function miniAppRef(botId: string, id: string, isSentByApp: boolean) {
@@ -361,3 +365,10 @@ export function createHarness(options: HarnessOptions) {
 }
 
 const modelName = (model: ModelObject | null) => (model === null ? strings().harness.chat.noModel : modelIdOf(model))
+
+/** An entry that can change which asks of a chat wait on the user: an ask, an answer to a card, a user message. */
+function settlesOrAsks(entry: Entry): boolean {
+  return (
+    entry.kind === 'user' || entry.kind === 'duty-answer' || entry.kind === 'skill-answer' || askOf(entry) !== undefined
+  )
+}

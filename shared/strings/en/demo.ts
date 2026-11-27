@@ -70,6 +70,11 @@ The sync plan draft is in \`sync/sync-plan-draft.md\` if you want a look.`,
   chats: {
     askProgress: "How's it going?",
   },
+  travelQuestion: {
+    question: 'Book the Sagano romantic train for the third afternoon? Weekend seats usually sell out a week ahead.',
+    book: 'Book the 2 pm train',
+    skip: 'Not yet',
+  },
   releaseNotesFlow: {
     name: 'Release notes',
     when: 'When a release is coming and its notes need writing',

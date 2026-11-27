@@ -24,13 +24,14 @@ import { strings } from '../../shared/strings'
 const PIN_PITCH = 102
 const PIN_GAP = 6
 const BOT_DRAG_TYPE = 'application/x-nengyongbot-bot'
-const STATUS_FILTERS = ['busy', 'failed'] as const
+const STATUS_FILTERS = ['busy', 'deciding', 'failed'] as const
 const FILTERS = ['unread', ...STATUS_FILTERS] as const
 type Filter = (typeof FILTERS)[number]
 const FILTER_LABELS: Record<Filter, string> = {
   unread: strings().sidebar.status.unread,
   busy: DOT_LABELS.busy,
   failed: DOT_LABELS.failed,
+  deciding: DOT_LABELS.deciding,
 }
 
 /** The bot list beside the rail: a search field over the matching bots, the unread, at work or failed bots, or every section. */
@@ -46,6 +47,7 @@ export function SidebarList({ onCreate }: { onCreate: () => void }) {
     unread: unreadTotal(sidebar),
     busy: matching('busy').length,
     failed: matching('failed').length,
+    deciding: matching('deciding').length,
   }
   const toggleFilter = (kind: Filter) =>
     setFilter((current) =>
@@ -127,7 +129,7 @@ function FilterChip({
       }
       data-kind={kind}
       onClick={onToggle}
-      className="flex h-6 shrink-0 overflow-hidden rounded-full text-xs font-medium tabular-nums aria-pressed:ring-1 aria-pressed:ring-current data-[kind=busy]:bg-working/12 data-[kind=busy]:text-working data-[kind=failed]:bg-danger/10 data-[kind=failed]:text-danger data-[kind=unread]:bg-accent/10 data-[kind=unread]:text-accent"
+      className="flex h-6 shrink-0 overflow-hidden rounded-full text-xs font-medium tabular-nums aria-pressed:ring-1 aria-pressed:ring-current data-[kind=busy]:bg-working/12 data-[kind=busy]:text-working data-[kind=deciding]:bg-accent/10 data-[kind=deciding]:text-accent data-[kind=failed]:bg-danger/10 data-[kind=failed]:text-danger data-[kind=unread]:bg-accent/10 data-[kind=unread]:text-accent"
     >
       <span className="flex items-center gap-1 px-1.5">
         {kind === 'unread' ? (
@@ -446,7 +448,7 @@ function StatusSummary({ botIds }: { botIds: string[] }) {
         <span
           key={kind}
           data-kind={kind}
-          className="mr-1.5 flex items-center gap-1 text-xs tabular-nums data-[kind=busy]:text-working data-[kind=failed]:text-danger"
+          className="mr-1.5 flex items-center gap-1 text-xs tabular-nums data-[kind=busy]:text-working data-[kind=deciding]:text-accent data-[kind=failed]:text-danger"
         >
           <StatusDot kind={kind} size={12} />
           {count}

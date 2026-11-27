@@ -33,6 +33,7 @@ import { demoContext, demoTraces } from './demoDebug'
 import { DEMO_MINI_APP_FILES } from './demoMiniApps'
 import { DEMO_SKILL_FILES, demoOffer, demoSkills, demoUpload } from './demoSkills'
 import { demoUsage } from './demoUsage'
+import { pendingDecisions, quotedText } from '../../shared/decisions'
 import { type DutyOffer, dutyOf } from '../../shared/duty'
 import { TIMEZONE } from '../../shared/timezone'
 import { strings } from '../../shared/strings'
@@ -90,6 +91,7 @@ export function createDemoBridge(): NengyongBotBridge {
     const entry: Entry = { ...said, seq: (known.at(-1)?.seq ?? 0) + 1, at: Date.now() }
     transcripts.set(botId, [...known, entry])
     emit({ kind: 'entry', botId, entry })
+    emit({ kind: 'decisions', botId, count: pendingDecisions([...known, entry], Date.now()).length })
   }
   const miniAppOf = (botId: string, miniAppId: string): MiniApp => {
     const app = (panels.get(botId) ?? EMPTY_PANEL).miniApps.find((candidate) => candidate.id === miniAppId)
@@ -205,7 +207,8 @@ export function createDemoBridge(): NengyongBotBridge {
         return path
       })
       const quoted = transcripts.get(botId)?.find((entry) => entry.seq === quoteSeq)
-      const quote = quoted && 'text' in quoted ? { seq: quoted.seq, text: quoted.text } : undefined
+      const quoteText = quoted && quotedText(quoted)
+      const quote = quoted && quoteText !== undefined ? { seq: quoted.seq, text: quoteText } : undefined
       const miniApp = miniAppId === null ? undefined : sentFrom(botId, miniAppId, false)
       append(botId, {
         kind: 'user',
@@ -274,6 +277,10 @@ export function createDemoBridge(): NengyongBotBridge {
         }),
       ),
     panel: async (botId) => ({ ...(panels.get(botId) ?? EMPTY_PANEL), skills: skillsOf(botId) }),
+    decisionCounts: async () =>
+      Object.fromEntries(
+        [...transcripts].map(([botId, entries]) => [botId, pendingDecisions(entries, Date.now()).length]),
+      ),
     tasksAndRoutines: async () =>
       Object.fromEntries([...panels].map(([botId, { tasks, routines }]) => [botId, { tasks, routines }])),
     context: async (botId) => demoContext(transcripts.get(botId) ?? []),

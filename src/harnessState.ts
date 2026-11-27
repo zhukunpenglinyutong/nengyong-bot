@@ -14,6 +14,7 @@ export interface Thread {
   error?: string
   progress?: Progress // set while a turn is running
   preview: string // the last reply, for the sidebar
+  decisions?: number // asks in its chat waiting on the user, as the harness counts them; undefined until it said
   panel: PanelData
   context: ContextView | null // what its chat sends the model, for debug mode
   traces: Trace[] // its last chat turn and its latest tasks, newest first, for debug mode
@@ -57,6 +58,7 @@ export type ThreadEvent =
   | { kind: 'loaded'; botId: string; entries: Entry[]; panel: PanelData }
   | { kind: 'previews'; previews: Record<string, string> }
   | { kind: 'tasks-and-routines'; byBot: Record<string, TasksAndRoutines> }
+  | { kind: 'decision-counts'; counts: Record<string, number> }
   | { kind: 'sent'; botId: string }
   | { kind: 'deleted'; botId: string; seqs: number[] } // the harness has deleted these messages of its chat
 
@@ -139,6 +141,8 @@ export function harnessState(state: Threads, event: ThreadEvent): Threads {
       return patch(state, event.botId, { panel: { ...threadOf(state, event.botId).panel, library: event.library } })
     case 'tasks':
       return patch(state, event.botId, { panel: { ...threadOf(state, event.botId).panel, tasks: event.tasks } })
+    case 'decisions':
+      return patch(state, event.botId, { decisions: event.count })
     case 'models':
       return patch(state, event.botId, { panel: { ...threadOf(state, event.botId).panel, models: event.models } })
     case 'context':
@@ -151,6 +155,12 @@ export function harnessState(state: Threads, event: ThreadEvent): Threads {
       // a reply that arrived in the meantime is newer than the loaded preview
       return Object.entries(event.previews).reduce(
         (next, [botId, preview]) => patch(next, botId, { preview: threadOf(next, botId).preview || preview }),
+        state,
+      )
+    case 'decision-counts':
+      // a count that came with an event in the meantime is newer than the one read at start
+      return Object.entries(event.counts).reduce(
+        (next, [botId, count]) => patch(next, botId, { decisions: threadOf(next, botId).decisions ?? count }),
         state,
       )
     case 'tasks-and-routines':

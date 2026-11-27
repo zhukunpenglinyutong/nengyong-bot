@@ -73,6 +73,7 @@ export function useHarness(bridge: NengyongBotBridge, options: Options) {
       case 'mini-app-data':
       case 'library':
       case 'tasks':
+      case 'decisions':
       case 'models':
       case 'context':
         return dispatch(event)
@@ -127,6 +128,10 @@ export function useHarness(bridge: NengyongBotBridge, options: Options) {
     bridge.tasksAndRoutines().then(
       (byBot) => dispatch({ kind: 'tasks-and-routines', byBot }),
       (error) => report(strings().app.failures.readTasks, error),
+    )
+    bridge.decisionCounts().then(
+      (counts) => dispatch({ kind: 'decision-counts', counts }),
+      (error) => report(strings().app.failures.readDecisions, error),
     )
     bridge.getLimits().then(setLimits, (error) => report(strings().app.failures.readLimits, error))
     return bridge.onEvent((event) => onEvent(event))

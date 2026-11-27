@@ -14,13 +14,13 @@ import {
   type SkillOffer,
   type SkillRef,
   type SkillView,
+  SKILL_OFFER_TTL_MS,
 } from '../shared/skill'
 import { strings } from '../shared/strings'
 import { checkPackage, type SkillFiles, skillBody } from './skillPackage'
 import { type FoundSkill, fetchSkills, filesIn, pickedSkills } from './skillSource'
 import type { Store } from './store'
 
-const OFFER_TTL_MS = 30 * 60_000
 const MAX_SKILLS = 150 // per bot, and on one card: each one is listed in every system prompt of its chat and tasks
 const MAX_INSTRUCTIONS_CHARS = 40_000
 const MAX_LISTED_FILES = 300
@@ -94,7 +94,7 @@ export function createSkills({ dir, store, emit }: SkillsOptions) {
     if (!packages.length) throw new Error(skipped.length ? words.noneInstallable(skipped) : words.noSkill)
     const view: SkillOffer = { offer: newId('k'), botId, skills: packages.map(({ skill }) => skill), skipped }
     const now = Date.now()
-    for (const [id, waiting] of offers) if (now - waiting.at > OFFER_TTL_MS) offers.delete(id)
+    for (const [id, waiting] of offers) if (now - waiting.at > SKILL_OFFER_TTL_MS) offers.delete(id)
     offers.set(view.offer, { view, chatBotId, packages, at: now })
     return view
   }
@@ -112,7 +112,7 @@ export function createSkills({ dir, store, emit }: SkillsOptions) {
 
   function settle(offerId: string, isAnswerable: (found: Offer) => boolean, names: string[], gone: string) {
     const found = offers.get(offerId)
-    if (!found || !isAnswerable(found) || Date.now() - found.at > OFFER_TTL_MS) throw new Error(gone)
+    if (!found || !isAnswerable(found) || Date.now() - found.at > SKILL_OFFER_TTL_MS) throw new Error(gone)
     const unknown = names.find((name) => !found.view.skills.some((skill) => skill.name === name))
     if (unknown) throw new Error(strings().harness.skills.notFound(unknown))
     // the card stays answerable until the install went through: a failed one can be tried again

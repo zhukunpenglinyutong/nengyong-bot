@@ -158,6 +158,7 @@ export function createHandlers({ home, dataDir, store, emit, window, onLanguageC
             { tasks: taskViews(store, id), routines: routineViews(store.get().bots[id]?.routines ?? []) },
           ]),
       ),
+    decisionCounts: () => Object.fromEntries(store.get().roster.map((id) => [id, store.decisionCount(id)])),
     context: (botId) => harness.context(BotId.parse(botId)),
     setDebug: (isOn) => harness.setDebug(z.boolean().parse(isOn)),
     openLibraryItem: async (file) => {
