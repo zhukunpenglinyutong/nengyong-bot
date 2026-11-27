@@ -6,12 +6,14 @@ import type { Entry, PanelData, TaskView } from '../../shared/bridge'
 import type { Flow } from '../../shared/flow'
 import { NavigationContext } from '../NavigationContext'
 import { BotBadge } from './BotBadge'
+import { dutyOf } from '../../shared/duty'
 
 const JOINED_AT = new Date('2026-11-02T09:24:00+08:00').getTime()
 const NOW = new Date('2026-11-21T08:30:00+08:00').getTime()
 const createdBot: Bot = { id: `b${JOINED_AT.toString(36)}9f2a`, name: '跟进专员', shape: 'drop', color: '#4A8CFF' }
 const flow = (id: string, name: string): Flow => ({ id, name, when: '', steps: [], notes: [], updatedAt: JOINED_AT })
 const PANEL: PanelData = {
+  duty: dutyOf(''),
   routines: [],
   flows: [flow('f1', '巡检汇报'), flow('f2', '周报'), flow('f3', '会议纪要')],
   skills: [],

@@ -190,6 +190,14 @@ const PATHS = {
       <path d="M6 8v8M11 6h8M11 12h8M11 18h8" />
     </>
   ),
+  // a bullseye: a bot's duty, the objectives it is to hit
+  target: (
+    <>
+      <circle cx="12" cy="12" r="8" />
+      <circle cx="12" cy="12" r="4.5" />
+      <circle cx="12" cy="12" r="1" />
+    </>
+  ),
   // a book with a spark: a skill someone else wrote, installed on a bot
   skill: (
     <>

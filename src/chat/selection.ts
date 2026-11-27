@@ -79,6 +79,7 @@ export function selectableMessages(messages: Message[]): SelectableMessage[] {
       case 'note':
       case 'from-bot':
       case 'skill-offer':
+      case 'duty-offer':
         return []
       default:
         return message satisfies never

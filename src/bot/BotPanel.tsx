@@ -29,6 +29,7 @@ interface Props {
   miniAppRuns: Run[] // of its mini apps that have been opened: how each is doing
   thumbUrl: (app: MiniApp) => string
   onToggleRoutine: (routineId: string, isEnabled: boolean) => void
+  onReview?: (isOn: boolean) => void // the weekly review of its duty; absent on a device
   onStopTask: (taskId: string) => void
   onOpenLibraryItem: (path: string) => void
   onRename?: (name: string) => void // absent: shown, not changed
@@ -61,6 +62,7 @@ export function BotPanel({
   miniAppRuns,
   thumbUrl,
   onToggleRoutine,
+  onReview,
   onStopTask,
   onOpenLibraryItem,
   onRename,
@@ -83,7 +85,15 @@ export function BotPanel({
         )
       case 'abilities':
         return (
-          <AbilitiesTab bot={bot} bots={bots} panel={panel} ability={ability} onAbility={onAbility} onFill={onFill} />
+          <AbilitiesTab
+            bot={bot}
+            bots={bots}
+            panel={panel}
+            ability={ability}
+            onAbility={onAbility}
+            onFill={onFill}
+            onReview={onReview}
+          />
         )
       case 'miniApps':
         return (

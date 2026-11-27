@@ -4,12 +4,13 @@ import { DatabaseSync } from 'node:sqlite'
 import type { z } from 'zod'
 import { type Bot, MAIN_BOT_ID, type NewBot } from '../shared/bot'
 import { Entry } from '../shared/bridge'
+import { dutyOf } from '../shared/duty'
 import { strings } from '../shared/strings'
 import { SidebarState } from '../shared/sidebar'
 import { type BotBrain, type EntryInput, HarnessState, Task, type UsageCall, UsageRun } from './types'
 
 // The manager starts with a fixed duty as the main bot; every other bot is shaped by its name and the user.
-const defaultInstructions = (id: string) => (id === MAIN_BOT_ID ? strings().harness.store.mainBotDuty : '')
+const defaultPurpose = (id: string) => (id === MAIN_BOT_ID ? strings().harness.store.mainBotDuty : '')
 
 const EMPTY: HarnessState = { userFacts: [], bots: {}, roster: [], pending: [], onboardedAt: null }
 
@@ -30,6 +31,7 @@ const MIGRATIONS = [
   'create table deleted (transcript_id text not null, seq integer not null, primary key (transcript_id, seq)) strict;',
   'select 1; -- bot mini apps, and the mini app a task changes',
   'select 1; -- bot skills, and entries of kind skill-answer',
+  'select 1; -- bot duties, and entries of kind duty-answer',
 ]
 
 // entries stay as written; a message the user deleted is listed in `deleted` and every read of messages skips it
@@ -42,7 +44,7 @@ const UNFINISHED_FIRST =
 const newBrain = (id: string, name: string): BotBrain => ({
   id,
   name,
-  instructions: defaultInstructions(id),
+  duty: dutyOf(defaultPurpose(id)),
   memories: [],
   summary: '',
   summarizedUpTo: 0,
@@ -74,7 +76,7 @@ export function createStore(file: string) {
   )
   // case, not and: sqlite may evaluate json_extract first, and it throws on a hand-edited row that is not JSON
   const readHistory = db.prepare(
-    `select data from entries where transcript_id = ? and ${NOT_DELETED} and case when json_valid(data) then json_extract(data, '$.kind') <> 'tool' or json_extract(data, '$.name') in ('save_flow', 'install_skill') end order by seq`,
+    `select data from entries where transcript_id = ? and ${NOT_DELETED} and case when json_valid(data) then json_extract(data, '$.kind') <> 'tool' or json_extract(data, '$.name') in ('save_flow', 'install_skill', 'propose_duty') end order by seq`,
   )
   const readLastReply = db.prepare(
     `select data from entries where transcript_id = ? and ${NOT_DELETED} and case when json_valid(data) then json_extract(data, '$.kind') = 'bot' end order by seq desc limit 1`,
@@ -196,10 +198,10 @@ export function createStore(file: string) {
      * Returns bots created by the harness that the sidebar has not shown yet (its event was missed, e.g. during a reload).
      */
     syncRoster,
-    addBot(bot: NewBot, instructions: string) {
+    addBot(bot: NewBot, purpose: string) {
       save({
         ...state,
-        bots: { ...state.bots, [bot.id]: { ...newBrain(bot.id, bot.name), instructions } },
+        bots: { ...state.bots, [bot.id]: { ...newBrain(bot.id, bot.name), duty: dutyOf(purpose) } },
         roster: [...state.roster, bot.id],
         pending: [...state.pending, bot],
       })

@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { createRef } from 'react'
 import { afterEach, expect, it, vi } from 'vitest'
 import { DEMO_SIDEBAR } from '../demo/demoData'
+import type { MenuEntry } from '../ui/ContextMenu'
 import { Composer } from './Composer'
 
 afterEach(cleanup)
@@ -10,7 +11,7 @@ afterEach(cleanup)
 // jsdom has no scrollIntoView; it lays nothing out, so there is nothing to scroll
 Element.prototype.scrollIntoView = () => {}
 
-function renderComposer(isReplying = false) {
+function renderComposer(isReplying = false, menu: MenuEntry[] = []) {
   const onSend = vi.fn(() => true)
   const onAddFiles = vi.fn()
   const onStop = vi.fn()
@@ -21,6 +22,7 @@ function renderComposer(isReplying = false) {
       sidebar={DEMO_SIDEBAR}
       botId="chief"
       files={[]}
+      menu={menu}
       sendKey="enter"
       isReplying={isReplying}
       onStop={onStop}
@@ -94,6 +96,19 @@ it('closes the list on Escape, after which Enter sends again', async () => {
   expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
   await user.keyboard('{enter}')
   expect(onSend).toHaveBeenCalledWith('@gi')
+})
+
+it('lists the plus menu after the bots, and picking one runs it and takes the @ out', async () => {
+  const onSelect = vi.fn()
+  const { user, input } = renderComposer(false, [{ label: '规划职责', icon: 'target', onSelect }])
+  await user.type(input, '先 @')
+  const options = within(screen.getByRole('listbox')).getAllByRole('option')
+  expect(options.at(-2)).toHaveAccessibleName('添加附件')
+  expect(options.at(-1)).toHaveAccessibleName('规划职责')
+  await user.type(input, '规划{enter}')
+  expect(onSelect).toHaveBeenCalled()
+  expect(input).toHaveTextContent(/^先$/)
+  expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
 })
 
 it('pastes rich text as plain text', async () => {

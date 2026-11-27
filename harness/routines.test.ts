@@ -6,6 +6,7 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { dueRoutines, NewRoutine, Routine, routineViews, scheduleRoutines } from './routines'
 import { createStore } from './store'
 import type { BotBrain, HarnessState } from './types'
+import { dutyOf } from '../shared/duty'
 
 const daily8 = (overrides: Partial<Routine> = {}): Routine => ({
   id: 'r1',
@@ -20,7 +21,7 @@ const daily8 = (overrides: Partial<Routine> = {}): Routine => ({
 const brain = (id: string, routines: Routine[]): BotBrain => ({
   id,
   name: id,
-  instructions: '',
+  duty: dutyOf(''),
   memories: [],
   summary: '',
   summarizedUpTo: 0,

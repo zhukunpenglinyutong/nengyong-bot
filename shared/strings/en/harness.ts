@@ -66,6 +66,21 @@ export const harness: Strings['harness'] = {
     notDataFile: (name) => `Not a Nengyong Bot data file: ${name}`,
     newerVersion: 'The data comes from a newer version of Nengyong Bot; update the app first',
   },
+  duty: {
+    offerGone: 'This duty card is gone',
+    answered: 'This duty card has already been answered',
+    replaced: 'A newer duty card replaced this one; see the latest',
+    outdated: 'The duty changed after this card: ask the bot for a new one based on the current duty',
+    reviewName: 'Weekly review',
+    greeting: (name, purpose) =>
+      [
+        `I'm ${name}, just joined. Before I start, let's settle my duty: I'll work by it, and you can check my work against it.`,
+        purpose ? `All I know so far: "${purpose}".` : '',
+        'First question: **what result do you most want from me?** Just the result, not how to get there.',
+      ]
+        .filter(Boolean)
+        .join('\n\n'),
+  },
   miniApps: {
     notFound: (id) => `No mini app with the id ${id}`,
     dataTooLarge: (max) => `The data is too large: at most ${max} characters`,

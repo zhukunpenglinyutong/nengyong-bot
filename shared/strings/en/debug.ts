@@ -21,6 +21,7 @@ export const debug: Strings['debug'] = {
       tool: 'Tool records',
       'task-result': 'Task results',
       'skill-answer': 'Skill answers',
+      'duty-answer': 'Duty answers',
       'from-bot': 'Handed over',
       routine: 'Routines',
     },

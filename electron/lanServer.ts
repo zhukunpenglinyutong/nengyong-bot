@@ -26,6 +26,7 @@ const DEVICE_EVENTS: ReadonlySet<HarnessEvent['kind']> = new Set([
   'bot-renamed',
   'routines',
   'flows',
+  'duty',
   'skills',
   'mini-apps',
   'mini-app-data',

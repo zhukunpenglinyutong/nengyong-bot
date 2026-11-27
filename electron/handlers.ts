@@ -2,6 +2,7 @@ import path from 'node:path'
 import { app, type BrowserWindow, shell } from 'electron'
 import { z } from 'zod'
 import { createHarness } from '../harness/agent'
+import { welcome } from '../harness/duty'
 import { libraryFile, libraryItems } from '../harness/library'
 import { createLimits } from '../harness/limits'
 import { createMcp } from '../harness/mcp'
@@ -23,6 +24,7 @@ import {
   type NengyongBotBridge,
   type TasksAndRoutines,
 } from '../shared/bridge'
+import { dutyOf } from '../shared/duty'
 import { BYTES_PER_MB, type Limits, MESSAGE_MAX_CHARS } from '../shared/limits'
 import { currentLanguage, setLanguage } from '../shared/language'
 import { strings } from '../shared/strings'
@@ -137,6 +139,7 @@ export function createHandlers({ home, dataDir, store, emit, window, onLanguageC
     panel: (botId): PanelData => {
       const id = BotId.parse(botId)
       return {
+        duty: store.get().bots[id]?.duty ?? dutyOf(''),
         routines: routineViews(store.get().bots[id]?.routines ?? []),
         flows: store.get().bots[id]?.flows ?? [],
         skills: skills.views(id),
@@ -173,6 +176,14 @@ export function createHandlers({ home, dataDir, store, emit, window, onLanguageC
     stopTask: (botId, taskId) => harness.stopTask(BotId.parse(botId), TaskId.parse(taskId)),
     answerSkillOffer: (botId, offer, names) =>
       harness.answerSkillOffer(BotId.parse(botId), OfferId.parse(offer), SkillName.array().parse(names)),
+    answerDutyOffer: (botId, offer, isAccepted, isReviewOn) =>
+      harness.answerDutyOffer(
+        BotId.parse(botId),
+        OfferId.parse(offer),
+        z.boolean().parse(isAccepted),
+        z.boolean().parse(isReviewOn),
+      ),
+    setDutyReview: (botId, isOn) => harness.setDutyReview(BotId.parse(botId), z.boolean().parse(isOn)),
     uploadSkill: async (botId, kind) => {
       const id = BotId.parse(botId)
       const picked = await pickSkill(window(), SkillUploadKind.parse(kind))
@@ -190,7 +201,11 @@ export function createHandlers({ home, dataDir, store, emit, window, onLanguageC
     saveSidebar: (sidebar) => {
       const parsed = SidebarState.parse(sidebar)
       app.setBadgeCount(unreadTotal(parsed))
-      return store.saveSidebar(parsed)
+      const known = new Set(Object.keys(store.get().bots))
+      const shown = store.saveSidebar(parsed)
+      for (const { id } of parsed.bots)
+        if (!known.has(id) && id !== MAIN_BOT_ID) emit({ kind: 'entry', botId: id, entry: welcome(store, id) })
+      return shown
     },
     getModelServices: () => modelServices.view(),
     listModels: (accountId) => modelServices.listModels(accountId),
@@ -213,7 +228,10 @@ export function createHandlers({ home, dataDir, store, emit, window, onLanguageC
     },
     onboard: (choices) => {
       const { bots, greeting } = onboard(store, OnboardingChoices.parse(choices), modelServices.model() !== null)
-      for (const bot of bots) emit({ kind: 'bot-created', bot })
+      for (const bot of bots) {
+        emit({ kind: 'bot-created', bot })
+        emit({ kind: 'entry', botId: bot.id, entry: welcome(store, bot.id) })
+      }
       emit({ kind: 'entry', botId: MAIN_BOT_ID, entry: greeting })
       return bots
     },

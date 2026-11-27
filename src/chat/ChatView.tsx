@@ -5,6 +5,7 @@ import { isUnfinished, type TaskView } from '../../shared/bridge'
 import type { MiniApp } from '../../shared/miniApp'
 import { plainText } from '../../shared/plainText'
 import type { SidebarState } from '../../shared/sidebar'
+import type { SkillUploadKind } from '../../shared/skill'
 import type { SendKey } from '../preferences'
 import { BotAvatar } from '../bot/BotAvatar'
 import type { Thread } from '../harnessState'
@@ -12,6 +13,7 @@ import { ViewingMiniApp } from '../miniApp/ViewingMiniApp'
 import { useNavigation } from '../NavigationContext'
 import { progressOf } from '../progressOf'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
+import type { MenuEntry } from '../ui/ContextMenu'
 import { Icon } from '../ui/Icon'
 import { IconButton } from '../ui/IconButton'
 import { EASE_SHARP, ENTER } from '../ui/motion'
@@ -47,6 +49,8 @@ interface Props {
   island: ReactNode
   isPanelOpen: boolean
   onTogglePanel: () => void
+  onAnswerDuty?: (offer: string, isAccepted: boolean, isReviewOn: boolean) => Promise<void> // absent on a device
+  onUploadSkill?: (kind: SkillUploadKind) => void // absent on a device: skills are uploaded on the computer
 }
 
 /** A mention clicked in `from`'s chat, scrolled to `scrollTop`, that opened `to`. */
@@ -73,6 +77,8 @@ export function ChatView({
   island,
   isPanelOpen,
   onTogglePanel,
+  onAnswerDuty,
+  onUploadSkill,
 }: Props) {
   const words = strings().chat.view
   const draft = useDraft(drafts, bot.id)
@@ -201,6 +207,7 @@ export function ChatView({
               onQuote={startQuote}
               onSelection={dispatchSelection}
               onDelete={(seq) => setDeleting([seq])}
+              onAnswerDuty={onAnswerDuty}
             />
             <AnimatePresence>
               {isSharing && (
@@ -247,6 +254,11 @@ export function ChatView({
           sidebar={sidebar}
           botId={bot.id}
           files={draft.files}
+          menu={composerMenu(
+            thread.panel.duty.objectives.length > 0,
+            (text) => editDraft(fillWith(text)),
+            onUploadSkill,
+          )}
           sendKey={sendKey}
           isReplying={Boolean(progress)}
           onStop={onStopReply}
@@ -308,6 +320,24 @@ function Suggestions({ texts, onPick }: { texts: string[]; onPick: (text: string
       ))}
     </motion.div>
   )
+}
+
+/** What the message box's plus offers besides attaching files: settle the duty, save a flow, upload a skill. */
+function composerMenu(hasDuty: boolean, fill: (text: string) => void, onUploadSkill?: (kind: SkillUploadKind) => void) {
+  const words = strings().chat.composer
+  const duty = strings().bot.duty
+  const upload = strings().skills.upload
+  const entries: MenuEntry[] = [
+    { label: words.planDuty, icon: 'target', onSelect: () => fill(hasDuty ? duty.adjustStarter : duty.planStarter) },
+    { label: words.saveFlow, icon: 'flow', onSelect: () => fill(words.saveFlowStarter) },
+  ]
+  if (!onUploadSkill) return entries
+  const kinds: MenuEntry[] = [
+    { label: upload.folder, icon: 'folder', onSelect: () => onUploadSkill('folder') },
+    { label: upload.archive, icon: 'file', detail: upload.archiveTypes, onSelect: () => onUploadSkill('archive') },
+  ]
+  const uploadSkill: MenuEntry = { label: words.uploadSkill, icon: 'skill', submenu: kinds }
+  return [...entries, uploadSkill]
 }
 
 /** Working row: the bot's avatar plus a shimmering line saying what it is doing, with elapsed time after a minute. */

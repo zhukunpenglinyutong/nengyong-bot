@@ -1,5 +1,6 @@
 import type { Activity, Entry, HarnessEvent, PanelData, TasksAndRoutines } from '../shared/bridge'
 import type { ContextView, Trace } from '../shared/debug'
+import { dutyOf } from '../shared/duty'
 
 const MAX_TASK_TRACES = 5 // the chat's own run is always kept
 
@@ -65,6 +66,7 @@ export const EMPTY_THREAD: Thread = {
   queued: [],
   preview: '',
   panel: {
+    duty: dutyOf(''),
     routines: [],
     flows: [],
     skills: [],
@@ -122,6 +124,8 @@ export function harnessState(state: Threads, event: ThreadEvent): Threads {
       return patch(state, event.botId, { panel: { ...threadOf(state, event.botId).panel, routines: event.routines } })
     case 'flows':
       return patch(state, event.botId, { panel: { ...threadOf(state, event.botId).panel, flows: event.flows } })
+    case 'duty':
+      return patch(state, event.botId, { panel: { ...threadOf(state, event.botId).panel, duty: event.duty } })
     case 'skills':
       return patch(state, event.botId, { panel: { ...threadOf(state, event.botId).panel, skills: event.skills } })
     case 'mini-apps':
@@ -166,6 +170,7 @@ function underEvents(panel: PanelData, snapshot: Partial<PanelData>): PanelData 
   const newer = <K extends keyof PanelData>(key: K): PanelData[K] =>
     panel[key] === EMPTY_THREAD.panel[key] ? (snapshot[key] ?? panel[key]) : panel[key]
   return {
+    duty: newer('duty'),
     routines: newer('routines'),
     flows: newer('flows'),
     skills: newer('skills'),

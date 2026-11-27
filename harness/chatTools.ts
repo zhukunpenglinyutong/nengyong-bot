@@ -23,6 +23,7 @@ import type { ModelChoices } from './runModel'
 import type { Store } from './store'
 import type { TaskRunner } from './tasks'
 import { checkOwner } from './checkOwner'
+import { welcome } from './duty'
 import { line, MODEL_INPUT, OptionalId } from './toolInputs'
 import type { Fact } from './types'
 import { strings } from '../shared/strings'
@@ -85,14 +86,6 @@ export function chatTools({ botId, store, emit, tasks, limits, models }: ChatCon
         return { forgotten: id }
       },
     }),
-    update_my_instructions: tool({
-      description: '改写你自己的职责说明（完整替换）。',
-      inputSchema: z.object({ instructions: z.string().min(1).max(2000) }),
-      execute: async ({ instructions }) => {
-        store.updateBot(botId, { instructions })
-        return { ok: true }
-      },
-    }),
     update_my_name: tool({
       description: '改你自己在侧边栏里显示的名字。',
       inputSchema: z.object({ name: z.string().trim().min(1).max(BOT_NAME_MAX) }),
@@ -106,18 +99,19 @@ export function chatTools({ botId, store, emit, tasks, limits, models }: ChatCon
       description: '新建一个 Bot，它会出现在用户的侧边栏里。',
       inputSchema: z.object({
         name: z.string().trim().min(1).max(BOT_NAME_MAX),
-        instructions: z.string().min(1).max(2000).describe('它负责什么、怎么做、不做什么'),
+        purpose: line(200).describe('它为什么在这儿：一句话。目标和验收指标它会自己和用户定'),
         shape: z.enum(PICKER_SHAPES).optional(),
         color: z.enum(COLORS.map((choice) => choice.id)).optional(),
         section: sectionInput(),
       }),
-      execute: async ({ name, instructions, shape, color, section: sectionName }) => {
+      execute: async ({ name, purpose, shape, color, section: sectionName }) => {
         const section = sectionByName(store, sectionName)
         const id = newBotId()
         const palette = COLORS.find((choice) => choice.id === color) ?? pick(COLORS)
         const created = { id, name, shape: shape ?? pick(PICKER_SHAPES), color: palette.value, section }
-        store.addBot(created, instructions)
+        store.addBot(created, purpose)
         emit({ kind: 'bot-created', bot: created })
+        emit({ kind: 'entry', botId: id, entry: welcome(store, id) })
         return { id, name, section: section?.name ?? strings().common.ungrouped, mention: `[${name}](bot:${id})` }
       },
     }),

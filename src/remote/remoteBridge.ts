@@ -121,6 +121,8 @@ export function createRemoteBridge(): { bridge: NengyongBotBridge; connection: C
     stopTask: (botId, taskId) => call('stopTask', [botId, taskId]),
     // installing, removing and the Finder belong to the computer; a device only looks at a skill's files
     answerSkillOffer: desktopOnly,
+    answerDutyOffer: desktopOnly,
+    setDutyReview: desktopOnly,
     uploadSkill: desktopOnly,
     answerSkillUpload: desktopOnly,
     removeSkills: desktopOnly,

@@ -191,7 +191,7 @@ describe('harness turn', () => {
     const model = new MockLanguageModelV4({
       doStream: [
         step('我来创建一个点子收集箱。', [
-          { name: 'create_bot', input: { name: '点子收集箱', instructions: '记录点子，不执行' } },
+          { name: 'create_bot', input: { name: '点子收集箱', purpose: '记录点子，不执行' } },
         ]),
         step('已创建。'),
       ],
@@ -204,7 +204,8 @@ describe('harness turn', () => {
     const id = created?.kind === 'bot-created' ? created.bot.id : ''
     expect(id).toMatch(/^b[0-9a-z]{1,16}$/)
     expect(store.get().roster).toContain(id)
-    expect(store.get().bots[id].instructions).toBe('记录点子，不执行')
+    expect(store.get().bots[id].duty.purpose).toBe('记录点子，不执行')
+    expect(store.history(id).map((e) => e.kind)).toEqual(['bot'])
     expect(store.history('chief').map((e) => e.kind)).toEqual(['user', 'bot', 'bot'])
     expect(store.toolEntries('chief', 'create_bot')).toHaveLength(1)
     expect(events.filter((e) => e.kind === 'busy').map((e) => e.kind === 'busy' && e.busy)).toEqual([true, false])
@@ -214,9 +215,9 @@ describe('harness turn', () => {
     const model = new MockLanguageModelV4({
       doStream: [
         step(undefined, [
-          { name: 'create_bot', input: { name: '开源负责人', instructions: '管开源', section: '管理层' } },
-          { name: 'create_bot', input: { name: '运营专员', instructions: '管运营', section: '运营团队' } },
-          { name: 'create_bot', input: { name: '杂事', instructions: '杂事', section: '其他' } },
+          { name: 'create_bot', input: { name: '开源负责人', purpose: '管开源', section: '管理层' } },
+          { name: 'create_bot', input: { name: '运营专员', purpose: '管运营', section: '运营团队' } },
+          { name: 'create_bot', input: { name: '杂事', purpose: '杂事', section: '其他' } },
         ]),
         step('好了。'),
       ],
@@ -379,7 +380,7 @@ describe('harness turn', () => {
       doStream: [
         step(undefined, [
           { name: 'forget', input: { id: 'u-missing' } },
-          { name: 'create_bot', input: { name: '   ', instructions: '没有名字' } },
+          { name: 'create_bot', input: { name: '   ', purpose: '没有名字' } },
           { name: 'read_history', input: { ref: 'chief#999' } },
           { name: 'read_history', input: { ref: 'ghost#1' } },
           { name: 'read_history', input: { ref: 'chief 12' } },

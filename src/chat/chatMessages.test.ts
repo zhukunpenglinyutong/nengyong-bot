@@ -139,3 +139,32 @@ it('carries what a user message quotes, and which model and API call wrote a rep
     { kind: 'user', text: '第二件呢', seq: 2, at: now, quote: { seq: 1, text: '三件事' } },
   ])
 })
+
+it('shows each duty card once, with its answer, and an unanswered one a newer card replaced as replaced', () => {
+  const offer = (id: string, botId = 'writer') => ({
+    offer: id,
+    botId,
+    baseVersion: 0,
+    plan: { purpose: '', objectives: [], outOfScope: [] },
+    changes: [],
+    isReviewOn: false,
+  })
+  const card = (seq: number, id: string, botId?: string) => ({
+    ...stamp(seq, now),
+    kind: 'tool' as const,
+    name: 'propose_duty',
+    input: {},
+    output: { ...offer(id, botId), note: '' },
+  })
+  const entries = [
+    card(1, 'd1'),
+    card(2, 'd2'),
+    card(3, 'd3', 'chief'),
+    { ...stamp(4, now), kind: 'duty-answer' as const, offer: 'd2', botId: 'writer', isAccepted: true },
+  ]
+  expect(chatMessages({ entries, streaming: '', queued: [] }, MAIN_BOT, [MAIN_BOT], now).slice(1)).toEqual([
+    { kind: 'duty-offer', offer: offer('d1'), isAgreed: null, isReplaced: true },
+    { kind: 'duty-offer', offer: offer('d2'), isAgreed: true, isReplaced: false },
+    { kind: 'duty-offer', offer: offer('d3', 'chief'), isAgreed: null, isReplaced: false },
+  ])
+})

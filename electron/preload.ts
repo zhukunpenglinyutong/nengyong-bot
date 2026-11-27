@@ -33,6 +33,9 @@ const bridge: NengyongBotBridge = {
   stopReply: (botId, runId) => ipcRenderer.invoke('nengyongbot:stopReply', botId, runId),
   stopTask: (botId, taskId) => ipcRenderer.invoke('nengyongbot:stopTask', botId, taskId),
   answerSkillOffer: (botId, offer, names) => ipcRenderer.invoke('nengyongbot:answerSkillOffer', botId, offer, names),
+  answerDutyOffer: (botId, offer, isAccepted, isReviewOn) =>
+    ipcRenderer.invoke('nengyongbot:answerDutyOffer', botId, offer, isAccepted, isReviewOn),
+  setDutyReview: (botId, isOn) => ipcRenderer.invoke('nengyongbot:setDutyReview', botId, isOn),
   uploadSkill: (botId, kind) => ipcRenderer.invoke('nengyongbot:uploadSkill', botId, kind),
   answerSkillUpload: (botId, offer, names) => ipcRenderer.invoke('nengyongbot:answerSkillUpload', botId, offer, names),
   removeSkills: (botId, names) => ipcRenderer.invoke('nengyongbot:removeSkills', botId, names),

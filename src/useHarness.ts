@@ -67,6 +67,7 @@ export function useHarness(bridge: NengyongBotBridge, options: Options) {
       case 'activity':
       case 'routines':
       case 'flows':
+      case 'duty':
       case 'skills':
       case 'mini-apps':
       case 'mini-app-data':
@@ -144,6 +145,13 @@ export function useHarness(bridge: NengyongBotBridge, options: Options) {
           message: failureOf(strings().app.failures.switchRoutine, error),
         }),
       )
+    },
+    setDutyReview(botId: string, isOn: boolean) {
+      bridge
+        .setDutyReview(botId, isOn)
+        .catch((error) =>
+          dispatch({ kind: 'error', botId, message: failureOf(strings().app.failures.switchReview, error) }),
+        )
     },
     openLibraryItem(botId: string, path: string) {
       bridge.openLibraryItem(path).catch((error) =>

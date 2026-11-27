@@ -12,6 +12,8 @@ import { saveAttachments } from './attachments'
 import { chatTools } from './chatTools'
 import { describeContext, GUESSED_TOKENS_PER_CHAR, withMeasure } from './context'
 import { describeError, NoKeyError } from './describeError'
+import { answerDutyOffer, setReview } from './duty'
+import { dutyTools } from './dutyTools'
 import { historyTools } from './historyTools'
 import type { Mcp } from './mcp'
 import { miniAppOf } from './miniApps'
@@ -130,6 +132,7 @@ export function createHarness(options: HarnessOptions) {
       ...chatTools({ botId, store, emit, tasks, limits: current, models: options.models }),
       ...modelTools({ botId, store, emit, choices: options.models, onBotModels: showModels }),
       ...skillChatTools({ botId, store, skills: options.skills }),
+      ...dutyTools({ botId, store, emit }),
       ...historyTools(store, current),
     }
     const parts = { model, windowTokens: options.windowTokensOf(model), sections, entries, messages, tools }
@@ -320,6 +323,13 @@ export function createHarness(options: HarnessOptions) {
       emit({ kind: 'entry', botId, entry })
       void wake(botId)
     },
+    /** The user answered a duty card in this bot's chat: recorded at once, like an install card's answer, then the bot reads it. */
+    answerDutyOffer(botId: string, offer: string, isAccepted: boolean, isReviewOn: boolean) {
+      const entry = store.append(botId, answerDutyOffer(store, emit, botId, offer, isAccepted, isReviewOn))
+      emit({ kind: 'entry', botId, entry })
+      void wake(botId)
+    },
+    setDutyReview: (botId: string, isOn: boolean) => setReview(store, emit, botId, isOn),
     /**
      * Stops the turn the user saw running, keeping what it wrote so far; a stop that comes after that turn ended leaves
      * the next one alone. Messages queued behind it still get their turn.

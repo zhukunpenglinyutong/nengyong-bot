@@ -12,7 +12,7 @@ interface Props extends Omit<ComponentProps<'button'>, 'onClick'> {
 
 /** A button that opens a menu just under itself. */
 export function MenuButton({ menuLabel, items, onOpen, ...button }: Props) {
-  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
+  const [menu, setMenu] = useState<{ x: number; y: number; aboveY: number } | null>(null)
   return (
     <>
       <button
@@ -21,9 +21,9 @@ export function MenuButton({ menuLabel, items, onOpen, ...button }: Props) {
         aria-expanded={menu !== null}
         {...button}
         onClick={(event) => {
-          const { left, bottom } = event.currentTarget.getBoundingClientRect()
+          const { left, top, bottom } = event.currentTarget.getBoundingClientRect()
           onOpen?.()
-          setMenu({ x: left, y: bottom + MENU_GAP_PX })
+          setMenu({ x: left, y: bottom + MENU_GAP_PX, aboveY: top - MENU_GAP_PX })
         }}
       />
       <AnimatePresence>
@@ -32,6 +32,7 @@ export function MenuButton({ menuLabel, items, onOpen, ...button }: Props) {
             key={`${menu.x},${menu.y}`}
             x={menu.x}
             y={menu.y}
+            aboveY={menu.aboveY}
             items={items}
             label={menuLabel}
             onClose={() => setMenu(null)}

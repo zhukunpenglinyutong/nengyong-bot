@@ -59,6 +59,21 @@ export const harness = {
     notDataFile: (name: string) => `不是 Nengyong Bot 的数据文件：${name}`,
     newerVersion: '数据来自更新版本的 Nengyong Bot，请先升级应用',
   },
+  duty: {
+    offerGone: '找不到这张职责卡了',
+    answered: '这张职责卡已经答复过了',
+    replaced: '这张职责卡已经被新的一张替代了，看最新的那张',
+    outdated: '职责在这之后已经改过了，这张卡作废了：请它按现在的职责重新出一张',
+    reviewName: '每周复盘',
+    greeting: (name: string, purpose: string) =>
+      [
+        `我是${name}，刚来。开工前先把职责定下来：以后我照着它做事，你也照着它验收我。`,
+        purpose ? `现在我只知道一句：「${purpose}」。` : '',
+        '第一个问题：**你最想要我做到什么结果？**说结果就行，不用说怎么做。',
+      ]
+        .filter(Boolean)
+        .join('\n\n'),
+  },
   miniApps: {
     notFound: (id: string) => `没有 id 为 ${id} 的小程序`,
     dataTooLarge: (max: number) => `数据太大了：最多 ${max} 字`,

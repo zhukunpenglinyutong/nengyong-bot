@@ -32,6 +32,7 @@ export const app = {
     readTasks: '读取任务和例行任务失败',
     readLimits: '读取精细化配置失败',
     switchRoutine: '切换例行任务失败',
+    switchReview: '切换每周复盘失败',
     openFile: '打开文件失败',
     stopReply: '停止回复失败',
     stopTask: '停止任务失败',

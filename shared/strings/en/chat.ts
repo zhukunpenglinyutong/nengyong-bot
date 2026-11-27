@@ -43,6 +43,11 @@ export const chat: Strings['chat'] = {
     cancelReply: 'Cancel reply',
     attachments: 'Attachments to send',
     addAttachment: 'Add attachment',
+    add: 'Add',
+    planDuty: 'Plan its duty',
+    saveFlow: 'Save as a flow',
+    saveFlowStarter: 'Save what we just did as a flow: ',
+    uploadSkill: 'Upload a skill',
     send: 'Send',
     stop: 'Stop replying',
     chooseAttachments: 'Choose attachments',
@@ -50,7 +55,7 @@ export const chat: Strings['chat'] = {
   },
   mention: {
     menu: 'Mention a bot',
-    noMatch: 'No matching bot',
+    noMatch: 'No matching bot or action',
   },
   actions: {
     label: 'Message actions',

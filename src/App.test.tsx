@@ -10,6 +10,7 @@ import { App } from './App'
 import { DEMO_SIDEBAR } from './demo/demoData'
 import { renderDemoApp } from './demo/renderDemoApp'
 import { RELEASES } from './settings/releases'
+import { dutyOf } from '../shared/duty'
 
 describe('App on the demo bridge', () => {
   it('shows the chief thread by default', async () => {
@@ -156,6 +157,7 @@ function fakeBridge(hasModel = true): NengyongBotBridge {
     deleteMessages: vi.fn(async () => {}),
     previews: vi.fn(async () => ({ repo: '明天 **10 点** 开会，见 [CEO](bot:chief)' })),
     panel: vi.fn(async () => ({
+      duty: dutyOf(''),
       routines: [],
       flows: [],
       skills: [],
@@ -172,6 +174,8 @@ function fakeBridge(hasModel = true): NengyongBotBridge {
     stopReply: vi.fn(async () => {}),
     stopTask: vi.fn(async () => {}),
     answerSkillOffer: vi.fn(async () => {}),
+    answerDutyOffer: vi.fn(async () => {}),
+    setDutyReview: vi.fn(async () => {}),
     uploadSkill: vi.fn(async () => null),
     answerSkillUpload: vi.fn(async () => {}),
     removeSkills: vi.fn(async () => {}),
@@ -560,6 +564,7 @@ describe('App on a scripted bridge', () => {
     bridge = {
       ...fakeBridge(),
       panel: vi.fn(async () => ({
+        duty: dutyOf(''),
         routines: [],
         flows: [],
         skills: [],
@@ -593,6 +598,7 @@ describe('App on a scripted bridge', () => {
     bridge = {
       ...fakeBridge(),
       panel: vi.fn(async () => ({
+        duty: dutyOf(''),
         routines: [],
         flows: [],
         skills: [],
@@ -1304,6 +1310,7 @@ describe('the island at the top of the chat', () => {
     bridge = {
       ...fakeBridge(),
       panel: vi.fn(async () => ({
+        duty: dutyOf(''),
         routines: [],
         flows: [],
         skills: [],

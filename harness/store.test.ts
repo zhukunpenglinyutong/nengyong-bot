@@ -8,6 +8,7 @@ import { MAIN_BOT } from '../shared/bot'
 import { SidebarState } from '../shared/sidebar'
 import { checkDatabase, createStore } from './store'
 import type { Task } from './types'
+import { dutyOf } from '../shared/duty'
 
 let file: string
 beforeEach(() => {
@@ -72,7 +73,7 @@ it('finds the last reply of a bot, past later user and tool entries', () => {
 })
 
 it('refuses to change the brain of a bot it does not know', () => {
-  expect(() => createStore(file).updateBot('ghost', { instructions: 'x' })).toThrow('未知的 Bot')
+  expect(() => createStore(file).updateBot('ghost', { name: 'x' })).toThrow('未知的 Bot')
 })
 
 it('numbers each bot on its own', () => {
@@ -119,7 +120,7 @@ it('fills in what a stored state leaves out and ignores fields it does not know'
       chief: {
         id: 'chief',
         name: 'CEO',
-        instructions: '',
+        duty: dutyOf(''),
         memories: [],
         summary: '',
         summarizedUpTo: 0,
@@ -133,6 +134,15 @@ it('fills in what a stored state leaves out and ignores fields it does not know'
     pending: [],
     onboardedAt: null,
   })
+})
+
+it('turns the one paragraph a bot saved before duties into the purpose of a duty not agreed yet', () => {
+  createStore(file).close()
+  raw(
+    `insert into kv (key, value) values ('state', ?)`,
+    JSON.stringify({ bots: { lead: { id: 'lead', name: '开源负责人', instructions: '管开源治理' } } }),
+  )
+  expect(createStore(file).get().bots.lead?.duty).toEqual(dutyOf('管开源治理'))
 })
 
 it('keeps state changes across a reopen', () => {

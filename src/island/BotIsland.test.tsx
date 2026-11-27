@@ -24,7 +24,16 @@ const context: ContextView = {
       { role: 'user', text: '上周的结论呢' },
       { role: 'assistant', text: '在周报里。' },
     ],
-    counts: { user: 1, bot: 1, 'from-bot': 0, routine: 0, 'task-result': 0, 'skill-answer': 0, tool: 0 },
+    counts: {
+      user: 1,
+      bot: 1,
+      'from-bot': 0,
+      routine: 0,
+      'task-result': 0,
+      'skill-answer': 0,
+      'duty-answer': 0,
+      tool: 0,
+    },
   },
   tools: {
     definitions: [

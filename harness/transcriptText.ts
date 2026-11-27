@@ -47,6 +47,10 @@ export function toMessages(
         const target = e.botId === transcriptId ? '你' : `「${state.bots[e.botId]?.name ?? e.botId}」[${e.botId}]`
         return [{ role: 'user', content: `（系统记录，不是用户发的）用户${skillAnswerNote(e, target)}` }]
       }
+      case 'duty-answer': {
+        const target = e.botId === transcriptId ? '你' : `「${state.bots[e.botId]?.name ?? e.botId}」[${e.botId}]`
+        return [{ role: 'user', content: `（系统记录，不是用户发的）用户${dutyAnswerNote(e, target)}` }]
+      }
       case 'tool':
         return [{ role: 'user', content: `（系统记录，不是用户发的）你${toolNote(e)}` }]
       default:
@@ -58,7 +62,16 @@ export function toMessages(
 /** An entry as plain text, for transcripts the model reads as text: a message's own, or a one-line note of a record. */
 export function entryText(entry: Entry): string {
   if ('text' in entry) return entry.text
-  return entry.kind === 'tool' ? toolNote(entry) : skillAnswerNote(entry, ` ${entry.botId}`)
+  switch (entry.kind) {
+    case 'tool':
+      return toolNote(entry)
+    case 'skill-answer':
+      return skillAnswerNote(entry, ` ${entry.botId}`)
+    case 'duty-answer':
+      return dutyAnswerNote(entry, ` ${entry.botId} `)
+    default:
+      return entry satisfies never
+  }
 }
 
 const NOTE_FIELD_CHARS = 200
@@ -81,11 +94,18 @@ const skillAnswerNote = (entry: Extract<Entry, { kind: 'skill-answer' }>, target
     ? `在确认卡上点了「装上」：技能 ${entry.names.join('、')} 已经装给${target}，现在就能用；卡上别的没勾，没有装。`
     : '在确认卡上点了「不装」：卡上的技能一个都没有装。'
 
+/** How the user answered a duty card, said of the bot whose duty it is. */
+const dutyAnswerNote = (entry: Extract<Entry, { kind: 'duty-answer' }>, target: string) =>
+  entry.isAccepted
+    ? `在职责卡上点了「定下来」：${target}的职责改成了卡上那一版，从现在起照它做。`
+    : '在职责卡上点了「先不定」：职责没改。问问用户哪里不对，改好了再出一张。'
+
 /** Who wrote an entry, for transcripts the model reads as plain text (summaries, search results). */
 export function speaker(entry: Entry, state: HarnessState, botName: string): string {
   switch (entry.kind) {
     case 'user':
     case 'skill-answer':
+    case 'duty-answer':
       return '用户'
     case 'bot':
       return botName

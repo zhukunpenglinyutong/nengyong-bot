@@ -2,6 +2,7 @@ import { expect, it } from 'vitest'
 import type { Entry } from '../shared/bridge'
 import type { Trace } from '../shared/debug'
 import { harnessState, type ThreadEvent, type Threads } from './harnessState'
+import { dutyOf } from '../shared/duty'
 
 const user = (seq: number, text: string): Entry => ({ seq, at: seq, kind: 'user', text })
 const reply = (seq: number, text: string): Entry => ({ seq, at: seq, kind: 'bot', text })
@@ -65,6 +66,7 @@ it('shows the messages waiting for the next turn, replacing the list each time',
 
 it('merges loaded history with entries that arrived while it was loading', () => {
   const panel = {
+    duty: dutyOf(''),
     routines: [routine(false)],
     flows: [],
     skills: [],
@@ -84,6 +86,7 @@ it('merges loaded history with entries that arrived while it was loading', () =>
 it('keeps panel changes that arrived while the history was loading over the loaded panel', () => {
   const done = taskOf('日报')
   const panel = {
+    duty: dutyOf(''),
     routines: [routine(false)],
     flows: [],
     skills: [],
@@ -106,11 +109,21 @@ it('replaces the panel routines when the bot changes them, keeping the library',
       kind: 'loaded',
       botId: 'chief',
       entries: [],
-      panel: { routines: [routine(false)], flows: [], skills: [], miniApps: [], library, tasks: [], models: NO_MODELS },
+      panel: {
+        duty: dutyOf(''),
+        routines: [routine(false)],
+        flows: [],
+        skills: [],
+        miniApps: [],
+        library,
+        tasks: [],
+        models: NO_MODELS,
+      },
     },
     { kind: 'routines', botId: 'chief', routines: [routine(true)] },
   ])
   expect(state.chief.panel).toEqual({
+    duty: dutyOf(''),
     routines: [routine(true)],
     flows: [],
     skills: [],
@@ -129,6 +142,7 @@ it('replaces the panel library when the bot writes a file, keeping the routines'
       botId: 'chief',
       entries: [],
       panel: {
+        duty: dutyOf(''),
         routines: [routine(true)],
         flows: [],
         skills: [],
@@ -141,6 +155,7 @@ it('replaces the panel library when the bot writes a file, keeping the routines'
     { kind: 'library', botId: 'chief', library },
   ])
   expect(state.chief.panel).toEqual({
+    duty: dutyOf(''),
     routines: [routine(true)],
     flows: [],
     skills: [],
@@ -168,11 +183,21 @@ it('replaces the panel tasks when they change, keeping the routines and the libr
       kind: 'loaded',
       botId: 'chief',
       entries: [],
-      panel: { routines: [routine(true)], flows: [], skills: [], miniApps: [], library, tasks: [], models: NO_MODELS },
+      panel: {
+        duty: dutyOf(''),
+        routines: [routine(true)],
+        flows: [],
+        skills: [],
+        miniApps: [],
+        library,
+        tasks: [],
+        models: NO_MODELS,
+      },
     },
     { kind: 'tasks', botId: 'chief', tasks: [task] },
   ])
   expect(state.chief.panel).toEqual({
+    duty: dutyOf(''),
     routines: [routine(true)],
     flows: [],
     skills: [],
@@ -191,11 +216,21 @@ it('replaces the panel flows when the bot saves one, keeping the rest of the pan
       kind: 'loaded',
       botId: 'chief',
       entries: [],
-      panel: { routines: [routine(true)], flows: [], skills: [], miniApps: [], library, tasks: [], models: NO_MODELS },
+      panel: {
+        duty: dutyOf(''),
+        routines: [routine(true)],
+        flows: [],
+        skills: [],
+        miniApps: [],
+        library,
+        tasks: [],
+        models: NO_MODELS,
+      },
     },
     { kind: 'flows', botId: 'chief', flows: [flow] },
   ])
   expect(state.chief.panel).toEqual({
+    duty: dutyOf(''),
     routines: [routine(true)],
     flows: [flow],
     skills: [],

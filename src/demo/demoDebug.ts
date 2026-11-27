@@ -15,8 +15,8 @@ const DEMO_TOOLS = [
     description: words.debugTools.forget,
   },
   {
-    name: 'update_my_instructions',
-    description: words.debugTools.updateMyInstructions,
+    name: 'propose_duty',
+    description: words.debugTools.proposeDuty,
   },
   {
     name: 'update_my_name',
@@ -77,6 +77,7 @@ export function demoContext(entries: Entry[]): ContextView {
         routine: kinds('routine'),
         'task-result': kinds('task-result'),
         'skill-answer': kinds('skill-answer'),
+        'duty-answer': kinds('duty-answer'),
         tool: kinds('tool'),
       },
     },

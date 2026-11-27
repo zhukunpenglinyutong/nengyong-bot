@@ -35,6 +35,7 @@ export const app: Strings['app'] = {
     readTasks: 'Could not read tasks and routines',
     readLimits: 'Could not read the limits',
     switchRoutine: 'Could not switch the routine',
+    switchReview: 'Could not switch the weekly review',
     openFile: 'Could not open the file',
     stopReply: 'Could not stop the reply',
     stopTask: 'Could not stop the task',

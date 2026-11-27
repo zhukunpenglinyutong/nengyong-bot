@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { NewBot } from '../shared/bot'
 import { type Entry, TaskStatus } from '../shared/bridge'
+import { Duty, dutyOf } from '../shared/duty'
 import { Flow } from '../shared/flow'
 import { listOf } from '../shared/listOf'
 import { MiniApp } from '../shared/miniApp'
@@ -22,11 +23,17 @@ export const Fact = z.object({
 })
 export type Fact = z.infer<typeof Fact>
 
+// a bot saved before duties had one paragraph, `instructions`: it becomes the purpose of a duty not yet agreed on
+const withDuty = (raw: unknown) =>
+  typeof raw === 'object' && raw !== null && !('duty' in raw)
+    ? { ...raw, duty: dutyOf('instructions' in raw && typeof raw.instructions === 'string' ? raw.instructions : '') }
+    : raw
+
 /** What the harness knows about a bot. Look (shape/colour) and sidebar placement stay in the renderer. */
-export const BotBrain = z.object({
+const BotBrainFields = z.object({
   id: z.string(),
   name: orDefault(z.string(), ''),
-  instructions: orDefault(z.string(), ''),
+  duty: Duty,
   memories: orDefault(listOf(Fact), []),
   summary: orDefault(z.string(), ''), // compressed older conversation
   summarizedUpTo: orDefault(z.number(), 0), // seq of the last entry folded into `summary`
@@ -37,7 +44,8 @@ export const BotBrain = z.object({
   model: ModelChoice.optional().catch(undefined), // what its chat runs on, set when the user asked in the chat; absent: the main model
   taskModel: ModelChoice.optional().catch(undefined), // what its tasks run on when neither they nor their flow name one; absent: the main model
 })
-export type BotBrain = z.infer<typeof BotBrain>
+export const BotBrain = z.preprocess(withDuty, BotBrainFields)
+export type BotBrain = z.infer<typeof BotBrainFields>
 
 export const HarnessState = z.object({
   userFacts: orDefault(listOf(Fact), []),

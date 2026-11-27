@@ -1,4 +1,5 @@
 import type { Entry } from '../../shared/bridge'
+import { DutyOffer } from '../../shared/duty'
 import { strings } from '../../shared/strings'
 
 /** Something a bot's chat changed for good: a memory, its duty, a routine, a new bot. Read from its tool records. */
@@ -23,6 +24,7 @@ export function changesOf(entries: Entry[]): Change[] {
 }
 
 function fold(state: Fold, entry: Entry): Fold {
+  if (entry.kind === 'duty-answer') return entry.isAccepted ? agreed(state, entry) : state
   if (entry.kind !== 'tool' || valueOf(entry.output, 'error') !== undefined) return state
   const { input, output } = entry
   const words = strings().debug.changes
@@ -45,6 +47,12 @@ function fold(state: Fold, entry: Entry): Fold {
       const duty = fieldOf(input, 'instructions') ?? ''
       return { ...add(words.job, duty, {}, state.duty === undefined ? {} : { before: state.duty }), duty }
     }
+    case 'propose_duty': {
+      const offer = DutyOffer.safeParse(output).data
+      if (!offer) return state
+      const text = [offer.plan.purpose, ...offer.plan.objectives.map((objective) => objective.name)].join(' · ')
+      return { ...state, names: { ...state.names, [offer.offer]: text } }
+    }
     case 'update_my_name':
       return add(words.name, fieldOf(input, 'name') ?? '')
     case 'create_routine': {
@@ -61,11 +69,22 @@ function fold(state: Fold, entry: Entry): Fold {
       return add(words.routineMinus, named(fieldOf(input, 'id')))
     case 'create_bot': {
       const name = fieldOf(input, 'name') ?? ''
-      const instructions = fieldOf(input, 'instructions') ?? ''
-      return add(words.newBot, words.newBotText(name, instructions))
+      const purpose = fieldOf(input, 'purpose') ?? ''
+      return add(words.newBot, words.newBotText(name, purpose))
     }
     default:
       return state
+  }
+}
+
+/** A duty card the user agreed to: the duty it made, and the one it replaced when that is in the transcript too. */
+function agreed(state: Fold, entry: Extract<Entry, { kind: 'duty-answer' }>): Fold {
+  const duty = state.names[entry.offer] ?? ''
+  const change = { seq: entry.seq, at: entry.at, label: strings().debug.changes.job, text: duty, tool: 'propose_duty' }
+  return {
+    ...state,
+    changes: [...state.changes, state.duty === undefined ? change : { ...change, before: state.duty }],
+    duty,
   }
 }
 

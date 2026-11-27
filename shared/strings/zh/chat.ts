@@ -39,6 +39,11 @@ export const chat = {
     cancelReply: '取消回复',
     attachments: '待发送的附件',
     addAttachment: '添加附件',
+    add: '添加',
+    planDuty: '规划职责',
+    saveFlow: '沉淀流程',
+    saveFlowStarter: '把刚才这套做法存成流程：',
+    uploadSkill: '上传技能',
     send: '发送',
     stop: '停止回复',
     chooseAttachments: '选择附件',
@@ -46,7 +51,7 @@ export const chat = {
   },
   mention: {
     menu: '提到 Bot',
-    noMatch: '没有匹配的 Bot',
+    noMatch: '没有匹配的 Bot 或操作',
   },
   actions: {
     label: '消息操作',

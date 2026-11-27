@@ -3,6 +3,7 @@ import type { AttachmentFile } from './attachment'
 import { Bot, type NewBot, type SectionByName } from './bot'
 import type { ContextView, Trace } from './debug'
 import type { DevicesView, PairingRequest } from './devices'
+import type { Duty } from './duty'
 import type { Flow } from './flow'
 import type { Limits } from './limits'
 import type { Language } from './language'
@@ -52,6 +53,10 @@ export interface NengyongBotBridge {
   // the user's answer to the card an upload showed in botId's panel, as above; nothing goes in the chat
   answerSkillUpload: (botId: string, offer: string, names: string[]) => Promise<void>
   removeSkills: (botId: string, names: string[]) => Promise<void> // of that bot, all or none; their folders are deleted
+  // the user's answer to a duty card in botId's chat; isReviewOn: the weekly review, as the card's switch was left. Throws
+  // a readable reason once the card is void: answered, replaced by a newer card, or another version agreed meanwhile
+  answerDutyOffer: (botId: string, offer: string, isAccepted: boolean, isReviewOn: boolean) => Promise<void>
+  setDutyReview: (botId: string, isOn: boolean) => Promise<void> // its weekly review, a routine made the first time it is turned on
   skillFiles: (ref: SkillRef) => Promise<SkillFileView[]> // for the files dialog, SKILL.md first
   skillFile: (ref: SkillRef, path: string) => Promise<string | null> // its text; null when it is not text or too big
   revealSkill: (botId: string, name: string) => Promise<void> // shows its folder in Finder
@@ -138,6 +143,14 @@ export const Entry = z.discriminatedUnion('kind', [
     botId: z.string(),
     names: z.array(z.string()),
   }),
+  // the user's answer to a duty card in this chat, for `botId`'s duty
+  z.object({
+    ...stamp,
+    kind: z.literal('duty-answer'),
+    offer: z.string(),
+    botId: z.string(),
+    isAccepted: z.boolean(),
+  }),
   z.object({
     ...stamp,
     kind: z.literal('tool'),
@@ -167,6 +180,7 @@ export type HarnessEvent =
   | { kind: 'bot-dismissed'; botId: string } // the sidebar lets it go, to be restored in the settings for a while
   | { kind: 'routines'; botId: string; routines: RoutineView[] }
   | { kind: 'flows'; botId: string; flows: Flow[] }
+  | { kind: 'duty'; botId: string; duty: Duty }
   | { kind: 'skills'; botId: string; skills: SkillView[] } // what its panel lists: the main bot's lists every bot's
   | { kind: 'mini-apps'; botId: string; miniApps: MiniApp[] }
   | { kind: 'mini-app-data'; botId: string; miniAppId: string; data: unknown; dataAt: number } // a task put new data in
@@ -236,6 +250,7 @@ interface ChosenModel {
 export type TasksAndRoutines = Pick<PanelData, 'tasks' | 'routines'>
 
 export interface PanelData {
+  duty: Duty
   routines: RoutineView[]
   flows: Flow[]
   skills: SkillView[] // its own; the main bot's are every bot's, since it can use them all

@@ -1,5 +1,6 @@
 import type { Bot } from '../../shared/bot'
 import type { Entry, Quote } from '../../shared/bridge'
+import { DutyOffer } from '../../shared/duty'
 import { SkillOffer } from '../../shared/skill'
 import { timeLabel } from '../timeLabel'
 import type { Thread } from '../harnessState'
@@ -23,6 +24,8 @@ export type Message =
   | { kind: 'note'; text: string } // grey line across the chat: the time, a task's end, a routine's start, an error, the queued line
   | { kind: 'from-bot'; from: string; text: string } // a request delegated by another bot
   | { kind: 'skill-offer'; offer: SkillOffer; installed: string[] | null } // an install card: the skills installed from it, null before it is answered
+  // a duty card: whether it was agreed, null before it is answered; isReplaced: a later card for the same bot came first
+  | { kind: 'duty-offer'; offer: DutyOffer; isAgreed: boolean | null; isReplaced: boolean }
 
 /** What the chat view renders for one bot: its transcript (or a greeting), the reply being streamed, queued messages, the last error. */
 export function chatMessages(
@@ -57,10 +60,17 @@ function transcriptMessages(entries: Entry[], bots: Bot[], now: number): Message
   let last = 0
   const lastEntry = entries.at(-1)
   const answers = new Map(entries.flatMap((e) => (e.kind === 'skill-answer' ? [[e.offer, e.names]] : [])))
+  const agreed = new Map(entries.flatMap((e) => (e.kind === 'duty-answer' ? [[e.offer, e.isAccepted]] : [])))
+  const dutyOffers = entries.flatMap((e) => {
+    const duty = e.kind === 'tool' && e.name === 'propose_duty' ? DutyOffer.safeParse(e.output).data : undefined
+    return duty ? [duty] : []
+  })
+  const latestFor = (botId: string) => dutyOffers.findLast((duty) => duty.botId === botId)?.offer
   return entries.flatMap((e): Message[] => {
-    // of the tool records only install cards show, and the answer to one shows on its card
+    // of the tool records only install and duty cards show, and the answer to one shows on its card
     const offer = e.kind === 'tool' && e.name === 'install_skill' ? SkillOffer.safeParse(e.output).data : undefined
-    if (e.kind === 'skill-answer' || (e.kind === 'tool' && !offer)) return []
+    const duty = e.kind === 'tool' && e.name === 'propose_duty' ? DutyOffer.safeParse(e.output).data : undefined
+    if (e.kind === 'skill-answer' || e.kind === 'duty-answer' || (e.kind === 'tool' && !offer && !duty)) return []
     const divider: Message[] = e.at - last > GAP_MS ? [{ kind: 'note', text: timeLabel(e.at, now) }] : []
     last = e.at
     switch (e.kind) {
@@ -108,8 +118,13 @@ function transcriptMessages(entries: Entry[], bots: Bot[], now: number): Message
           },
         ]
       }
-      case 'tool':
-        return offer ? [...divider, { kind: 'skill-offer', offer, installed: answers.get(offer.offer) ?? null }] : []
+      case 'tool': {
+        if (offer) return [...divider, { kind: 'skill-offer', offer, installed: answers.get(offer.offer) ?? null }]
+        if (!duty) return []
+        const isAgreed = agreed.get(duty.offer) ?? null
+        const isReplaced = isAgreed === null && latestFor(duty.botId) !== duty.offer
+        return [...divider, { kind: 'duty-offer', offer: duty, isAgreed, isReplaced }]
+      }
       default:
         return e satisfies never
     }

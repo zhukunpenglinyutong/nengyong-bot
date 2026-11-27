@@ -1,6 +1,7 @@
 import { MAIN_BOT, PALETTE, secretary } from '../../shared/bot'
 import type { BotModels, Entry, PanelData } from '../../shared/bridge'
 import { DEEPSEEK_MODEL, type ModelServicesView } from '../../shared/modelServices'
+import { type Duty, type DutyPlan, dutyOf } from '../../shared/duty'
 import type { Flow } from '../../shared/flow'
 import type { SidebarState } from '../../shared/sidebar'
 import { DEMO_MINI_APP_BOT, DEMO_MINI_APP_TRANSCRIPT, DEMO_MINI_APPS } from './demoMiniApps'
@@ -149,10 +150,88 @@ export const DEMO_LEARNED_FLOW: Omit<Flow, 'id' | 'updatedAt'> = {
 /** What a bot's panel shows of its models while it chats on the main one. */
 export const DEMO_BOT_MODELS: BotModels = { main: DEEPSEEK_MODEL, chat: null, tasks: null }
 
+/** 发版助理's duty, agreed twice already, its weekly review on: what the 职责 list looks like once settled. */
+function releaseDuty(): Duty {
+  const duty = words.duty
+  const progress = (text: string, ratio: number, verdict: 'met' | 'onTrack' | 'behind') => ({
+    text,
+    ratio,
+    verdict,
+    at: Date.now(),
+  })
+  return {
+    purpose: duty.purpose,
+    version: 2,
+    reviewRoutineId: DEMO_REVIEW_ROUTINE,
+    objectives: [
+      {
+        id: 'notes',
+        name: duty.notesObjective,
+        keyResults: [
+          {
+            text: duty.notesEarly,
+            window: duty.eachRelease,
+            source: duty.selfCounted,
+            progress: progress(duty.notesEarlyNow, 1, 'met'),
+          },
+          {
+            text: duty.fewEdits,
+            window: duty.eachRelease,
+            source: duty.editsCompared,
+            progress: progress(duty.fewEditsNow, 0.6, 'behind'),
+          },
+        ],
+      },
+      {
+        id: 'safe',
+        name: duty.safeObjective,
+        keyResults: [
+          {
+            text: duty.checksRun,
+            window: duty.eachPr,
+            source: duty.selfCounted,
+            progress: progress(duty.checksRunNow, 0.8, 'onTrack'),
+          },
+        ],
+      },
+    ],
+    outOfScope: [duty.notFeatures, duty.notIssues],
+  }
+}
+
+export const DEMO_REVIEW_ROUTINE = 'weekly-review'
+
+/** The duty a demo bot proposes when asked to plan one: its first version. */
+export function demoDutyPlan(): DutyPlan {
+  const duty = words.duty
+  return {
+    purpose: duty.planPurpose,
+    objectives: [
+      {
+        id: 'daily',
+        name: duty.planObjective,
+        keyResults: [
+          { text: duty.dailyBy9, window: duty.everyDay, source: duty.selfCounted },
+          { text: duty.issuesLabeled, window: duty.everyDay, source: duty.selfCounted },
+        ],
+      },
+    ],
+    outOfScope: [duty.planOutOfScope],
+  }
+}
+
 export const DEMO_PANELS: Record<string, PanelData> = {
   release: {
+    duty: releaseDuty(),
     skills: [],
     routines: [
+      {
+        id: DEMO_REVIEW_ROUTINE,
+        name: strings().harness.duty.reviewName,
+        timezone: 'Asia/Shanghai',
+        isEnabled: true,
+        nextRunAt: Date.now() + 3 * DAY_MINUTES * 60_000,
+      },
       {
         id: 'friday-release',
         name: words.routines.fridayRelease,
@@ -192,6 +271,7 @@ export const DEMO_PANELS: Record<string, PanelData> = {
     models: { main: DEEPSEEK_MODEL, chat: { model: 'deepseek-pro', isGone: false }, tasks: null },
   },
   repo: {
+    duty: dutyOf(''),
     skills: [],
     routines: [
       {
@@ -209,6 +289,7 @@ export const DEMO_PANELS: Record<string, PanelData> = {
     models: DEMO_BOT_MODELS,
   },
   support: {
+    duty: dutyOf(''),
     skills: [],
     routines: [],
     flows: [],
@@ -230,6 +311,7 @@ export const DEMO_PANELS: Record<string, PanelData> = {
     models: DEMO_BOT_MODELS,
   },
   [DEMO_MINI_APP_BOT]: {
+    duty: dutyOf(''),
     skills: [],
     routines: [],
     flows: [],
@@ -239,6 +321,7 @@ export const DEMO_PANELS: Record<string, PanelData> = {
     models: DEMO_BOT_MODELS,
   },
   [MAIN_BOT.id]: {
+    duty: dutyOf(''),
     flows: [],
     miniApps: [],
     skills: [],

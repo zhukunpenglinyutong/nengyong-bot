@@ -28,6 +28,7 @@ import { useUpdate } from './settings/useUpdate'
 import { Sidebar } from './sidebar/Sidebar'
 import { SkillFilesDialog, type SkillFilesTarget } from './skills/SkillFilesDialog'
 import { SkillsContext } from './skills/SkillsContext'
+import { useSkillUpload } from './skills/useSkillUpload'
 import { COLLAPSED_RAIL_WIDTH, RAIL_WIDTH, SidebarWidth } from './sidebar/sidebarLayout'
 import {
   addUnread,
@@ -127,6 +128,7 @@ export function App({ bridge, initialSidebar = INITIAL_SIDEBAR, needsOnboarding 
     .filter(({ id }) => harness.thread(id).progress || harness.thread(id).panel.tasks.some(isUnfinished))
     .map(({ name }) => name)
   const thread = harness.thread(bot.id)
+  const skillUpload = useSkillUpload(bot.id, bridge)
   const openMiniApp = (miniAppId: string, from: Element) =>
     dispatchMiniAppRuns({ kind: 'open', botId: bot.id, miniAppId, at: Date.now(), origin: rectOf(from) })
   const thumbUrl = (app: MiniApp) => bridge.miniAppUrl(bot.id, app.id, latestVersion(app).version, app.dataAt)
@@ -144,7 +146,7 @@ export function App({ bridge, initialSidebar = INITIAL_SIDEBAR, needsOnboarding 
     <MotionConfig reducedMotion="user">
       <BotActivityContext value={activity.activities}>
         <NavigationContext value={navigation}>
-          <SkillsContext value={{ reader: bridge, manager: bridge }}>
+          <SkillsContext value={{ reader: bridge, manager: bridge, upload: skillUpload }}>
             <div inert={onboarding !== null} className="flex min-h-0 flex-1 overflow-hidden">
               <Sidebar
                 activeId={bot.id}
@@ -195,6 +197,13 @@ export function App({ bridge, initialSidebar = INITIAL_SIDEBAR, needsOnboarding 
                 }
                 isPanelOpen={panelOpen}
                 onTogglePanel={() => setPanelOpen((isOpen) => !isOpen)}
+                onAnswerDuty={(offer, isAccepted, isReviewOn) =>
+                  bridge.answerDutyOffer(bot.id, offer, isAccepted, isReviewOn)
+                }
+                onUploadSkill={(kind) => {
+                  panelNav.openSkills()
+                  void skillUpload?.pick(kind)
+                }}
               />
               <PanelFrame
                 isOpen={panelOpen}
@@ -217,6 +226,7 @@ export function App({ bridge, initialSidebar = INITIAL_SIDEBAR, needsOnboarding 
                   miniAppRuns={miniAppRunsState.runs.filter((run) => run.botId === bot.id)}
                   thumbUrl={thumbUrl}
                   onToggleRoutine={(routineId, isEnabled) => harness.setRoutineEnabled(bot.id, routineId, isEnabled)}
+                  onReview={(isOn) => harness.setDutyReview(bot.id, isOn)}
                   onOpenLibraryItem={(path) => harness.openLibraryItem(bot.id, path)}
                   onStopTask={(taskId) => harness.stopTask(bot.id, taskId)}
                   onRename={(name) => setSidebar((state) => renameBot(state, bot.id, name))}

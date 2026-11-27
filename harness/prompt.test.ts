@@ -4,6 +4,7 @@ import type { MiniApp } from '../shared/miniApp'
 import type { SidebarState } from '../shared/sidebar'
 import { systemSections, taskSystem } from './prompt'
 import type { BotBrain, HarnessState, Task } from './types'
+import { dutyOf } from '../shared/duty'
 
 const task = (patch: Partial<Task>): Task => ({
   id: 't1',
@@ -23,7 +24,7 @@ const state: HarnessState = { userFacts: [], bots: {}, roster: [], pending: [], 
 const bot: BotBrain = {
   id: 'chief',
   name: 'CEO',
-  instructions: '',
+  duty: dutyOf(''),
   memories: [],
   summary: '',
   summarizedUpTo: 0,
@@ -59,7 +60,7 @@ it('lists the running tasks with their progress, then as many that ended as the 
 })
 
 it('lists the other bots under their sidebar sections, empty ones too, and says which one is its own', () => {
-  const brain = (id: string, name: string, instructions = '') => ({ ...bot, id, name, instructions })
+  const brain = (id: string, name: string, purpose = '') => ({ ...bot, id, name, duty: dutyOf(purpose) })
   const team: HarnessState = {
     ...state,
     bots: { chief: bot, lead: brain('lead', '开源负责人', '管开源治理'), ops: brain('ops', '运维') },
