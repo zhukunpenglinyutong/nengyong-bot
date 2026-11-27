@@ -16,9 +16,11 @@ import { historyTools } from './historyTools'
 import type { Mcp } from './mcp'
 import { miniAppOf } from './miniApps'
 import { modelTools } from './modelTools'
-import { speaker, systemSections, toMessages, toolNote } from './prompt'
+import { recordNote, speaker, systemSections, toMessages } from './prompt'
 import { type ModelChoices, type ModelObject, runModel } from './runModel'
 import { sessionHeaders } from './sessionHeaders'
+import type { Skills } from './skills'
+import { skillChatTools } from './skillTools'
 import type { Store } from './store'
 import { createTaskRunner, RECENT_TASKS } from './tasks'
 import { clip } from './textWindow'
@@ -38,6 +40,7 @@ interface HarnessOptions {
   getApiKey: () => string | null
   windowTokensOf: (model: string) => number
   mcp: Mcp
+  skills: Skills
   emit: (e: HarnessEvent) => void
   limits: () => Limits // read at the start of every turn and task: a change applies from the next one
 }
@@ -68,13 +71,19 @@ export function createHarness(options: HarnessOptions) {
   const queues = new Map<string, Promise<unknown>>()
   const inFlight = new Map<string, number>() // waiting + running turns per bot
   const batches = new Map<string, Batch>() // per bot: the waiting turn that later messages join
+  const replies = new Map<string, { runId: string; stop: AbortController }>() // per bot: the running turn, which the user can stop
   const track = (id: string, d: number) => inFlight.set(id, (inFlight.get(id) ?? 0) + d)
   const tasks = createTaskRunner({ ...options, emit, deliver })
   const tokensPerChar = new Map<string, number>() // per bot, from the API's count of its last turn
   const lineOf = (entry: Entry, botName: string) =>
-    `${speaker(entry, store.get(), botName)}：${entry.kind === 'tool' ? toolNote(entry) : entry.text}`
+    `${speaker(entry, store.get(), botName)}：${'text' in entry ? entry.text : recordNote(entry)}`
 
-  async function compact(botId: string, model: LanguageModel, runId: string): Promise<Compaction> {
+  async function compact(
+    botId: string,
+    model: LanguageModel,
+    runId: string,
+    abortSignal: AbortSignal,
+  ): Promise<Compaction> {
     const bot = store.get().bots[botId]
     const { keepRecent, compactAbove } = recentWindow()
     const pending = store.range(botId, bot.summarizedUpTo + 1)
@@ -90,6 +99,7 @@ export function createHarness(options: HarnessOptions) {
         .filter(Boolean)
         .join('\n\n'),
       headers: sessionHeaders(botId),
+      abortSignal,
     })
     const counted = usageOf(usage)
     if (counted)
@@ -120,6 +130,7 @@ export function createHarness(options: HarnessOptions) {
     const tools = {
       ...chatTools({ botId, store, emit, tasks, limits: current, models: options.models }),
       ...modelTools({ botId, store, emit, choices: options.models, onBotModels: showModels }),
+      ...skillChatTools({ botId, store, skills: options.skills }),
       ...historyTools(store, current),
     }
     const parts = { model, windowTokens: options.windowTokensOf(model), sections, entries, messages, tools }
@@ -138,10 +149,12 @@ export function createHarness(options: HarnessOptions) {
     if (!brain) throw new Error(strings().harness.unknownBot(botId))
     const read = inputs.map((input) => store.append(botId, input))
     for (const entry of read) emit({ kind: 'entry', botId, entry })
-    emit({ kind: 'busy', botId, busy: true })
     const runId = newId('run')
+    emit({ kind: 'busy', botId, busy: true, runId })
+    const stop = new AbortController()
+    replies.set(botId, { runId, stop })
     try {
-      const compaction = await compact(botId, main, runId)
+      const compaction = await compact(botId, main, runId, stop.signal)
       const { system, messages, tools, context } = chatInput(botId)
       let counted: ContextView = context
       emit({ kind: 'context', botId, context })
@@ -157,6 +170,8 @@ export function createHarness(options: HarnessOptions) {
         messages,
         tools,
         maxSteps: limits().chatSteps,
+        silenceSeconds: limits().modelSilenceSeconds,
+        stopSignal: stop.signal,
         onDraft: (text) => emit({ kind: 'draft', botId, text }),
         onEntry: (entry) => emit({ kind: 'entry', botId, entry }),
         onActivity: (activity) => emit({ kind: 'activity', botId, activity }),
@@ -175,8 +190,11 @@ export function createHarness(options: HarnessOptions) {
         },
       })
       if (isDebug) emit({ kind: 'context', botId, context: chatInput(botId).context }) // with this turn's reply in it
+    } catch (error) {
+      if (!stop.signal.aborted) throw error
     } finally {
-      emit({ kind: 'busy', botId, busy: false })
+      replies.delete(botId)
+      emit({ kind: 'busy', botId, busy: false, runId })
     }
   }
 
@@ -185,10 +203,7 @@ export function createHarness(options: HarnessOptions) {
     track(botId, 1)
     const turn = (queues.get(botId) ?? Promise.resolve())
       .catch(() => undefined) // a failed turn has already reported its error; the next one runs regardless
-      .then(() => {
-        const next = inputs()
-        return next.length ? run(botId, next) : undefined
-      })
+      .then(() => run(botId, inputs()))
       .then(
         () => undefined,
         (error: unknown) => emit({ kind: 'error', botId, ...describeError(error) }),
@@ -211,17 +226,29 @@ export function createHarness(options: HarnessOptions) {
       if (next.isShown && input.kind === 'user') emit({ kind: 'queued', botId, texts: queuedTexts(next.inputs) })
       return next.turn
     }
+    const { turn, isShown } = openBatch(botId, [input])
+    if (isShown && input.kind === 'user') emit({ kind: 'queued', botId, texts: [input.text] })
+    return turn
+  }
+
+  /** A turn that reads what is already recorded (the answer to an install card): the waiting turn, or a new one. */
+  function wake(botId: string): Promise<void> {
+    return (batches.get(botId) ?? openBatch(botId, [])).turn
+  }
+
+  /** The next turn of this bot, which later inputs join until it starts. */
+  function openBatch(botId: string, inputs: EntryInput[]): Batch {
     const isShown = Boolean(inFlight.get(botId))
     const turn = enqueue(botId, () => {
       const batch = batches.get(botId)
       batches.delete(botId)
-      const inputs = batch?.inputs ?? []
-      if (batch?.isShown && queuedTexts(inputs).length) emit({ kind: 'queued', botId, texts: [] })
-      return inputs
+      const read = batch?.inputs ?? []
+      if (batch?.isShown && queuedTexts(read).length) emit({ kind: 'queued', botId, texts: [] })
+      return read
     })
-    batches.set(botId, { inputs: [input], turn, isShown })
-    if (isShown && input.kind === 'user') emit({ kind: 'queued', botId, texts: [input.text] })
-    return turn
+    const batch = { inputs, turn, isShown }
+    batches.set(botId, batch)
+    return batch
   }
 
   /** How many entries a chat sends verbatim; past twice as many, the older ones are folded into the bot's summary. */
@@ -245,7 +272,7 @@ export function createHarness(options: HarnessOptions) {
 
   function quoteOf(botId: string, seq: number): Quote {
     const [entry] = store.range(botId, seq, seq)
-    if (!entry || entry.kind === 'tool') throw new Error(strings().harness.chat.quoteMissing)
+    if (!entry || !('text' in entry)) throw new Error(strings().harness.chat.quoteMissing)
     return { seq, text: clip(entry.text, QUOTE_CHARS) }
   }
 
@@ -288,6 +315,24 @@ export function createHarness(options: HarnessOptions) {
     /** The main model or the accounts changed: every bot's panel shows what it runs on now. */
     modelsChanged() {
       for (const botId of store.get().roster) showModels(botId)
+    },
+    /**
+     * The user answered an install card in this bot's chat. The answer is recorded at once, not with the next turn: the
+     * card shows it from then on, whatever becomes of that turn, in which the bot reads it and says so.
+     */
+    answerSkillOffer(botId: string, offer: string, names: string[]) {
+      const answered = options.skills.answer(botId, offer, names)
+      const entry = store.append(botId, { kind: 'skill-answer', offer, ...answered })
+      emit({ kind: 'entry', botId, entry })
+      void wake(botId)
+    },
+    /**
+     * Stops the turn the user saw running, keeping what it wrote so far; a stop that comes after that turn ended leaves
+     * the next one alone. Messages queued behind it still get their turn.
+     */
+    stopReply(botId: string, runId: string) {
+      const running = replies.get(botId)
+      if (running?.runId === runId) running.stop.abort()
     },
     stopTask(botId: string, taskId: string) {
       if (store.task(taskId)?.botId !== botId) throw new Error(strings().harness.noRunningTask(taskId))

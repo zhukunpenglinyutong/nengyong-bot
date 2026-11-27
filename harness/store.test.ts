@@ -126,6 +126,7 @@ it('fills in what a stored state leaves out and ignores fields it does not know'
         routines: [],
         flows: [],
         miniApps: [],
+        skills: [],
       },
     },
     roster: [],

@@ -2,6 +2,12 @@ import { plural } from '../../language'
 import type { Strings } from '../../strings'
 
 export const demo: Strings['demo'] = {
+  disclaimer: {
+    banner: "Demo mode: the bots, chats and figures here are made-up samples, not anyone's real data",
+    title: 'This is a demo',
+    body: "You opened the Nengyong Bot demo in a browser. The bots in the sidebar, their chats, mini apps and figures are samples written into the code: not your data, and not anyone else's. To use it for real, download the desktop app, or run npm run app in the project.",
+    understood: 'Got it',
+  },
   bots: {
     chief: 'Max',
     repo: 'GitHub daily',
@@ -127,6 +133,10 @@ The sync plan draft is in \`sync/sync-plan-draft.md\` if you want a look.`,
     flowSaved: (mention, steps) =>
       `Saved: ${mention}, ${plural(steps, 'step')}. Say the word next time and I'll follow it.`,
     restored: (version) => `Restored to v${version}`,
+    skillOffer:
+      'I had a look: it teaches me to build spreadsheets properly, with one script that recalculates the formulas. Check the card; I’ll install it once you say yes.',
+    skillInstalled: (mention) => `Installed. From now on I follow ${mention} for spreadsheets.`,
+    skillDeclined: 'Fine, I won’t install it.',
     noDataDir: '(The web version saves no data)',
     greeting: (boss, team) => `Hi, I'm ${boss}.${team.length ? ` To start, I hired ${team.join(', ')}.` : ''}`,
   },

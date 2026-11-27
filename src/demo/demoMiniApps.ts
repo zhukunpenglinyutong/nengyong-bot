@@ -20,23 +20,23 @@ const STYLE = `<style>
 </style>`
 
 const REVENUE_DATA = {
-  total: 128400,
+  total: 12_840_000,
   weeks: [
-    [words.revenue.week1, 34600],
-    [words.revenue.week2, 38200],
-    [words.revenue.week3, 55600],
+    [words.revenue.week1, 3_460_000],
+    [words.revenue.week2, 3_820_000],
+    [words.revenue.week3, 5_560_000],
   ],
   months: [
-    [words.revenue.august, 126000],
-    [words.revenue.september, 149000],
-    [words.revenue.october, 171000],
-    [words.revenue.november, 128400],
+    [words.revenue.august, 12_600_000],
+    [words.revenue.september, 14_900_000],
+    [words.revenue.october, 17_100_000],
+    [words.revenue.november, 12_840_000],
   ],
   channels: [
-    [words.revenue.sponsors, 68000],
-    [words.revenue.paidColumn, 32600],
-    [words.revenue.ads, 17600],
-    [words.revenue.tips, 10200],
+    [words.revenue.sponsors, 6_800_000],
+    [words.revenue.paidColumn, 3_260_000],
+    [words.revenue.ads, 1_760_000],
+    [words.revenue.tips, 1_020_000],
   ],
 }
 
@@ -50,7 +50,7 @@ const revenuePage = (hasMonths: boolean) => `<!doctype html><html><head><meta ch
 </style></head><body>
   <h1>${words.revenue.title}</h1><p class="sub">${words.revenue.syncedAt}</p>
   <div class="card"><div class="total" id="total"></div><div class="up">${words.revenue.growth}</div></div>
-  <div class="card"><div class="row"><b id="title">${words.revenue.weekly}</b>${hasMonths ? `<span><button id="week" aria-pressed="true">${words.revenue.byWeek}</button> <button id="month">${words.revenue.byMonth}</button></span>` : ''}</div><div class="bars" id="bars"></div></div>
+  <div class="card"><div class="row"><b id="title">${words.revenue.weekly}</b>${hasMonths ? `<span><button id="week" aria-pressed="true">${words.revenue.byWeek}</button> <button id="month" aria-pressed="false">${words.revenue.byMonth}</button></span>` : ''}</div><div class="bars" id="bars"></div></div>
   <div class="card" id="channels"></div>
 <script>
   let view = 'week'
@@ -59,7 +59,7 @@ const revenuePage = (hasMonths: boolean) => `<!doctype html><html><head><meta ch
     const rows = view === 'week' ? data.weeks : data.months
     const max = Math.max(...rows.map((row) => row[1]))
     document.getElementById('title').textContent = view === 'week' ? '${words.revenue.weekly}' : '${words.revenue.monthly}'
-    document.getElementById('bars').innerHTML = rows.map((row) => '<div class="bar">' + (row[1] / ${words.revenue.barDivisor}).toFixed(1) + '${words.revenue.barUnit}<i style="height:' + (row[1] / max) * 80 + '%"></i>' + row[0] + '</div>').join('')
+    document.getElementById('bars').innerHTML = rows.map((row) => '<div class="bar">' + Number((row[1] / ${words.revenue.barDivisor}).toFixed(1)) + '${words.revenue.barUnit}<i style="height:' + (row[1] / max) * 80 + '%"></i>' + row[0] + '</div>').join('')
     document.getElementById('channels').innerHTML = data.channels.map((row) => '<div class="row channel"><span>' + row[0] + '</span><b>¥' + row[1].toLocaleString() + '</b></div>').join('')
   }
   for (const id of ['week', 'month']) {
@@ -76,7 +76,7 @@ const DAILY_DATA = {
     [words.daily.newFollowers, '+312'],
     [words.daily.reads, words.daily.readsCount],
     [words.daily.shares, '640'],
-    [words.daily.revenue, '¥4,200'],
+    [words.daily.revenue, '¥420,000'],
   ],
   done: [words.daily.sentWeekly, words.daily.answeredComments],
   decide: words.daily.decide,

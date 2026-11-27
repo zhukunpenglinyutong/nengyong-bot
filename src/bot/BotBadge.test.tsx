@@ -13,6 +13,7 @@ const flow = (id: string, name: string): Flow => ({ id, name, when: '', steps: [
 const PANEL: PanelData = {
   routines: [],
   flows: [flow('f1', '巡检汇报'), flow('f2', '周报'), flow('f3', '会议纪要')],
+  skills: [],
   miniApps: [],
   library: [],
   tasks: [],

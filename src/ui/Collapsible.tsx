@@ -12,7 +12,7 @@ export function Collapsible({ isOpen, children }: { isOpen: boolean; children: R
           animate={{ height: 'auto', opacity: 1 }}
           exit={{ height: 0, opacity: 0 }}
           transition={{ duration: 0.2, ease: EASE_PANEL }}
-          className="overflow-hidden"
+          className="overflow-clip"
         >
           {children}
         </motion.div>

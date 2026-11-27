@@ -25,6 +25,8 @@ interface Props {
   onServicesChange: (services: ModelServicesView) => void
 }
 
+const LOADING: ModelList = { kind: 'loading' }
+
 const USE_NAMES = { chat: strings().models.useNames.chat, search: strings().models.useNames.search }
 
 /** The 模型服务 page: the main model and what web search uses, then the accounts they can use. Every change applies at once. */
@@ -38,6 +40,7 @@ export function ModelSettings({ bridge, services, onServicesChange }: Props) {
   )
   const [said, say] = useFlash<{ use: AccountUse; text: string }>()
   const [failure, setFailure] = useState<{ use: AccountUse; message: string } | null>(null)
+  const [lists, setLists] = useState<Record<string, ModelList>>({})
 
   const change = async (use: AccountUse, request: () => Promise<ModelServicesView>, text: string) => {
     setFailure(null)
@@ -59,18 +62,22 @@ export function ModelSettings({ bridge, services, onServicesChange }: Props) {
   const deepseek = services.accounts.find((account) => account.service === 'deepseek')
   const searchAccount = services.accounts.find((account) => account.id === services.searchAccountId)
 
-  const chatItems = async (): Promise<MenuEntry[]> => {
-    const lists = await Promise.all(
-      services.accounts.map(async (account) => ({ account, list: await modelListOf(bridge, account.id) })),
-    )
-    const pickChat = (choice: ModelChoice) => change('chat', () => bridge.setChatModel(choice), words.saved)
-    return [
-      ...modelMenu(lists, services.chat, pickChat),
-      'separator',
-      { label: words.addProvider, icon: 'plus', onSelect: () => addFor('chat') },
-    ]
+  const readLists = () => {
+    setLists({})
+    for (const account of services.accounts)
+      modelListOf(bridge, account.id).then((list) => setLists((current) => ({ ...current, [account.id]: list })))
   }
-  const searchItems = async (): Promise<MenuEntry[]> => {
+  const pickChat = (choice: ModelChoice) => change('chat', () => bridge.setChatModel(choice), words.saved)
+  const chatItems: MenuEntry[] = [
+    ...modelMenu(
+      services.accounts.map((account) => ({ account, list: lists[account.id] ?? LOADING })),
+      services.chat,
+      pickChat,
+    ),
+    'separator',
+    { label: words.addProvider, icon: 'plus', onSelect: () => addFor('chat') },
+  ]
+  const searchItems = (): MenuEntry[] => {
     if (!deepseek) {
       const start: AccountStep = { kind: 'form', service: 'deepseek', account: null, isFromList: false }
       return [
@@ -111,7 +118,7 @@ export function ModelSettings({ bridge, services, onServicesChange }: Props) {
 
       <SettingsSection title={words.inUse}>
         <SettingsRow label={words.mainModel} hint={hintOf('chat', chatHintOf(services))}>
-          <PickerButton menuLabel={words.mainModel} loadItems={chatItems}>
+          <PickerButton menuLabel={words.mainModel} items={chatItems} onOpen={readLists}>
             {chatAccount && services.chat ? (
               <>
                 <ServiceLogo service={chatAccount.service} name={chatAccount.name} size={20} />
@@ -123,17 +130,17 @@ export function ModelSettings({ bridge, services, onServicesChange }: Props) {
           </PickerButton>
         </SettingsRow>
         <SettingsRow label={words.image} hint={words.imageHint}>
-          <PickerButton menuLabel={words.image} loadItems={async () => COMING_SOON}>
+          <PickerButton menuLabel={words.image} items={COMING_SOON}>
             <span className="px-1 text-soft">{words.off}</span>
           </PickerButton>
         </SettingsRow>
         <SettingsRow label={words.video} hint={words.videoHint}>
-          <PickerButton menuLabel={words.video} loadItems={async () => COMING_SOON}>
+          <PickerButton menuLabel={words.video} items={COMING_SOON}>
             <span className="px-1 text-soft">{words.off}</span>
           </PickerButton>
         </SettingsRow>
         <SettingsRow label={words.search} hint={hintOf('search', words.searchHint)}>
-          <PickerButton menuLabel={words.search} loadItems={searchItems}>
+          <PickerButton menuLabel={words.search} items={searchItems()}>
             {searchAccount ? (
               <>
                 <ServiceLogo service={searchAccount.service} name={searchAccount.name} size={20} />

@@ -1,4 +1,10 @@
 export const demo = {
+  disclaimer: {
+    banner: '演示模式：这里的 Bot、聊天和数字都是虚构的示例，不是任何人的真实数据',
+    title: '这是演示',
+    body: '你在浏览器里打开的是 Nengyong Bot 的演示。侧边栏里的 Bot、聊天记录、小程序和数字都是写在代码里的示例，不是你的数据，也不是任何人的数据。想真正用起来，请下载桌面应用，或在项目里运行 npm run app。',
+    understood: '知道了',
+  },
   bots: {
     chief: '小满',
     repo: 'GitHub 数据日报',
@@ -119,6 +125,9 @@ export const demo = {
     flowSaved: (mention: string, steps: number) => `存好了：${mention}，${steps} 步。下次说一声，我就照着做。`,
     restored: (version: number) => `恢复成 v${version} 的样子`,
     noDataDir: '（网页版不保存数据）',
+    skillOffer: '我看了一下：它教我按规范做 Excel，带 1 个重新算公式的脚本。你看一下卡片，确认后我就装上。',
+    skillInstalled: (mention: string) => `装好了。以后做表格，我都先照 ${mention} 的做法来。`,
+    skillDeclined: '好，不装了。',
     greeting: (boss: string, team: string[]) =>
       `你好，我是${boss}。${team.length ? `先帮你招了 ${team.join('、')}。` : ''}`,
   },

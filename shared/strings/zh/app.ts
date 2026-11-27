@@ -20,7 +20,7 @@ export const app = {
     startingTask: '正在安排任务',
     typing: '在打字…',
   },
-  themes: { light: '浅色', dark: '深色' },
+  themes: { light: '浅色', dark: '深色', system: '跟随系统' },
   accents: { black: '黑色', bot: 'Bot 颜色' },
   failures: {
     saveSidebar: '保存侧边栏失败',
@@ -33,6 +33,7 @@ export const app = {
     readLimits: '读取精细化配置失败',
     switchRoutine: '切换例行任务失败',
     openFile: '打开文件失败',
+    stopReply: '停止回复失败',
     stopTask: '停止任务失败',
     delete: '删除失败',
   },

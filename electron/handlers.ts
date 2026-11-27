@@ -12,6 +12,7 @@ import { createPrices } from '../harness/prices'
 import { routineViews, setRoutineEnabled } from '../harness/routines'
 import type { Store } from '../harness/store'
 import { taskViews } from '../harness/tasks'
+import { createSkills } from '../harness/skills'
 import { usageView } from '../harness/usage'
 import { createWorkspace } from '../harness/workspace'
 import { BotId, MAIN_BOT_ID } from '../shared/bot'
@@ -27,12 +28,14 @@ import { currentLanguage, setLanguage } from '../shared/language'
 import { strings } from '../shared/strings'
 import type { ModelServicesView } from '../shared/modelServices'
 import { SidebarState } from '../shared/sidebar'
+import { SKILL_FILE, SkillName, SkillRef, SkillUploadKind } from '../shared/skill'
 import { type ModelPrice, ModelName, Price } from '../shared/usage'
-import { LIBRARY_DIR } from './dataDir'
+import { LIBRARY_DIR, SKILLS_DIR } from './dataDir'
 import { saveLanguage } from './language'
 import { MiniAppId, Version } from './libraryResponses'
 import { createModelServices } from './modelServices'
 import { createNotifier } from './notifications'
+import { pickSkill } from './pickSkill'
 import { createUpdates } from './updates'
 
 export type Handler = (...args: unknown[]) => unknown
@@ -50,7 +53,10 @@ const RoutineId = z.string().min(1).max(100)
 const AskText = z.string().trim().min(1).max(MESSAGE_MAX_CHARS)
 const LibraryPath = z.string().min(1).max(1000)
 const TaskId = z.string().min(1).max(100)
+const RunId = z.string().min(1).max(100)
 const Seqs = z.array(z.number().int().min(1)).min(1)
+const OfferId = z.string().min(1).max(100)
+const SkillFilePath = z.string().min(1).max(1000)
 
 /**
  * The bridge methods the main process answers, by name: preload calls them over IPC, a paired device over HTTP.
@@ -73,6 +79,7 @@ export function createHandlers({ home, dataDir, store, emit, window, onLanguageC
     botName: (botId) => store.get().bots[botId]?.name ?? 'Nengyong Bot',
     onOpen: (botId) => emit({ kind: 'open-bot', botId }),
   })
+  const skills = createSkills({ dir: path.join(dataDir, SKILLS_DIR), store, emit })
   const harness = createHarness({
     store,
     workspace,
@@ -81,6 +88,7 @@ export function createHandlers({ home, dataDir, store, emit, window, onLanguageC
     getApiKey: modelServices.searchKey,
     windowTokensOf: catalog.windowTokensOf,
     mcp,
+    skills,
     emit: (event) => {
       emit(event)
       notify(event)
@@ -131,6 +139,7 @@ export function createHandlers({ home, dataDir, store, emit, window, onLanguageC
       return {
         routines: routineViews(store.get().bots[id]?.routines ?? []),
         flows: store.get().bots[id]?.flows ?? [],
+        skills: skills.views(id),
         miniApps: store.get().bots[id]?.miniApps ?? [],
         library: libraryItems(store, workspace, id),
         tasks: taskViews(store, id),
@@ -158,7 +167,22 @@ export function createHandlers({ home, dataDir, store, emit, window, onLanguageC
     },
     setRoutineEnabled: (botId, routineId, isEnabled) =>
       setRoutineEnabled(store, emit, BotId.parse(botId), RoutineId.parse(routineId), z.boolean().parse(isEnabled)),
+    stopReply: (botId, runId) => harness.stopReply(BotId.parse(botId), RunId.parse(runId)),
     stopTask: (botId, taskId) => harness.stopTask(BotId.parse(botId), TaskId.parse(taskId)),
+    answerSkillOffer: (botId, offer, names) =>
+      harness.answerSkillOffer(BotId.parse(botId), OfferId.parse(offer), SkillName.array().parse(names)),
+    uploadSkill: async (botId, kind) => {
+      const id = BotId.parse(botId)
+      const picked = await pickSkill(window(), SkillUploadKind.parse(kind))
+      return picked === null ? null : skills.upload(id, picked)
+    },
+    answerSkillUpload: (botId, offer, names) =>
+      skills.answerUpload(BotId.parse(botId), OfferId.parse(offer), SkillName.array().parse(names)),
+    removeSkills: (botId, names) => skills.remove(BotId.parse(botId), z.array(SkillName).min(1).parse(names)),
+    skillFiles: (ref) => skills.files(SkillRef.parse(ref)),
+    skillFile: (ref, file) => skills.file(SkillRef.parse(ref), SkillFilePath.parse(file)),
+    revealSkill: (botId, name) =>
+      shell.showItemInFolder(path.join(skills.folder(BotId.parse(botId), SkillName.parse(name)), SKILL_FILE)),
     getSidebar: () => store.sidebar(),
     needsOnboarding: () => needsOnboarding(store),
     saveSidebar: (sidebar) => store.saveSidebar(SidebarState.parse(sidebar)),

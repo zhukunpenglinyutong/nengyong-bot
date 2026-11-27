@@ -39,9 +39,9 @@ const window = { isFocused: () => isFocused, isMinimized: () => true, restore: v
 const stamp = { seq: 1, at: 0 }
 
 function turn(notify: (event: HarnessEvent) => void, botId: string, replies: string[]) {
-  notify({ kind: 'busy', botId, busy: true })
+  notify({ kind: 'busy', botId, busy: true, runId: 'r1' })
   for (const text of replies) notify({ kind: 'entry', botId, entry: { ...stamp, kind: 'bot', text } })
-  notify({ kind: 'busy', botId, busy: false })
+  notify({ kind: 'busy', botId, busy: false, runId: 'r1' })
 }
 
 function notifier() {

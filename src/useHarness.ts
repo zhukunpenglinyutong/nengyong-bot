@@ -82,6 +82,7 @@ export function useHarness(bridge: NengyongBotBridge, options: Options) {
       case 'activity':
       case 'routines':
       case 'flows':
+      case 'skills':
       case 'mini-apps':
       case 'mini-app-data':
       case 'library':
@@ -193,6 +194,15 @@ export function useHarness(bridge: NengyongBotBridge, options: Options) {
           message: failureOf(strings().app.failures.openFile, error),
         }),
       )
+    },
+    stopReply(botId: string) {
+      const runId = threads[botId]?.progress?.runId
+      if (!runId) return
+      bridge
+        .stopReply(botId, runId)
+        .catch((error) =>
+          dispatch({ kind: 'error', botId, message: failureOf(strings().app.failures.stopReply, error) }),
+        )
     },
     stopTask(botId: string, taskId: string) {
       bridge.stopTask(botId, taskId).catch((error) =>

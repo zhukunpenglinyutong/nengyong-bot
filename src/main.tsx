@@ -45,19 +45,23 @@ async function environment(): Promise<ReactNode> {
     ])
     return <PairingPage pairing={startPairing()} />
   }
-  const [{ App }, { createDemoBridge }, { DEMO_SIDEBAR }] = await Promise.all([
+  const [{ App }, { createDemoBridge }, { DEMO_SIDEBAR }, { DemoDisclaimer }] = await Promise.all([
     import('./App'),
     import('./demo/demoBridge'),
     import('./demo/demoData'),
+    import('./demo/DemoDisclaimer'),
   ])
   // ?onboarding starts the demo with the onboarding
   const needsOnboarding = new URLSearchParams(location.search).has('onboarding')
   return (
-    <App
-      bridge={createDemoBridge()}
-      initialSidebar={needsOnboarding ? undefined : DEMO_SIDEBAR}
-      needsOnboarding={needsOnboarding}
-    />
+    <>
+      <DemoDisclaimer />
+      <App
+        bridge={createDemoBridge()}
+        initialSidebar={needsOnboarding ? undefined : DEMO_SIDEBAR}
+        needsOnboarding={needsOnboarding}
+      />
+    </>
   )
 }
 

@@ -29,6 +29,7 @@ const MIGRATIONS = [
    create index usage_by_time on usage (at);`,
   'create table deleted (transcript_id text not null, seq integer not null, primary key (transcript_id, seq)) strict;',
   'select 1; -- bot mini apps, and the mini app a task changes',
+  'select 1; -- bot skills, and entries of kind skill-answer',
 ]
 
 // entries stay as written; a message the user deleted is listed in `deleted` and every read of messages skips it
@@ -48,6 +49,7 @@ const newBrain = (id: string, name: string): BotBrain => ({
   routines: [],
   flows: [],
   miniApps: [],
+  skills: [],
 })
 
 /**
@@ -72,7 +74,7 @@ export function createStore(file: string) {
   )
   // case, not and: sqlite may evaluate json_extract first, and it throws on a hand-edited row that is not JSON
   const readHistory = db.prepare(
-    `select data from entries where transcript_id = ? and ${NOT_DELETED} and case when json_valid(data) then json_extract(data, '$.kind') <> 'tool' or json_extract(data, '$.name') = 'save_flow' end order by seq`,
+    `select data from entries where transcript_id = ? and ${NOT_DELETED} and case when json_valid(data) then json_extract(data, '$.kind') <> 'tool' or json_extract(data, '$.name') in ('save_flow', 'install_skill') end order by seq`,
   )
   const readLastReply = db.prepare(
     `select data from entries where transcript_id = ? and ${NOT_DELETED} and case when json_valid(data) then json_extract(data, '$.kind') = 'bot' end order by seq desc limit 1`,

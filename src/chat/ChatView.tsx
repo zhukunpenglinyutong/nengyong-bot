@@ -6,6 +6,8 @@ import type { Flow } from '../../shared/flow'
 import type { MiniApp } from '../../shared/miniApp'
 import { plainText } from '../../shared/plainText'
 import type { SidebarState } from '../../shared/sidebar'
+import type { SkillView } from '../../shared/skill'
+import type { SkillFilesTarget } from '../skills/SkillFilesDialog'
 import type { SendKey } from '../preferences'
 import { BotAvatar } from '../bot/BotAvatar'
 import { ViewingMiniApp } from '../miniApp/ViewingMiniApp'
@@ -38,10 +40,15 @@ interface Props {
   attachmentUrl: (path: string) => string
   onOpenFile: (path: string) => void // a file a reply links to, in the library
   onSend: (text: string, files: File[], quoteSeq: number | null) => boolean // false: refused (the thread says why), keep what was typed
+  onStopReply: () => void
   onDelete: (seqs: number[]) => void
   onOpenBot: (botId: string) => void
   flows: Flow[] // for resolving [name](flow:id) mentions in replies
   onOpenFlow: (flowId: string) => void
+  skills: SkillView[] // for resolving [name](skill:…) mentions in replies
+  onOpenSkill: (botId: string, name: string) => void
+  onAnswerSkillOffer?: (offer: string, names: string[]) => Promise<void> // an install card's buttons; absent on a device, which only looks
+  onOpenSkillFiles: (target: SkillFilesTarget) => void
   miniApps: MiniApp[] // for resolving [name](app:id) links in replies
   onOpenMiniApp: (miniAppId: string, from: Element) => void
   thumbUrl: (app: MiniApp) => string
@@ -86,10 +93,15 @@ export function ChatView({
   attachmentUrl,
   onOpenFile,
   onSend,
+  onStopReply,
   onDelete,
   onOpenBot,
   flows,
   onOpenFlow,
+  skills,
+  onOpenSkill,
+  onAnswerSkillOffer,
+  onOpenSkillFiles,
   miniApps,
   onOpenMiniApp,
   thumbUrl,
@@ -215,6 +227,7 @@ export function ChatView({
           </div>
           <MentionContext
             value={{
+              chatBotId: bot.id,
               bots: sidebar.bots,
               open: jumpTo,
               flows,
@@ -224,6 +237,10 @@ export function ChatView({
               thumbUrl,
               fileUrl: attachmentUrl,
               openFile: onOpenFile,
+              skills,
+              openSkill: onOpenSkill,
+              answerSkillOffer: onAnswerSkillOffer,
+              openSkillFiles: onOpenSkillFiles,
             }}
           >
             <MessageList
@@ -282,6 +299,8 @@ export function ChatView({
           botId={bot.id}
           files={draft.files}
           sendKey={sendKey}
+          isReplying={Boolean(progress)}
+          onStop={onStopReply}
           onAddFiles={addFiles}
           onRemoveFile={(index) => editDraft(({ files }) => ({ files: files.filter((_, at) => at !== index) }))}
           onCancelQuote={() => editDraft(() => ({ quote: null }))}

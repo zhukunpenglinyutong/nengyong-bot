@@ -9,6 +9,7 @@ import { z } from 'zod'
 import { createHarness } from './agent'
 import type { Mcp } from './mcp'
 import type { ModelChoices } from './runModel'
+import { createSkills } from './skills'
 import { createStore, type Store } from './store'
 import { createWorkspace } from './workspace'
 import { MAIN_BOT } from '../shared/bot'
@@ -70,6 +71,7 @@ function setup(
   const harness = createHarness({
     store,
     workspace: createWorkspace(path.join(dir, 'library')),
+    skills: createSkills({ dir: path.join(dir, 'skills'), store, emit: (e) => events.push(e) }),
     getModel: () => model,
     models,
     getApiKey: () => null,
@@ -135,6 +137,23 @@ const missingModel = () =>
       })
     },
   })
+
+type ModelReply = Awaited<ReturnType<MockLanguageModelV4['doStream']>>
+
+/** A model call that streams `text`, then sends nothing more until it is aborted, as a provider that hangs does. */
+function stalled(abortSignal: AbortSignal | undefined, text?: string): ModelReply {
+  const stream: ModelReply['stream'] = new ReadableStream({
+    start(controller) {
+      controller.enqueue({ type: 'stream-start', warnings: [] })
+      if (text) {
+        controller.enqueue({ type: 'text-start', id: 't' })
+        controller.enqueue({ type: 'text-delta', id: 't', delta: text })
+      }
+      abortSignal?.addEventListener('abort', () => controller.error(abortSignal.reason))
+    },
+  })
+  return { stream }
+}
 
 const RELEASE_FLOW = {
   id: 'f1',
@@ -361,6 +380,7 @@ describe('harness turn', () => {
     const later = createHarness({
       store,
       workspace: createWorkspace(path.join(dir, 'library')),
+      skills: createSkills({ dir: path.join(dir, 'skills'), store, emit: () => {} }),
       getModel: () => pause,
       models: choicesOf(),
       getApiKey: () => null,
@@ -557,7 +577,7 @@ describe('harness turn', () => {
         return step('A 的回答')
       },
     })
-    const isBusy = () => expect(events).toContainEqual({ kind: 'busy', botId: 'chief', busy: true })
+    const isBusy = () => expect(events).toContainEqual(expect.objectContaining({ kind: 'busy', busy: true }))
     return { model, release, isBusy }
   }
 
@@ -570,7 +590,7 @@ describe('harness turn', () => {
     release()
     await Promise.all([first, ...later])
     expect(model.doStreamCalls).toHaveLength(2)
-    expect(store.history('chief').map((e) => (e.kind === 'tool' ? '' : e.text))).toEqual([
+    expect(store.history('chief').map((e) => ('text' in e ? e.text : ''))).toEqual([
       'A',
       'A 的回答',
       'B',
@@ -592,6 +612,96 @@ describe('harness turn', () => {
     const cleared = events.findIndex((e) => e.kind === 'queued' && e.texts.length === 0)
     const recorded = events.findIndex((e) => e.kind === 'entry' && e.entry.kind === 'user' && e.entry.text === 'B')
     expect(cleared).toBeLessThan(recorded) // the queued bubble gives way to the recorded message, never both at once
+  })
+
+  /** The run ids of the chat turns started so far, oldest first. */
+  const startedRuns = () => events.flatMap((e) => (e.kind === 'busy' && e.busy ? [e.runId] : []))
+
+  it('stops a reply the user stops, keeping what it wrote so far, without an error', async () => {
+    const model = new MockLanguageModelV4({ doStream: async ({ abortSignal }) => stalled(abortSignal, '写到一半') })
+    const { store, harness } = setup(model)
+    const reply = harness.send('chief', '写首长诗')
+    await vi.waitFor(() => expect(events).toContainEqual({ kind: 'draft', botId: 'chief', text: '写到一半' }))
+    harness.stopReply('chief', startedRuns()[0])
+    await reply
+    expect(store.history('chief').at(-1)).toMatchObject({ kind: 'bot', text: '写到一半' })
+    expect(events.filter((e) => e.kind === 'error')).toEqual([])
+    expect(events.filter((e) => e.kind === 'busy').at(-1)).toMatchObject({ busy: false })
+  })
+
+  it('answers the messages queued behind a stopped reply in the next turn', async () => {
+    let isFirst = true
+    const model = new MockLanguageModelV4({
+      doStream: async ({ abortSignal }) => {
+        if (!isFirst) return step('B 的回答')
+        isFirst = false
+        return stalled(abortSignal)
+      },
+    })
+    const { store, harness } = setup(model)
+    const first = harness.send('chief', 'A')
+    await vi.waitFor(() => expect(model.doStreamCalls).toHaveLength(1))
+    const later = harness.send('chief', 'B')
+    harness.stopReply('chief', startedRuns()[0])
+    await Promise.all([first, later])
+    expect(store.history('chief').map((e) => ('text' in e ? e.text : ''))).toEqual(['A', 'B', 'B 的回答'])
+  })
+
+  it('leaves the next turn running when a stop meant for the one before it comes late', async () => {
+    let release = () => {}
+    const released = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    let isFirst = true
+    const model = new MockLanguageModelV4({
+      doStream: async ({ abortSignal }) => {
+        if (!isFirst) return released.then(() => step('B 的回答'))
+        isFirst = false
+        return stalled(abortSignal)
+      },
+    })
+    const { store, harness } = setup(model)
+    const first = harness.send('chief', 'A')
+    await vi.waitFor(() => expect(model.doStreamCalls).toHaveLength(1))
+    const later = harness.send('chief', 'B')
+    const [firstRun] = startedRuns()
+    harness.stopReply('chief', firstRun)
+    await vi.waitFor(() => expect(model.doStreamCalls).toHaveLength(2))
+    harness.stopReply('chief', firstRun)
+    release()
+    await Promise.all([first, later])
+    expect(store.history('chief').at(-1)).toMatchObject({ kind: 'bot', text: 'B 的回答' })
+  })
+
+  it('records the result of a tool call under way before stopping, and starts no further step', async () => {
+    let release = () => {}
+    const released = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const model = new MockLanguageModelV4({
+      doStream: async () =>
+        model.doStreamCalls.length === 1
+          ? step(undefined, [{ name: 'list_models', input: { accountId: 'kimi' } }])
+          : step('停了以后不该说的话'),
+    })
+    const slowList: ModelChoices = { ...choicesOf(), list: () => released.then(() => ['kimi-k2']) }
+    const { store, harness } = setup(model, () => ({}), NO_MCP, slowList)
+    const reply = harness.send('chief', '有哪些模型')
+    await vi.waitFor(() => expect(events).toContainEqual(expect.objectContaining({ kind: 'activity' })))
+    harness.stopReply('chief', startedRuns()[0])
+    release()
+    await reply
+    expect(toolOutputs(store, 'list_models')).toEqual([JSON.stringify({ models: ['kimi-k2'] })])
+    expect(JSON.stringify(store.history('chief'))).not.toContain('停了以后不该说的话')
+  })
+
+  it('ends a reply whose model goes silent mid-answer with an error, instead of waiting forever', async () => {
+    const model = new MockLanguageModelV4({ doStream: async ({ abortSignal }) => stalled(abortSignal, '写到一半') })
+    const { harness } = setup(model, () => ({ modelSilenceSeconds: 0.05 }))
+    await harness.send('chief', '写首长诗')
+    expect(events).toContainEqual(
+      expect.objectContaining({ kind: 'error', message: expect.stringContaining('没有回应') }),
+    )
   })
 
   it('finds an old message by keyword and opens it with the conversation around it', async () => {
@@ -820,8 +930,7 @@ describe('harness turn', () => {
 })
 
 describe('background tasks', () => {
-  type Reply = ReturnType<typeof step>
-  type Scripted = (abortSignal: AbortSignal | undefined) => Reply | Promise<Reply>
+  type Scripted = (abortSignal: AbortSignal | undefined) => ModelReply | Promise<ModelReply>
   const TASK_MARKER = '你正在后台执行一个任务'
   type Prompt = MockLanguageModelV4['doStreamCalls'][number]['prompt']
   const isTaskCall = (prompt: Prompt) =>
@@ -1048,6 +1157,19 @@ describe('background tasks', () => {
     expect(JSON.stringify(store.history('chief').at(-2))).toContain('网络断了')
   })
 
+  it('fails a task whose model goes silent, saying so', async () => {
+    const model = scriptedModel({
+      chat: [now(undefined, [startTask('调研')]), now('开了。')],
+      task: [(abortSignal) => stalled(abortSignal, '查到一半')],
+    })
+    const { store, harness } = setup(model, () => ({ modelSilenceSeconds: 0.05 }))
+    await harness.send('chief', '调研一下')
+    await reported(store)
+    expect(store.tasksOf('chief', 10)).toMatchObject([
+      { status: 'failed', failureReason: expect.stringContaining('没有回应') },
+    ])
+  })
+
   it('gives a task the tools for doing the work, not the ones for talking to the user or managing bots', async () => {
     const model = scriptedModel({ chat: [now(undefined, [startTask('调研')]), now('开了。')], task: [now('好了')] })
     const { store, harness } = setup(model)
@@ -1216,6 +1338,7 @@ describe('background tasks', () => {
     createHarness({
       store,
       workspace: createWorkspace(path.join(dir, 'library')),
+      skills: createSkills({ dir: path.join(dir, 'skills'), store, emit: () => {} }),
       getModel: () => model,
       models: choicesOf(),
       getApiKey: () => null,
@@ -1812,5 +1935,95 @@ describe('model choices', () => {
       routines: [{ id: 'r1', name: '日报', model: KIMI }],
       flows: [{ id: RELEASE_FLOW.id, name: RELEASE_FLOW.name, model: null }],
     })
+  })
+})
+
+describe('skills', () => {
+  /** A skill folder on this computer, as the user would paste its path into the chat. */
+  function skillFolder(name: string): string {
+    const root = path.join(dir, 'sources', name)
+    fs.mkdirSync(root, { recursive: true })
+    fs.writeFileSync(
+      path.join(root, 'SKILL.md'),
+      `---\nname: ${name}\ndescription: Use ${name} for PDFs.\n---\n# Steps`,
+    )
+    return root
+  }
+
+  const offerOf = (store: Store, botId: string) => {
+    const [entry] = store.toolEntries(botId, 'install_skill')
+    const output = entry?.kind === 'tool' ? entry.output : undefined
+    return z.object({ offer: z.string() }).parse(output).offer
+  }
+
+  it('installs only once the user says yes on the card, and the bot hears about it in its next turn', async () => {
+    const model = new MockLanguageModelV4({
+      doStream: [
+        step(undefined, [{ name: 'install_skill', input: { source: skillFolder('pdf') } }]),
+        step('看一下卡片。'),
+        step('装好了。'),
+      ],
+    })
+    const { store, harness } = setup(model)
+    await harness.send('chief', '装一下这个技能')
+    expect(store.get().bots.chief.skills).toEqual([])
+    harness.answerSkillOffer('chief', offerOf(store, 'chief'), ['pdf'])
+    expect(store.history('chief').at(-1)).toMatchObject({ kind: 'skill-answer', names: ['pdf'] })
+    await vi.waitFor(() => expect(model.doStreamCalls).toHaveLength(3))
+    expect(store.get().bots.chief.skills).toMatchObject([{ name: 'pdf' }])
+    expect(store.history('chief').map((entry) => entry.kind)).toContain('skill-answer')
+    expect(JSON.stringify(model.doStreamCalls[2].prompt)).toContain('点了「装上」')
+  })
+
+  it('lets only the main bot install for another bot', async () => {
+    const model = new MockLanguageModelV4({
+      doStream: [
+        step(undefined, [{ name: 'install_skill', input: { source: skillFolder('pdf'), botId: 'chief' } }]),
+        step('不行。'),
+      ],
+    })
+    const { store, harness } = setup(model)
+    await harness.send('secretary', '给 CEO 装个技能')
+    const [entry] = store.toolEntries('secretary', 'install_skill')
+    expect(JSON.stringify(entry?.kind === 'tool' ? entry.output : null)).toContain('只有')
+  })
+
+  it("lists the team's skills to the main bot, and a bot only its own", async () => {
+    const model = new MockLanguageModelV4({ doStream: [step('好。'), step('好。')] })
+    const { store, harness } = setup(model)
+    const skill = {
+      name: 'notes',
+      description: '整理发版说明',
+      source: { kind: 'local' as const, root: '/x', path: '/x' },
+      installedAt: 1,
+      fileCount: 1,
+      scripts: [],
+      isUserInvoked: false,
+    }
+    store.updateBot('secretary', { skills: [skill] })
+    await harness.send('chief', '你好')
+    await harness.send('secretary', '你好')
+    expect(systemOf(model, 0)).toContain('- secretary/notes（秘书 的）：整理发版说明')
+    expect(systemOf(model, 1)).toContain('- notes：整理发版说明')
+  })
+
+  it('names the skills only the user calls on, without their descriptions', async () => {
+    const model = new MockLanguageModelV4({ doStream: [step('好。')] })
+    const { store, harness } = setup(model)
+    const skill = (name: string, isUserInvoked: boolean) => ({
+      name,
+      description: `${name} 的说明`,
+      source: { kind: 'local' as const, root: '/x', path: '/x' },
+      installedAt: 1,
+      fileCount: 1,
+      scripts: [],
+      isUserInvoked,
+    })
+    store.updateBot('secretary', {
+      skills: [skill('grilling', false), skill('grill-me', true), skill('handoff', true)],
+    })
+    await harness.send('secretary', '你好')
+    expect(systemOf(model, 0)).toContain('- grilling：grilling 的说明\n- 用户点名才用，不要自己挑：grill-me、handoff')
+    expect(systemOf(model, 0)).not.toContain('grill-me 的说明')
   })
 })

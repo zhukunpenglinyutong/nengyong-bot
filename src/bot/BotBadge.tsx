@@ -137,7 +137,9 @@ export function BotBadge({
                 {words.day(days)}
               </Field>
               <Field label={words.chats}>{words.chatCount(trust.messages)}</Field>
-              <Field label={words.flows}>{words.flowCount(panel.flows.length)}</Field>
+              <Field label={words.abilities}>
+                {words.abilityCount(panel.flows.length + panel.skills.filter((skill) => skill.botId === bot.id).length)}
+              </Field>
             </dl>
             <SwipeCode id={bot.id} isSwiped={isFlipped} onSwipe={() => turn(true)} />
           </Face>

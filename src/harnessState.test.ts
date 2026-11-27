@@ -34,9 +34,9 @@ it('keeps the draft while the user entry of the same turn arrives', () => {
 })
 
 it('tracks progress only while a turn is running', () => {
-  const busy: ThreadEvent = { kind: 'busy', botId: 'chief', busy: true, since: 100, draw: 0.5 }
+  const busy: ThreadEvent = { kind: 'busy', botId: 'chief', busy: true, runId: 'r1', since: 100, draw: 0.5 }
   const working = run([busy, { kind: 'activity', botId: 'chief', activity: { kind: 'typing' } }])
-  expect(working.chief.progress).toEqual({ activity: { kind: 'typing' }, since: 100, draw: 0.5 })
+  expect(working.chief.progress).toEqual({ runId: 'r1', activity: { kind: 'typing' }, since: 100, draw: 0.5 })
   expect(run([{ ...busy, busy: false }], working).chief.progress).toBeUndefined()
   const idle = run([{ kind: 'activity', botId: 'chief', activity: { kind: 'typing' } }])
   expect(idle).toEqual({}) // a late activity after the turn ended changes nothing
@@ -50,7 +50,7 @@ it('shows an error until the next message is sent', () => {
 
 it('drops the error of the last turn once the next one starts, even one a task result started', () => {
   const failed = run([{ kind: 'error', botId: 'chief', message: '连不上模型服务' }])
-  const next = run([{ kind: 'busy', botId: 'chief', busy: true, since: 100, draw: 0.5 }], failed)
+  const next = run([{ kind: 'busy', botId: 'chief', busy: true, runId: 'r1', since: 100, draw: 0.5 }], failed)
   expect(next.chief.error).toBeUndefined()
 })
 
@@ -64,7 +64,15 @@ it('shows the messages waiting for the next turn, replacing the list each time',
 })
 
 it('merges loaded history with entries that arrived while it was loading', () => {
-  const panel = { routines: [routine(false)], flows: [], miniApps: [], library: [], tasks: [], models: NO_MODELS }
+  const panel = {
+    routines: [routine(false)],
+    flows: [],
+    skills: [],
+    miniApps: [],
+    library: [],
+    tasks: [],
+    models: NO_MODELS,
+  }
   const state = run([
     { kind: 'entry', botId: 'chief', entry: reply(3, '新的') },
     { kind: 'loaded', botId: 'chief', entries: [user(1, 'a'), reply(2, 'b')], panel },
@@ -80,13 +88,14 @@ it('replaces the panel routines when the bot changes them, keeping the library',
       kind: 'loaded',
       botId: 'chief',
       entries: [],
-      panel: { routines: [routine(false)], flows: [], miniApps: [], library, tasks: [], models: NO_MODELS },
+      panel: { routines: [routine(false)], flows: [], skills: [], miniApps: [], library, tasks: [], models: NO_MODELS },
     },
     { kind: 'routines', botId: 'chief', routines: [routine(true)] },
   ])
   expect(state.chief.panel).toEqual({
     routines: [routine(true)],
     flows: [],
+    skills: [],
     miniApps: [],
     library,
     tasks: [],
@@ -101,13 +110,22 @@ it('replaces the panel library when the bot writes a file, keeping the routines'
       kind: 'loaded',
       botId: 'chief',
       entries: [],
-      panel: { routines: [routine(true)], flows: [], miniApps: [], library: [], tasks: [], models: NO_MODELS },
+      panel: {
+        routines: [routine(true)],
+        flows: [],
+        skills: [],
+        miniApps: [],
+        library: [],
+        tasks: [],
+        models: NO_MODELS,
+      },
     },
     { kind: 'library', botId: 'chief', library },
   ])
   expect(state.chief.panel).toEqual({
     routines: [routine(true)],
     flows: [],
+    skills: [],
     miniApps: [],
     library,
     tasks: [],
@@ -132,13 +150,14 @@ it('replaces the panel tasks when they change, keeping the routines and the libr
       kind: 'loaded',
       botId: 'chief',
       entries: [],
-      panel: { routines: [routine(true)], flows: [], miniApps: [], library, tasks: [], models: NO_MODELS },
+      panel: { routines: [routine(true)], flows: [], skills: [], miniApps: [], library, tasks: [], models: NO_MODELS },
     },
     { kind: 'tasks', botId: 'chief', tasks: [task] },
   ])
   expect(state.chief.panel).toEqual({
     routines: [routine(true)],
     flows: [],
+    skills: [],
     miniApps: [],
     library,
     tasks: [task],
@@ -154,13 +173,14 @@ it('replaces the panel flows when the bot saves one, keeping the rest of the pan
       kind: 'loaded',
       botId: 'chief',
       entries: [],
-      panel: { routines: [routine(true)], flows: [], miniApps: [], library, tasks: [], models: NO_MODELS },
+      panel: { routines: [routine(true)], flows: [], skills: [], miniApps: [], library, tasks: [], models: NO_MODELS },
     },
     { kind: 'flows', botId: 'chief', flows: [flow] },
   ])
   expect(state.chief.panel).toEqual({
     routines: [routine(true)],
     flows: [flow],
+    skills: [],
     miniApps: [],
     library,
     tasks: [],

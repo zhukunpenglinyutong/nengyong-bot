@@ -7,7 +7,7 @@ import { COPIED_LABEL, useCopy } from '../ui/useCopy'
 import { CodeBlock } from './CodeBlock'
 import { contextTokens, tokensLabel } from './contextTokens'
 
-const KINDS = ['user', 'bot', 'tool', 'task-result', 'from-bot', 'routine'] as const
+const KINDS = ['user', 'bot', 'tool', 'task-result', 'skill-answer', 'from-bot', 'routine'] as const
 
 type Group = 'system' | 'transcript' | 'tools'
 // one colour per source, read from data-group: the bar's segments and the dots beside the groups

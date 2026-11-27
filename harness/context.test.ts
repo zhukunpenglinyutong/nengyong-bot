@@ -40,7 +40,7 @@ it('keeps the transcript as the model reads it, counted by kind, leaving images 
       { role: 'user', text: '你好' },
       { role: 'user', text: '看图' },
     ],
-    counts: { user: 1, bot: 1, tool: 1, 'from-bot': 0, routine: 0, 'task-result': 0 },
+    counts: { user: 1, bot: 1, tool: 1, 'from-bot': 0, routine: 0, 'task-result': 0, 'skill-answer': 0 },
   })
 })
 

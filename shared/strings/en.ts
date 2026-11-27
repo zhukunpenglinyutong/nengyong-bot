@@ -19,6 +19,7 @@ import { releases } from './en/releases'
 import { remote } from './en/remote'
 import { settings } from './en/settings'
 import { sidebar } from './en/sidebar'
+import { skills } from './en/skills'
 import { ui } from './en/ui'
 import { usage } from './en/usage'
 
@@ -44,6 +45,7 @@ export const en: Strings = {
   remote,
   settings,
   sidebar,
+  skills,
   ui,
   usage,
 }

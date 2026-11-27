@@ -89,7 +89,7 @@ function CliList() {
           <div key={cli.name} className="flex items-center gap-3 px-5 py-3">
             <BrandLogo brand={cli.brand} name={cli.name} size={32} />
             <span className="flex-1 text-md">{cli.name}</span>
-            <PickerButton menuLabel={cli.name} loadItems={async () => COMING_SOON}>
+            <PickerButton menuLabel={cli.name} items={COMING_SOON}>
               <span className="px-1 text-soft">{words.cliOff}</span>
             </PickerButton>
           </div>

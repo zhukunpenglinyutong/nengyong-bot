@@ -27,12 +27,11 @@ export const Markdown = memo(function Markdown({ text }: { text: string }) {
 
 const REMARK_PLUGINS = [remarkGfm, remarkCjkFriendly]
 
-// bots are told to write mentions as [name](bot:ID), [name](flow:ID) and [name](app:ID), and link local files as file:// URLs
-// on their own; everything else goes through the safe default (no javascript: etc.)
+// bots are told to write mentions as [name](bot:ID), [name](flow:ID), [name](skill:name) and [name](app:ID), and link local
+// files as file:// URLs on their own; everything else goes through the safe default (no javascript: etc.)
+const MENTION_SCHEMES = ['bot:', 'flow:', 'skill:', 'app:', 'file:']
 const urlTransform = (url: string) =>
-  url.startsWith('bot:') || url.startsWith('flow:') || url.startsWith('app:') || url.startsWith('file:')
-    ? url
-    : defaultUrlTransform(url)
+  MENTION_SCHEMES.some((scheme) => url.startsWith(scheme)) ? url : defaultUrlTransform(url)
 
 const COMPONENTS: Components = {
   img: Image,
@@ -66,7 +65,7 @@ function Image({ src, alt }: ComponentProps<'img'>) {
 
 /** Reads the mentions itself, so a renamed bot updates its mentions without parsing the replies again. */
 function Link({ href, children }: ComponentProps<'a'>) {
-  const { bots, open, flows, openFlow, miniApps, openMiniApp, openFile } = useMentions()
+  const { bots, open, flows, openFlow, skills, openSkill, miniApps, openMiniApp, openFile } = useMentions()
   const file = href ? localPath(href) : null
   if (file)
     return (
@@ -81,6 +80,19 @@ function Link({ href, children }: ComponentProps<'a'>) {
   if (href?.startsWith('flow:')) {
     const flow = flows.find((candidate) => candidate.id === href.slice(5)) ?? flows.find((f) => f.name === children)
     return flow ? <FlowMention flow={flow} onOpen={() => openFlow(flow.id)} /> : <>{children}</>
+  }
+  if (href?.startsWith('skill:')) {
+    // [name](skill:name) for a skill of the chat's bot; the main bot writes another bot's as skill:<bot id>/<name>
+    const target = href.slice('skill:'.length)
+    const slash = target.indexOf('/')
+    const owner = slash === -1 ? undefined : target.slice(0, slash)
+    const name = target.slice(slash + 1)
+    const skill = skills.find((candidate) => candidate.name === name && (!owner || candidate.botId === owner))
+    return skill ? (
+      <SkillMention name={skill.name} onOpen={() => openSkill(skill.botId, skill.name)} />
+    ) : (
+      <>{children}</>
+    )
   }
   if (href === 'bot' || href?.startsWith('bot:')) {
     // models sometimes mention a bot before create_bot returned its id: fall back to the link text as a name
@@ -105,6 +117,21 @@ function FlowMention({ flow, onOpen }: { flow: Flow; onOpen: () => void }) {
         <Icon name="flow" size={14} />
       </span>
       {flow.name}
+    </button>
+  )
+}
+
+function SkillMention({ name, onOpen }: { name: string; onOpen: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="inline-flex items-center gap-1 rounded-sm bg-surface px-1.5 align-[-2px] text-sm font-medium text-ink shadow-ring"
+    >
+      <span className="text-accent">
+        <Icon name="skill" size={14} />
+      </span>
+      {name}
     </button>
   )
 }

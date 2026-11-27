@@ -1,6 +1,7 @@
 import type { Bot } from '../../shared/bot'
 import type { Entry, Quote } from '../../shared/bridge'
 import { locale } from '../../shared/language'
+import { SkillOffer } from '../../shared/skill'
 import { calendarDay, clockLabel, TIMEZONE } from '../../shared/timezone'
 import type { Thread } from '../harnessState'
 import { strings } from '../../shared/strings'
@@ -22,6 +23,7 @@ export type Message =
   | { kind: 'queued'; text: string } // sent while the bot is busy; its next turn reads it
   | { kind: 'time'; text: string }
   | { kind: 'from-bot'; from: string; text: string } // a request delegated by another bot
+  | { kind: 'skill-offer'; offer: SkillOffer; installed: string[] | null } // an install card: the skills installed from it, null before it is answered
 
 /** What the chat view renders for one bot: its transcript (or a greeting), the reply being streamed, queued messages, the last error. */
 export function chatMessages(
@@ -55,8 +57,11 @@ export const GAP_MS = 20 * 60_000 // a time divider appears after this much sile
 function transcriptMessages(entries: Entry[], bots: Bot[], now: number): Message[] {
   let last = 0
   const lastEntry = entries.at(-1)
+  const answers = new Map(entries.flatMap((e) => (e.kind === 'skill-answer' ? [[e.offer, e.names]] : [])))
   return entries.flatMap((e): Message[] => {
-    if (e.kind === 'tool') return []
+    // of the tool records only install cards show, and the answer to one shows on its card
+    const offer = e.kind === 'tool' && e.name === 'install_skill' ? SkillOffer.safeParse(e.output).data : undefined
+    if (e.kind === 'skill-answer' || (e.kind === 'tool' && !offer)) return []
     const divider: Message[] = e.at - last > GAP_MS ? [{ kind: 'time', text: timeLabel(e.at, now) }] : []
     last = e.at
     switch (e.kind) {
@@ -104,6 +109,8 @@ function transcriptMessages(entries: Entry[], bots: Bot[], now: number): Message
           },
         ]
       }
+      case 'tool':
+        return offer ? [...divider, { kind: 'skill-offer', offer, installed: answers.get(offer.offer) ?? null }] : []
       default:
         return e satisfies never
     }

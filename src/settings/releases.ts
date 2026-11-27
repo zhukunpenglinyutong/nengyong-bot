@@ -10,6 +10,7 @@ import phone from './releases/1.0.0-beta.1/phone.webp'
 import status from './releases/1.0.0-beta.1/status.webp'
 import avatar from './releases/1.0.0-beta.2/avatar.webp'
 import outfit from './releases/1.0.0-beta.2/outfit.webp'
+import skills from './releases/1.0.0-beta.3/skills.webp'
 
 export type ReleaseMedia =
   | { kind: 'image'; src: string; alt: string }
@@ -33,6 +34,12 @@ const words = strings().releases
 
 /** Newest first; the first one is the version running now. */
 export const RELEASES: Release[] = [
+  {
+    version: '1.0.0-beta.3',
+    date: '2026-11-26',
+    ...words.versions['1.0.0-beta.3'],
+    highlights: [image(words.highlights.skills, skills)],
+  },
   {
     version: '1.0.0-beta.2',
     date: '2026-11-25',

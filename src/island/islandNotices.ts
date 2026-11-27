@@ -12,6 +12,7 @@ export type Notice =
   | { kind: 'reply'; id: number; botId: string; text: string } // another bot replied
   | { kind: 'level-up'; id: number; botId: string; level: number }
   | { kind: 'learned'; id: number; botId: string; flowId: string; name: string; isNew: boolean; points: number } // the open bot saved a flow; botId: the chat may change before it shows
+  | { kind: 'skill-learned'; id: number; botId: string; names: string[] } // the user installed skills from the open chat's card; botId: whose they are
   // debug mode only, about the open bot's chat
   | { kind: 'remembered'; id: number; text: string }
   | { kind: 'compacted'; id: number; folded: number }
@@ -68,6 +69,8 @@ function newsOf(entry: Entry, botId: string, isDebug: boolean, points: number): 
     return [
       { kind: 'task', title: entry.title, isDone: entry.status === 'done', points, fallbackFrom: entry.fallbackFrom },
     ]
+  if (entry.kind === 'skill-answer')
+    return entry.names.length ? [{ kind: 'skill-learned', botId: entry.botId, names: entry.names }] : []
   if (entry.kind !== 'tool') return []
   if (entry.name === 'save_flow') {
     const saved = SavedFlow.safeParse(entry)

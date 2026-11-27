@@ -2,6 +2,15 @@ import type { Strings } from '../../strings'
 
 export const releases: Strings['releases'] = {
   versions: {
+    '1.0.0-beta.3': {
+      title: 'Skills for your bots',
+      others: [
+        'While a bot replies, the send button becomes a stop button. Stopping keeps what it wrote so far, and queued messages go next. Paired phones and tablets can stop replies too',
+        'When the model sends nothing for 5 minutes, the reply or task stops and says why instead of waiting forever. In debug mode, change it under Model silence timeout in Settings · Limits',
+        'The theme can now follow the system, switching between light and dark with it',
+        "The panel's Flows tab is now Abilities, holding both flows and skills; the badge counts abilities instead of flows",
+      ],
+    },
     '1.0.0-beta.2': {
       title: 'New avatars, new outfits',
       others: [
@@ -25,6 +34,11 @@ export const releases: Strings['releases'] = {
     },
   },
   highlights: {
+    skills: {
+      title: 'Skills: give a bot a way of working someone else wrote',
+      text: "A skill is a ready-made way of working: a SKILL.md with instructions, plus scripts and references, in the same format as Claude Code's Skills. Send a bot a GitHub link or the path of a skill folder, and it lists the skills it found on a card; nothing is installed until you tick them and click Install. You can also upload a skill folder or a .zip or .skill archive under Abilities · Skills in the panel. Once installed, the bot's background tasks follow the skill when the work matches. Skills from the same repository are grouped into a collection, where you can see their files and how often they were used, and remove them one by one or all at once. The main bot can see, use and manage every bot's skills.",
+      alt: 'On the left, sending a bot the GitHub link of the xlsx skill and getting a card to confirm; on the right, the anthropics/skills collection installed under Abilities · Skills in the panel',
+    },
     avatar: {
       title: 'Upload an avatar: give a bot a picture you choose',
       text: "Click the avatar on the panel's badge, switch to Upload, then drop in an image, paste one or choose one from your computer. Drag and zoom it inside the round frame and click Save: the sidebar, the chat and the badge all show the new avatar. To go back, pick a shape or click Remove image.",

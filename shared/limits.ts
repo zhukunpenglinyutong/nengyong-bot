@@ -7,6 +7,7 @@ const count = (min: number, max: number) => z.number().int().min(min).max(max)
 /** 精细化配置: the limits of a bot's work, changed in debug mode. Each name carries its unit. */
 export const Limits = z.object({
   chatSteps: count(1, 500),
+  modelSilenceSeconds: count(10, 3600),
   recentEntries: count(10, 1000), // older entries are folded into the summary once there are twice as many
   taskSteps: count(1, 1000),
   runningTasks: count(1, 20),
@@ -30,6 +31,7 @@ export type Limits = z.infer<typeof Limits>
 
 export const DEFAULT_LIMITS: Limits = {
   chatSteps: 30,
+  modelSilenceSeconds: 300,
   recentEntries: 80,
   taskSteps: 100,
   runningTasks: 3,

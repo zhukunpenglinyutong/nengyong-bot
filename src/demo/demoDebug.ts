@@ -75,6 +75,7 @@ export function demoContext(entries: Entry[]): ContextView {
         'from-bot': kinds('from-bot'),
         routine: kinds('routine'),
         'task-result': kinds('task-result'),
+        'skill-answer': kinds('skill-answer'),
         tool: kinds('tool'),
       },
     },

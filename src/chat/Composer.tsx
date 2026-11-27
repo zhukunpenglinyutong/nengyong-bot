@@ -36,6 +36,8 @@ interface Props {
   botId: string // whose chat this is; an @ does not offer it
   files: File[] // attached, not sent yet
   sendKey: SendKey
+  isReplying: boolean // the bot is running a turn: an empty box offers to stop it, a written one still sends
+  onStop: () => void
   onAddFiles: (files: File[]) => void
   onRemoveFile: (index: number) => void
   onCancelQuote: () => void
@@ -68,6 +70,8 @@ export function Composer({
   botId,
   files,
   sendKey,
+  isReplying,
+  onStop,
   onAddFiles,
   onRemoveFile,
   onCancelQuote,
@@ -240,7 +244,25 @@ export function Composer({
         {placed.map(({ holder, bot }, index) =>
           createPortal(<MentionChip bot={bot} isSelected={selected.includes(holder)} />, holder, String(index)),
         )}
-        <IconButton icon="arrowUp" iconSize={20} label={words.send} variant="solid" type="submit" disabled={!canSend} />
+        {isReplying && !canSend ? (
+          <IconButton
+            icon="stop"
+            iconSize={20}
+            label={words.stop}
+            variant="solid"
+            // the send button turns into this one in place: the second click of a double-click on send lands here
+            onClick={(event) => event.detail < 2 && onStop()}
+          />
+        ) : (
+          <IconButton
+            icon="arrowUp"
+            iconSize={20}
+            label={words.send}
+            variant="solid"
+            type="submit"
+            disabled={!canSend}
+          />
+        )}
       </div>
       <input
         ref={picker}

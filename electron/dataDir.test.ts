@@ -13,6 +13,7 @@ import {
   moveData,
   moveTarget,
   resolveDataDir,
+  SKILLS_DIR,
 } from './dataDir'
 
 let home: string
@@ -39,6 +40,13 @@ it('exports a dated folder with the database and the library', () => {
   expect(path.basename(target)).toBe('Nengyong Bot 备份 2026-11-18 2305')
   expect(entriesIn(target)).toMatchObject([{ text: '你好' }])
   expect(fs.existsSync(path.join(target, LIBRARY_DIR, '周报.md'))).toBe(true)
+})
+
+it('exports the skills of the bots with the rest', () => {
+  fs.mkdirSync(path.join(dataDir, SKILLS_DIR, 'chief', 'pdf'), { recursive: true })
+  fs.writeFileSync(path.join(dataDir, SKILLS_DIR, 'chief', 'pdf', 'SKILL.md'), '# PDF')
+  const target = exportData(store, dataDir, fs.mkdtempSync(path.join(os.tmpdir(), 'export-')))
+  expect(fs.readFileSync(path.join(target, SKILLS_DIR, 'chief', 'pdf', 'SKILL.md'), 'utf8')).toBe('# PDF')
 })
 
 it('imports a backup in place of the current data and keeps the current data next to it', () => {

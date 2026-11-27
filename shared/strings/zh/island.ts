@@ -20,6 +20,8 @@ export const island = {
     fellBack: (model: string) => `${model} 连不上，用了主模型`,
     xp: (points: number) => `+${points} 经验`,
     flowLearned: '学会了新流程',
+    skillLearned: '学会了新技能',
+    skillLearnedBy: (bot: string) => `${bot}学会了新技能`,
     flowUpdated: '流程改好了',
     view: '查看',
   },

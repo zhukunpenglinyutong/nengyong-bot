@@ -25,6 +25,7 @@ const NOTICE_MS: Record<Notice['kind'], number> = {
   reply: 5000,
   'level-up': 4400,
   learned: 5000,
+  'skill-learned': 5000,
   remembered: 3200,
   compacted: 3200,
   'out-of-steps': 5000,
@@ -45,6 +46,7 @@ interface Props {
   onDismissNotice: (id: number) => void
   onOpenBot: (botId: string) => void
   onOpenFlow: (flowId: string | null) => void // null: the list of its flows
+  onOpenSkill: (botId: string, name: string) => void
   onDebugChange: (isDebug: boolean) => void
 }
 
@@ -69,6 +71,7 @@ export function BotIsland(props: Props) {
     onDismissNotice,
     onOpenBot,
     onOpenFlow,
+    onOpenSkill,
     onDebugChange,
   } = props
   const [isExpanded, setIsExpanded] = useState(false)
@@ -121,7 +124,7 @@ export function BotIsland(props: Props) {
       const card = { bot, trust, flowCount: flows.length, onOpenFlows: openFlows, onDebugChange: toggleDebug }
       return { key: 'detail', content: <DetailCard {...card} /> }
     }
-    const actions = { bot, bots, onDismissNotice, onOpenBot, onOpenFlow, onOpenTrace: openTrace }
+    const actions = { bot, bots, onDismissNotice, onOpenBot, onOpenFlow, onOpenSkill, onOpenTrace: openTrace }
     const news = shownNotice && noticeView(shownNotice, actions)
     if (news) return news
     if (isDebug && isBusy) {
@@ -150,13 +153,13 @@ export function BotIsland(props: Props) {
   )
 }
 
-type NoticeActions = Pick<Props, 'bot' | 'bots' | 'onDismissNotice' | 'onOpenBot' | 'onOpenFlow'> & {
+type NoticeActions = Pick<Props, 'bot' | 'bots' | 'onDismissNotice' | 'onOpenBot' | 'onOpenFlow' | 'onOpenSkill'> & {
   onOpenTrace: () => void
 }
 
 function noticeView(
   notice: Notice,
-  { bot, bots, onDismissNotice, onOpenBot, onOpenFlow, onOpenTrace }: NoticeActions,
+  { bot, bots, onDismissNotice, onOpenBot, onOpenFlow, onOpenSkill, onOpenTrace }: NoticeActions,
 ): View | undefined {
   const key = `notice-${notice.id}`
   switch (notice.kind) {
@@ -212,6 +215,27 @@ function noticeView(
           />
         ),
       }
+    case 'skill-learned': {
+      const owner = bots.find((candidate) => candidate.id === notice.botId)
+      const title =
+        notice.botId === bot.id
+          ? strings().island.notices.skillLearned
+          : strings().island.notices.skillLearnedBy(owner?.name ?? notice.botId)
+      return {
+        key,
+        content: (
+          <SkillLearnedRow
+            title={title}
+            name={strings().skills.names(notice.names)}
+            onClick={() => {
+              onDismissNotice(notice.id)
+              const [first] = notice.names
+              if (first) onOpenSkill(notice.botId, first)
+            }}
+          />
+        ),
+      }
+    }
     case 'remembered':
       return {
         key,
@@ -400,6 +424,23 @@ function FlowSavedRow({ name, isNew, points, onClick }: FlowSavedProps) {
       <span>{isNew ? strings().island.notices.flowLearned : strings().island.notices.flowUpdated}</span>
       <span className="max-w-[220px] truncate text-sm text-white/60">{name}</span>
       {points > 0 && <span className="text-sm font-semibold tabular-nums">{strings().island.notices.xp(points)}</span>}
+      <span className="rounded-full bg-white/12 px-2 text-xs leading-5 font-semibold">
+        {strings().island.notices.view}
+      </span>
+    </CompactButton>
+  )
+}
+
+function SkillLearnedRow({ title, name, onClick }: { title: string; name: string; onClick: () => void }) {
+  return (
+    <CompactButton onClick={onClick}>
+      <span className="grid size-[26px] place-items-center">
+        <span className="grid size-[18px] place-items-center rounded-full bg-accent">
+          <Icon name="skill" size={11} />
+        </span>
+      </span>
+      <span>{title}</span>
+      <span className="max-w-[220px] truncate text-sm text-white/60">{name}</span>
       <span className="rounded-full bg-white/12 px-2 text-xs leading-5 font-semibold">
         {strings().island.notices.view}
       </span>

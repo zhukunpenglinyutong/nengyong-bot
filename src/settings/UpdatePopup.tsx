@@ -29,7 +29,7 @@ export function UpdatePopup(props: Props) {
       {...POP}
       inert={!useIsPresent()}
       aria-labelledby="update-title"
-      className="fixed right-4 bottom-24 z-30 w-80 origin-bottom-right rounded-xl bg-surface p-4 text-ink shadow-pop"
+      className="fixed right-4 bottom-4 z-30 w-80 origin-bottom-right rounded-xl bg-surface p-4 text-ink shadow-pop"
     >
       <PopupBody {...props} />
     </motion.section>

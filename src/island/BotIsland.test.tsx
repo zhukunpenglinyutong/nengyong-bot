@@ -23,7 +23,7 @@ const context: ContextView = {
       { role: 'user', text: '上周的结论呢' },
       { role: 'assistant', text: '在周报里。' },
     ],
-    counts: { user: 1, bot: 1, 'from-bot': 0, routine: 0, 'task-result': 0, tool: 0 },
+    counts: { user: 1, bot: 1, 'from-bot': 0, routine: 0, 'task-result': 0, 'skill-answer': 0, tool: 0 },
   },
   tools: {
     definitions: [
@@ -88,6 +88,7 @@ function island(props: Partial<ComponentProps<typeof BotIsland>> = {}) {
       onDismissNotice={vi.fn()}
       onOpenBot={vi.fn()}
       onOpenFlow={vi.fn()}
+      onOpenSkill={vi.fn()}
       onDebugChange={vi.fn()}
       {...props}
     />,
@@ -112,6 +113,7 @@ it('shows how much context the chat sends, in debug mode only', () => {
       onDismissNotice={vi.fn()}
       onOpenBot={vi.fn()}
       onOpenFlow={vi.fn()}
+      onOpenSkill={vi.fn()}
       onDebugChange={vi.fn()}
     />,
   )

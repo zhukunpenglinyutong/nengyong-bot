@@ -26,6 +26,7 @@ export interface MiniAppData {
 }
 
 interface Progress {
+  runId: string // the turn, which a stop names
   activity: Activity | null
   since: number // for "· N 分钟"
   draw: number // 0..1, picks this turn's phrase so the label does not flicker
@@ -49,7 +50,7 @@ export type ThreadEvent =
       }
     >
   // stamped by the listener, so the reducer needs neither the clock nor a random number
-  | { kind: 'busy'; botId: string; busy: boolean; since: number; draw: number }
+  | { kind: 'busy'; botId: string; busy: boolean; runId: string; since: number; draw: number }
   | { kind: 'loaded'; botId: string; entries: Entry[]; panel: PanelData }
   | { kind: 'previews'; previews: Record<string, string> }
   | { kind: 'tasks-and-routines'; byBot: Record<string, TasksAndRoutines> }
@@ -64,6 +65,7 @@ export const EMPTY_THREAD: Thread = {
   panel: {
     routines: [],
     flows: [],
+    skills: [],
     miniApps: [],
     library: [],
     tasks: [],
@@ -89,7 +91,7 @@ export function harnessState(state: Threads, event: ThreadEvent): Threads {
     case 'busy': {
       if (!event.busy) return patch(state, event.botId, { progress: undefined })
       return patch(state, event.botId, {
-        progress: { activity: null, since: event.since, draw: event.draw },
+        progress: { runId: event.runId, activity: null, since: event.since, draw: event.draw },
         error: undefined,
       })
     }
@@ -116,6 +118,8 @@ export function harnessState(state: Threads, event: ThreadEvent): Threads {
       return patch(state, event.botId, { panel: { ...threadOf(state, event.botId).panel, routines: event.routines } })
     case 'flows':
       return patch(state, event.botId, { panel: { ...threadOf(state, event.botId).panel, flows: event.flows } })
+    case 'skills':
+      return patch(state, event.botId, { panel: { ...threadOf(state, event.botId).panel, skills: event.skills } })
     case 'mini-apps':
       return patch(state, event.botId, { panel: { ...threadOf(state, event.botId).panel, miniApps: event.miniApps } })
     case 'mini-app-data': {

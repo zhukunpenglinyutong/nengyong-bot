@@ -155,13 +155,29 @@ function fakeBridge(hasModel = true): NengyongBotBridge {
     history: vi.fn(async () => []),
     deleteMessages: vi.fn(async () => {}),
     previews: vi.fn(async () => ({ repo: '明天 **10 点** 开会，见 [CEO](bot:chief)' })),
-    panel: vi.fn(async () => ({ routines: [], flows: [], miniApps: [], library: [], tasks: [], models: NO_MODELS })),
+    panel: vi.fn(async () => ({
+      routines: [],
+      flows: [],
+      skills: [],
+      miniApps: [],
+      library: [],
+      tasks: [],
+      models: NO_MODELS,
+    })),
     tasksAndRoutines: vi.fn(async () => ({})),
     context: vi.fn(async () => null),
     setDebug: vi.fn(async () => {}),
     setRoutineEnabled: vi.fn(async () => {}),
     openLibraryItem: vi.fn(async () => {}),
+    stopReply: vi.fn(async () => {}),
     stopTask: vi.fn(async () => {}),
+    answerSkillOffer: vi.fn(async () => {}),
+    uploadSkill: vi.fn(async () => null),
+    answerSkillUpload: vi.fn(async () => {}),
+    removeSkills: vi.fn(async () => {}),
+    skillFiles: vi.fn(async () => []),
+    skillFile: vi.fn(async () => null),
+    revealSkill: vi.fn(async () => {}),
     getSidebar: vi.fn(async () => null),
     needsOnboarding: vi.fn(async () => false),
     saveSidebar: vi.fn(async () => []),
@@ -328,7 +344,7 @@ describe('App on a scripted bridge', () => {
     renderApp()
     await afterAMoment()
     await emit({ kind: 'tasks', botId: 'secretary', tasks: [failedTask()] })
-    await emit({ kind: 'busy', botId: 'secretary', busy: true })
+    await emit({ kind: 'busy', botId: 'secretary', busy: true, runId: 'r1' })
     await user.hover(within(screen.getByRole('group', { name: '置顶区' })).getByRole('button', { name: /秘书Bot/ }))
     expect(within(await screen.findByRole('tooltip')).getByText('回复中')).toBeInTheDocument()
   })
@@ -395,6 +411,45 @@ describe('App on a scripted bridge', () => {
     expect(document.documentElement).toHaveAttribute('data-theme', 'dark')
   })
 
+  it('continues following the system after a reload until a fixed theme is chosen', async ({ onTestFinished }) => {
+    const darkScheme = Object.assign(new EventTarget(), {
+      media: '(prefers-color-scheme: dark)',
+      matches: true,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+    })
+    const matchMedia = window.matchMedia
+    const media = vi
+      .spyOn(window, 'matchMedia')
+      .mockImplementation((query) => (query === darkScheme.media ? darkScheme : matchMedia(query)))
+    onTestFinished(() => media.mockRestore())
+    const changeSystemTheme = (matches: boolean) => {
+      darkScheme.matches = matches
+      act(() => darkScheme.dispatchEvent(Object.assign(new Event('change'), { matches, media: darkScheme.media })))
+    }
+
+    const user = userEvent.setup()
+    renderApp()
+    await user.click(screen.getByRole('button', { name: '设置' }))
+    await user.click(screen.getByRole('button', { name: '通用' }))
+    await user.selectOptions(screen.getByLabelText('主题'), '跟随系统')
+    expect(document.documentElement).toHaveAttribute('data-theme', 'dark')
+    changeSystemTheme(false)
+    expect(document.documentElement).toHaveAttribute('data-theme', 'light')
+
+    cleanup()
+    changeSystemTheme(true)
+    renderApp()
+    expect(document.documentElement).toHaveAttribute('data-theme', 'dark')
+    await user.click(screen.getByRole('button', { name: '设置' }))
+    await user.click(screen.getByRole('button', { name: '通用' }))
+    expect(screen.getByLabelText('主题')).toHaveDisplayValue('跟随系统')
+    await user.selectOptions(screen.getByLabelText('主题'), '深色')
+    changeSystemTheme(false)
+    expect(document.documentElement).toHaveAttribute('data-theme', 'dark')
+  })
+
   it('offers the fine-grained limits in the settings only while debug mode is on', async () => {
     const user = userEvent.setup()
     renderApp()
@@ -453,7 +508,7 @@ describe('App on a scripted bridge', () => {
 
   it('shows a progress row with what the bot is doing while it works', async () => {
     renderApp()
-    await emit({ kind: 'busy', botId: 'chief', busy: true })
+    await emit({ kind: 'busy', botId: 'chief', busy: true, runId: 'r1' })
     expect(screen.getByTestId('progress')).toBeInTheDocument()
     await emit({ kind: 'activity', botId: 'chief', activity: { kind: 'tool', tool: 'start_task' } })
     expect(screen.getByRole('status')).toHaveTextContent('正在安排任务')
@@ -463,8 +518,17 @@ describe('App on a scripted bridge', () => {
       activity: { kind: 'tool', tool: 'remember' },
     })
     expect(screen.getByRole('status')).toHaveTextContent('记到小本本上')
-    await emit({ kind: 'busy', botId: 'chief', busy: false })
+    await emit({ kind: 'busy', botId: 'chief', busy: false, runId: 'r1' })
     expect(screen.queryByTestId('progress')).not.toBeInTheDocument()
+  })
+
+  it('stops the reply of the open bot that is running, from the message box, which offers it only then', async () => {
+    const user = userEvent.setup()
+    renderApp()
+    expect(screen.queryByRole('button', { name: '停止回复' })).not.toBeInTheDocument()
+    await emit({ kind: 'busy', botId: 'chief', busy: true, runId: 'r1' })
+    await user.click(screen.getByRole('button', { name: '停止回复' }))
+    expect(bridge.stopReply).toHaveBeenCalledWith('chief', 'r1')
   })
 
   it('shows what the background tasks are doing under the chat while the bot is not replying', async () => {
@@ -475,7 +539,15 @@ describe('App on a scripted bridge', () => {
     ]
     bridge = {
       ...fakeBridge(),
-      panel: vi.fn(async () => ({ routines: [], flows: [], miniApps: [], library: [], tasks, models: NO_MODELS })),
+      panel: vi.fn(async () => ({
+        routines: [],
+        flows: [],
+        skills: [],
+        miniApps: [],
+        library: [],
+        tasks,
+        models: NO_MODELS,
+      })),
     }
     renderApp()
     const list = await screen.findByRole('list', { name: '后台任务' })
@@ -483,9 +555,9 @@ describe('App on a scripted bridge', () => {
     expect(within(list).getByText('读仓库')).toBeInTheDocument()
     expect(within(list).getByText('排队中')).toBeInTheDocument()
 
-    await emit({ kind: 'busy', botId: 'chief', busy: true })
+    await emit({ kind: 'busy', botId: 'chief', busy: true, runId: 'r1' })
     expect(screen.queryByRole('list', { name: '后台任务' })).not.toBeInTheDocument()
-    await emit({ kind: 'busy', botId: 'chief', busy: false })
+    await emit({ kind: 'busy', botId: 'chief', busy: false, runId: 'r1' })
     expect(screen.getByRole('list', { name: '后台任务' })).toBeInTheDocument()
   })
 
@@ -500,7 +572,15 @@ describe('App on a scripted bridge', () => {
     ]
     bridge = {
       ...fakeBridge(),
-      panel: vi.fn(async () => ({ routines: [], flows: [], miniApps: [], library: [], tasks, models: NO_MODELS })),
+      panel: vi.fn(async () => ({
+        routines: [],
+        flows: [],
+        skills: [],
+        miniApps: [],
+        library: [],
+        tasks,
+        models: NO_MODELS,
+      })),
     }
     const user = userEvent.setup()
     renderApp()
@@ -715,7 +795,7 @@ describe('updates', () => {
   it('warns that updating stops the bots at work', async () => {
     bridge = { ...fakeBridge(), checkForUpdate: vi.fn(async () => NEWER) }
     await launch()
-    await emit({ kind: 'busy', botId: 'chief', busy: true })
+    await emit({ kind: 'busy', botId: 'chief', busy: true, runId: 'r1' })
     expect(screen.getByText('小满正在干活，更新要重启应用，会打断它。')).toBeInTheDocument()
   })
 
@@ -1206,6 +1286,7 @@ describe('the island at the top of the chat', () => {
       panel: vi.fn(async () => ({
         routines: [],
         flows: [],
+        skills: [],
         miniApps: [],
         library: [],
         tasks: [running],

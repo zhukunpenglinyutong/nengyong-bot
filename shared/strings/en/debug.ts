@@ -20,6 +20,7 @@ export const debug: Strings['debug'] = {
       bot: 'Replies',
       tool: 'Tool records',
       'task-result': 'Task results',
+      'skill-answer': 'Skill answers',
       'from-bot': 'Handed over',
       routine: 'Routines',
     },
