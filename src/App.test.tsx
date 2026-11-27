@@ -374,6 +374,17 @@ describe('App on a scripted bridge', () => {
     expect(screen.queryByLabelText('未读')).not.toBeInTheDocument()
   })
 
+  it('counts a reply from the open bot as unread while the window is in the background, until it comes back', async () => {
+    const hasFocus = vi.spyOn(document, 'hasFocus').mockReturnValue(false)
+    renderApp()
+    await emit({ kind: 'entry', botId: 'chief', entry: { ...stamp(1), kind: 'bot', text: '报告写好了' } })
+    const pinned = screen.getByRole('group', { name: '置顶区' })
+    expect(within(within(pinned).getByRole('button', { name: /小满/ })).getByLabelText('未读')).toBeInTheDocument()
+    hasFocus.mockRestore()
+    act(() => window.dispatchEvent(new FocusEvent('focus')))
+    expect(screen.queryByLabelText('未读')).not.toBeInTheDocument()
+  })
+
   it('asks to connect DeepSeek when no model is set and passes the key to the main process', async () => {
     bridge = fakeBridge(false)
     const user = userEvent.setup()

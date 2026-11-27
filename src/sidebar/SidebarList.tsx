@@ -2,7 +2,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { type MouseEvent, type ReactNode, useState } from 'react'
 import { BOT_NAME_MAX, type Bot } from '../../shared/bot'
 import { plainText } from '../../shared/plainText'
-import { SECTION_NAME_MAX, type SidebarState } from '../../shared/sidebar'
+import { SECTION_NAME_MAX, type SidebarState, unreadTotal } from '../../shared/sidebar'
 import { ELAPSED_REFRESH_MS } from '../elapsedLabel'
 import { Icon } from '../ui/Icon'
 import { IconButton } from '../ui/IconButton'
@@ -41,7 +41,7 @@ export function SidebarList({ onCreate }: { onCreate: () => void }) {
     kind === 'unread' ? (sidebar.unread[bot.id] ?? 0) > 0 : dotKindOf(statusOf(bot.id)) === kind
   const matching = (kind: Filter) => inSidebarOrder(sidebar).filter((bot) => isMatch(kind, bot))
   const counts: Record<Filter, number> = {
-    unread: Object.values(sidebar.unread).reduce((sum, count) => sum + count, 0),
+    unread: unreadTotal(sidebar),
     busy: matching('busy').length,
     failed: matching('failed').length,
   }

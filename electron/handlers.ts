@@ -27,7 +27,7 @@ import { BYTES_PER_MB, type Limits, MESSAGE_MAX_CHARS } from '../shared/limits'
 import { currentLanguage, setLanguage } from '../shared/language'
 import { strings } from '../shared/strings'
 import type { ModelServicesView } from '../shared/modelServices'
-import { SidebarState } from '../shared/sidebar'
+import { SidebarState, unreadTotal } from '../shared/sidebar'
 import { SKILL_FILE, SkillName, SkillRef, SkillUploadKind } from '../shared/skill'
 import { type ModelPrice, ModelName, Price } from '../shared/usage'
 import { LIBRARY_DIR, SKILLS_DIR } from './dataDir'
@@ -185,7 +185,11 @@ export function createHandlers({ home, dataDir, store, emit, window, onLanguageC
       shell.showItemInFolder(path.join(skills.folder(BotId.parse(botId), SkillName.parse(name)), SKILL_FILE)),
     getSidebar: () => store.sidebar(),
     needsOnboarding: () => needsOnboarding(store),
-    saveSidebar: (sidebar) => store.saveSidebar(SidebarState.parse(sidebar)),
+    saveSidebar: (sidebar) => {
+      const parsed = SidebarState.parse(sidebar)
+      app.setBadgeCount(unreadTotal(parsed))
+      return store.saveSidebar(parsed)
+    },
     getModelServices: () => modelServices.view(),
     listModels: (accountId) => modelServices.listModels(accountId),
     saveAccount: async (input, use) => withModelsShown(await modelServices.saveAccount(input, use)),

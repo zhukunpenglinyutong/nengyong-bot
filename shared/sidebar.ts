@@ -74,3 +74,7 @@ function withoutDanglingReferences(stored: z.infer<typeof Stored>): SidebarState
     seenAt: Object.fromEntries(Object.entries(stored.seenAt).filter(([botId]) => botIds.has(botId))),
   }
 }
+
+/** Every reply waiting unread, all bots together: the sidebar's unread filter and the number on the app icon. */
+export const unreadTotal = (sidebar: SidebarState): number =>
+  Object.values(sidebar.unread).reduce((sum, count) => sum + count, 0)

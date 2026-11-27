@@ -42,6 +42,7 @@ import {
 } from './sidebar/sidebarState'
 import { useDocumentTheme } from './ui/useDocumentTheme'
 import { usePersistentState } from './ui/usePersistentState'
+import { useWindowFocus } from './ui/useWindowFocus'
 import { useWindowWidth } from './ui/useWindowWidth'
 import { useHarness } from './useHarness'
 import { strings } from '../shared/strings'
@@ -104,7 +105,7 @@ export function App({ bridge, initialSidebar = INITIAL_SIDEBAR, needsOnboarding 
     onBotCreated: (created) => setSidebar((state) => createBot(state, created)),
     onBotRenamed: (id, name) => setSidebar((state) => renameBot(state, id, name)),
     onEntry: (id, entry, before) => {
-      if (entry.kind === 'bot' && id !== bot.id) setSidebar((state) => addUnread(state, id))
+      if (entry.kind === 'bot' && (id !== bot.id || !document.hasFocus())) setSidebar((state) => addUnread(state, id))
       notices.onEntry(id, bot.id, entry, before, preferences.isDebug)
     },
     onTrace: (id, trace, before) => {
@@ -113,6 +114,7 @@ export function App({ bridge, initialSidebar = INITIAL_SIDEBAR, needsOnboarding 
     onBusy: activity.onBusy,
     onOpenBot: openBot,
   })
+  useWindowFocus(() => setSidebar((state) => setUnread(state, bot.id, false)))
   const update = useUpdate(bridge)
   const updatePopup = popupOf(update.state)
   const busyBots = bots
